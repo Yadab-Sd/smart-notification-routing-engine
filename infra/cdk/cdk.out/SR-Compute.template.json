@@ -1,0 +1,857 @@
+{
+ "Resources": {
+  "ControlPlaneFnServiceRoleECC13140": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/ControlPlaneFn/ServiceRole/Resource"
+   }
+  },
+  "ControlPlaneFnServiceRoleDefaultPolicyA2823EAD": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "kinesis:ListShards",
+        "kinesis:PutRecord",
+        "kinesis:PutRecords"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserEventsCB7A5C84ArnEA735DCD"
+       }
+      },
+      {
+       "Action": [
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserProfiles32DFB678ArnC5440FB8"
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ControlPlaneFnServiceRoleDefaultPolicyA2823EAD",
+    "Roles": [
+     {
+      "Ref": "ControlPlaneFnServiceRoleECC13140"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/ControlPlaneFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ControlPlaneFnSecurityGroupC913761C": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatic security group for Lambda Function SRComputeControlPlaneFn1C21222B",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "SR-Network:ExportsOutputRefVpc8378EB38272D6E3A"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/ControlPlaneFn/SecurityGroup/Resource"
+   }
+  },
+  "ControlPlaneFnD24BB524": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-196177110614-us-west-2",
+     "S3Key": "80d1605fd83b8aedf3ea3dbde333a3b0b8b93c8c90447b40f2598ef935d7772c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "USER_EVENTS_STREAM": {
+       "Fn::ImportValue": "SR-Data:ExportsOutputRefUserEventsCB7A5C846773BB6C"
+      },
+      "USER_TABLE": {
+       "Fn::ImportValue": "SR-Data:ExportsOutputRefUserProfiles32DFB678CB275D73"
+      }
+     }
+    },
+    "Handler": "com.yadab.sr.controlplane.Handler::handleRequest",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnServiceRoleECC13140",
+      "Arn"
+     ]
+    },
+    "Runtime": "java21",
+    "SnapStart": {
+     "ApplyOn": "PublishedVersions"
+    },
+    "Timeout": 15,
+    "VpcConfig": {
+     "SecurityGroupIds": [
+      {
+       "Fn::GetAtt": [
+        "ControlPlaneFnSecurityGroupC913761C",
+        "GroupId"
+       ]
+      }
+     ],
+     "SubnetIds": [
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet1Subnet536B997AFD4CC940"
+      },
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet2Subnet3788AAA1380949A3"
+      }
+     ]
+    }
+   },
+   "DependsOn": [
+    "ControlPlaneFnServiceRoleDefaultPolicyA2823EAD",
+    "ControlPlaneFnServiceRoleECC13140"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/ControlPlaneFn/Resource",
+    "aws:asset:path": "asset.80d1605fd83b8aedf3ea3dbde333a3b0b8b93c8c90447b40f2598ef935d7772c.zip",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "EventsConsumerFnServiceRole45170808": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsConsumerFn/ServiceRole/Resource"
+   }
+  },
+  "EventsConsumerFnServiceRoleDefaultPolicy5D0784EB": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "kinesis:DescribeStreamSummary",
+        "kinesis:GetRecords",
+        "kinesis:GetShardIterator",
+        "kinesis:ListShards",
+        "kinesis:SubscribeToShard",
+        "kinesis:DescribeStream",
+        "kinesis:ListStreams",
+        "kinesis:DescribeStreamConsumer"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserEventsCB7A5C84ArnEA735DCD"
+       }
+      },
+      {
+       "Action": "kms:Decrypt",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttEventsRaw13CDDB6CArnDCC3CBA6"
+          },
+          "/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": [
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:Decrypt"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserProfiles32DFB678ArnC5440FB8"
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "EventsConsumerFnServiceRoleDefaultPolicy5D0784EB",
+    "Roles": [
+     {
+      "Ref": "EventsConsumerFnServiceRole45170808"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsConsumerFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "EventsConsumerFnSecurityGroup10292EBE": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatic security group for Lambda Function SRComputeEventsConsumerFn9B28DDF4",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "SR-Network:ExportsOutputRefVpc8378EB38272D6E3A"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsConsumerFn/SecurityGroup/Resource"
+   }
+  },
+  "EventsConsumerFnDDF3CC8A": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-196177110614-us-west-2",
+     "S3Key": "535beced98ab9306a4a7ff7830cbe6e1349713f9f3cf250e58ebe6a4b0a8663e.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "EVENTS_BUCKET": {
+       "Fn::ImportValue": "SR-Data:ExportsOutputRefEventsRaw13CDDB6C46B89D81"
+      },
+      "USER_TABLE": {
+       "Fn::ImportValue": "SR-Data:ExportsOutputRefUserProfiles32DFB678CB275D73"
+      }
+     }
+    },
+    "Handler": "com.yadab.sr.eventsconsumer.Handler::handleRequest",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "EventsConsumerFnServiceRole45170808",
+      "Arn"
+     ]
+    },
+    "Runtime": "java21",
+    "Timeout": 30,
+    "VpcConfig": {
+     "SecurityGroupIds": [
+      {
+       "Fn::GetAtt": [
+        "EventsConsumerFnSecurityGroup10292EBE",
+        "GroupId"
+       ]
+      }
+     ],
+     "SubnetIds": [
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet1Subnet536B997AFD4CC940"
+      },
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet2Subnet3788AAA1380949A3"
+      }
+     ]
+    }
+   },
+   "DependsOn": [
+    "EventsConsumerFnServiceRoleDefaultPolicy5D0784EB",
+    "EventsConsumerFnServiceRole45170808"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsConsumerFn/Resource",
+    "aws:asset:path": "asset.535beced98ab9306a4a7ff7830cbe6e1349713f9f3cf250e58ebe6a4b0a8663e.zip",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "EventsConsumerESM94634F4F": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "BatchSize": 100,
+    "Enabled": true,
+    "EventSourceArn": {
+     "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserEventsCB7A5C84ArnEA735DCD"
+    },
+    "FunctionName": {
+     "Ref": "EventsConsumerFnDDF3CC8A"
+    },
+    "StartingPosition": "LATEST"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsConsumerESM/Resource"
+   }
+  },
+  "HttpApiF5A9A8A7": {
+   "Type": "AWS::ApiGatewayV2::Api",
+   "Properties": {
+    "Name": "HttpApi",
+    "ProtocolType": "HTTP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HttpApi/Resource"
+   }
+  },
+  "HttpApiDefaultStage3EEB07D6": {
+   "Type": "AWS::ApiGatewayV2::Stage",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AutoDeploy": true,
+    "StageName": "$default"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HttpApi/DefaultStage/Resource"
+   }
+  },
+  "HttpApiCognitoJWT5F93069C": {
+   "Type": "AWS::ApiGatewayV2::Authorizer",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizerType": "JWT",
+    "IdentitySource": [
+     "$request.header.Authorization"
+    ],
+    "JwtConfiguration": {
+     "Audience": [
+      {
+       "Fn::ImportValue": "SR-Identity:ExportsOutputRefAdminUsersWebClientA15385E46E2E7AC0"
+      }
+     ],
+     "Issuer": {
+      "Fn::Join": [
+       "",
+       [
+        "https://cognito-idp.us-west-2.amazonaws.com/",
+        {
+         "Fn::ImportValue": "SR-Identity:ExportsOutputRefAdminUsers888C7CB29B4EEA7C"
+        }
+       ]
+      ]
+     }
+    },
+    "Name": "CognitoJWT"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HttpApi/CognitoJWT/Resource"
+   }
+  },
+  "JwtAuth": {
+   "Type": "AWS::ApiGatewayV2::Authorizer",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizerType": "JWT",
+    "IdentitySource": [
+     "$request.header.Authorization"
+    ],
+    "JwtConfiguration": {
+     "Audience": [
+      {
+       "Fn::ImportValue": "SR-Identity:ExportsOutputRefAdminUsersWebClientA15385E46E2E7AC0"
+      }
+     ],
+     "Issuer": {
+      "Fn::Join": [
+       "",
+       [
+        "https://cognito-idp.us-west-2.amazonaws.com/",
+        {
+         "Fn::ImportValue": "SR-Identity:ExportsOutputRefAdminUsers888C7CB29B4EEA7C"
+        }
+       ]
+      ]
+     }
+    },
+    "Name": "CognitoJWT"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/JwtAuth"
+   }
+  },
+  "HealthRouteCPIntegrationEFBA5BFA": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnD24BB524",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HealthRoute/CP-Integration/Resource"
+   }
+  },
+  "HealthRouteCPIntegrationPermission49D7DE9E": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnD24BB524",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/health"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HealthRoute/CP-Integration-Permission"
+   }
+  },
+  "HealthRoute1549419C": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "GET /v1/health",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HealthRouteCPIntegrationEFBA5BFA"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/HealthRoute/Resource"
+   }
+  },
+  "EventsRouteCPIntegrationPermissionFC8096E9": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnD24BB524",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/events"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsRoute/CP-Integration-Permission"
+   }
+  },
+  "EventsRoute36184E72": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "HttpApiCognitoJWT5F93069C"
+    },
+    "RouteKey": "POST /v1/events",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HealthRouteCPIntegrationEFBA5BFA"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/EventsRoute/Resource"
+   }
+  },
+  "GetUserRouteCPIntegrationPermission7CA4DD81": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnD24BB524",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/users/{id}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/GetUserRoute/CP-Integration-Permission"
+   }
+  },
+  "GetUserRoute2CADD5F3": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "HttpApiCognitoJWT5F93069C"
+    },
+    "RouteKey": "GET /v1/users/{id}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HealthRouteCPIntegrationEFBA5BFA"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/GetUserRoute/Resource"
+   }
+  },
+  "PutPrefsRouteCPIntegrationPermission24DDC737": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlPlaneFnD24BB524",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/users/{id}/preferences"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/PutPrefsRoute/CP-Integration-Permission"
+   }
+  },
+  "PutPrefsRoute52A44420": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "HttpApiCognitoJWT5F93069C"
+    },
+    "RouteKey": "PUT /v1/users/{id}/preferences",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HealthRouteCPIntegrationEFBA5BFA"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/PutPrefsRoute/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/22QzU7DMBCEn6V31xT3xLFF/B0QVfIA1dZdwjaJbXnXiUqUd0d2+RGI08zsfJbtNdpc3+jVAkZe2mO77Oigp1rAtgpG3k8d9Icj6Ok+OSvknbp9dd/+bkAntU/R4jOEQK7J9f/THcaemMm7WRH0eqp8h7kouvMd2XPhipsVr/fAjMJ6k0XxWm+TbVG2wKjQGj3VaFMkOT9En0I++2swKwjUgOAI58Ho6VEkbAJlLkuOtUBT3nAxhUjy5iO9YyzgT8pl5ZNcsCcn2ET42sifWLh5VhVyWYMqX8iXfC7jJUlIMivnj6hPfDUYo81KrxYnJlrG5IR61NVFPwB2JjxJowEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ApiUrl": {
+   "Value": {
+    "Fn::GetAtt": [
+     "HttpApiF5A9A8A7",
+     "ApiEndpoint"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

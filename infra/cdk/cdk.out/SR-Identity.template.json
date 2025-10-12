@@ -1,0 +1,154 @@
+{
+ "Resources": {
+  "AdminUsers888C7CB2": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_phone_number",
+       "Priority": 1
+      },
+      {
+       "Name": "verified_email",
+       "Priority": 2
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": false
+    },
+    "AutoVerifiedAttributes": [
+     "email"
+    ],
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "Schema": [
+     {
+      "Mutable": false,
+      "Name": "email",
+      "Required": true
+     }
+    ],
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UsernameAttributes": [
+     "email"
+    ],
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Identity/AdminUsers/Resource"
+   }
+  },
+  "AdminUsersHostedDomain080802AD": {
+   "Type": "AWS::Cognito::UserPoolDomain",
+   "Properties": {
+    "Domain": "sr-admin-110614",
+    "UserPoolId": {
+     "Ref": "AdminUsers888C7CB2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Identity/AdminUsers/HostedDomain/Resource"
+   }
+  },
+  "AdminUsersWebClientA15385E4": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AllowedOAuthFlows": [
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "openid",
+     "email"
+    ],
+    "CallbackURLs": [
+     "https://example.com"
+    ],
+    "ExplicitAuthFlows": [
+     "ALLOW_USER_PASSWORD_AUTH",
+     "ALLOW_USER_SRP_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "UserPoolId": {
+     "Ref": "AdminUsers888C7CB2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Identity/AdminUsers/WebClient/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02KsQ6DMAxEv4U9Mam3zvABqFVnlIYUGYIt4bQMiH/vQKmY7t27Q8DLFVzhF7WhG22iJ6z37MNo/KJtkJ4pC6wPjXMjkkz14j8fUMvkic/Tzxy1ShQ5nw+72TbD0kUYtPwgAjpwxaBEdn5zpinCbc8vLF5YrKYAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Identity/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputRefAdminUsersWebClientA15385E46E2E7AC0": {
+   "Value": {
+    "Ref": "AdminUsersWebClientA15385E4"
+   },
+   "Export": {
+    "Name": "SR-Identity:ExportsOutputRefAdminUsersWebClientA15385E46E2E7AC0"
+   }
+  },
+  "ExportsOutputRefAdminUsers888C7CB29B4EEA7C": {
+   "Value": {
+    "Ref": "AdminUsers888C7CB2"
+   },
+   "Export": {
+    "Name": "SR-Identity:ExportsOutputRefAdminUsers888C7CB29B4EEA7C"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "e71a39d4e89ac5a521a7ab83e2e8111302f539c26c99076c6db3f427e79acddf": {
+      "displayName": "SR-Identity Template",
+      "source": {
+        "path": "SR-Identity.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "196177110614-us-west-2-0710737a": {
+          "bucketName": "cdk-hnb659fds-assets-196177110614-us-west-2",
+          "objectKey": "e71a39d4e89ac5a521a7ab83e2e8111302f539c26c99076c6db3f427e79acddf.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-file-publishing-role-196177110614-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

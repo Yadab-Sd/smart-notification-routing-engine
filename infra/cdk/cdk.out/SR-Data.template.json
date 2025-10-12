@@ -1,0 +1,305 @@
+{
+ "Resources": {
+  "EventsRaw13CDDB6C": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/EventsRaw/Resource"
+   }
+  },
+  "DeliveriesRawD977A4C2": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/DeliveriesRaw/Resource"
+   }
+  },
+  "CuratedF137945A": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/Curated/Resource"
+   }
+  },
+  "ModelsC55D3500": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/Models/Resource"
+   }
+  },
+  "Audit3D8ADE0A": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/Audit/Resource"
+   }
+  },
+  "UserEventsCB7A5C84": {
+   "Type": "AWS::Kinesis::Stream",
+   "Properties": {
+    "RetentionPeriodHours": 24,
+    "ShardCount": 1,
+    "StreamEncryption": {
+     "EncryptionType": "KMS",
+     "KeyId": {
+      "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+     }
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/UserEvents/Resource"
+   }
+  },
+  "UserProfiles32DFB678": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "sk",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "pk",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "sk",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "SSESpecification": {
+     "KMSMasterKeyId": {
+      "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+     },
+     "SSEEnabled": true,
+     "SSEType": "KMS"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/UserProfiles/Resource"
+   }
+  },
+  "GlueDb": {
+   "Type": "AWS::Glue::Database",
+   "Properties": {
+    "CatalogId": "196177110614",
+    "DatabaseInput": {
+     "Name": "sr_datacatalog"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/GlueDb"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/yXKQQ6CMBCF4bOwH0asK7fiCdC9mbaDKYWSdFqJaXp3g6zel/xPoTpfsWtok9ZY385OY3kkMh5ok1eRC5ZbNp4T9GM4VMG7wOJkf0amZU+HKthvoGW1GsuT9Mx7+qPCe86M/RjulEiTcIWBZc3RcIWwWsZJTh+lUHXYNZM418YcklsYh2N/IaAwkKwAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Data/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputFnGetAttUserEventsCB7A5C84ArnEA735DCD": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UserEventsCB7A5C84",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputFnGetAttUserEventsCB7A5C84ArnEA735DCD"
+   }
+  },
+  "ExportsOutputFnGetAttUserProfiles32DFB678ArnC5440FB8": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UserProfiles32DFB678",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputFnGetAttUserProfiles32DFB678ArnC5440FB8"
+   }
+  },
+  "ExportsOutputRefUserEventsCB7A5C846773BB6C": {
+   "Value": {
+    "Ref": "UserEventsCB7A5C84"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefUserEventsCB7A5C846773BB6C"
+   }
+  },
+  "ExportsOutputRefUserProfiles32DFB678CB275D73": {
+   "Value": {
+    "Ref": "UserProfiles32DFB678"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefUserProfiles32DFB678CB275D73"
+   }
+  },
+  "ExportsOutputFnGetAttEventsRaw13CDDB6CArnDCC3CBA6": {
+   "Value": {
+    "Fn::GetAtt": [
+     "EventsRaw13CDDB6C",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputFnGetAttEventsRaw13CDDB6CArnDCC3CBA6"
+   }
+  },
+  "ExportsOutputRefEventsRaw13CDDB6C46B89D81": {
+   "Value": {
+    "Ref": "EventsRaw13CDDB6C"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefEventsRaw13CDDB6C46B89D81"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

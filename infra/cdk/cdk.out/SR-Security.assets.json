@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "0d470979c938a75961b07fa5deb18b84bb92fbd6da5611808c42b07d0824ed9f": {
+      "displayName": "SR-Security Template",
+      "source": {
+        "path": "SR-Security.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "196177110614-us-west-2-c364633f": {
+          "bucketName": "cdk-hnb659fds-assets-196177110614-us-west-2",
+          "objectKey": "0d470979c938a75961b07fa5deb18b84bb92fbd6da5611808c42b07d0824ed9f.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-file-publishing-role-196177110614-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

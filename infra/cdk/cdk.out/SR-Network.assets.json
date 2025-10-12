@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "01662769aabe17ea14d3d9c51c1157e7d635490e1ca1b98ff33e46c5a8f2d5ef": {
+      "displayName": "SR-Network Template",
+      "source": {
+        "path": "SR-Network.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "196177110614-us-west-2-f51401d8": {
+          "bucketName": "cdk-hnb659fds-assets-196177110614-us-west-2",
+          "objectKey": "01662769aabe17ea14d3d9c51c1157e7d635490e1ca1b98ff33e46c5a8f2d5ef.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-file-publishing-role-196177110614-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
