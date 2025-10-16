@@ -1,5 +1,5 @@
 import { Duration, RemovalPolicy, Stack,
-    type StackProps, aws_dynamodb as ddb, aws_kinesis as kinesis, aws_s3 as s3, aws_glue as glue, aws_kms as kms } from 'aws-cdk-lib';
+    type StackProps, aws_dynamodb as ddb, aws_kinesis as kinesis, aws_s3 as s3, aws_glue as glue, aws_kms as kms, aws_iam as iam } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 
@@ -17,6 +17,7 @@ export class DataStack extends Stack {
     constructor(scope: Construct, id: string, { kmsKey, ...props }: Props){
         super(scope,id,props);
         const enc = { encryption: s3.BucketEncryption.KMS, encryptionKey: kmsKey };
+        // Store events we create through /events, kinesis -> lambda
         this.eventsBucket = new s3.Bucket(this,'EventsRaw',{...enc, blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, versioned:true});
         this.deliveriesBucket= new s3.Bucket(this,'DeliveriesRaw',{...enc, blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, versioned:true});
         this.curatedBucket = new s3.Bucket(this,'Curated',{...enc});
