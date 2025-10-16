@@ -444,7 +444,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-deploy-role-196177110614-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-cfn-exec-role-196177110614-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/ebbed805f071e41a5d337ad7d4888825bd13789736655b790d28d6e4d56bd0f6.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/6d6bddd54c5c6d12915e1b3d4e9be8b6664287fedd64f76a9211c76c265b4bdc.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -551,6 +551,30 @@
             "data": "ExportsOutputRefEventsRaw13CDDB6C46B89D81"
           }
         ],
+        "/SR-Data/Exports/Output{\"Fn::GetAtt\":[\"CuratedF137945A\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttCuratedF137945AArn216E9DDA"
+          }
+        ],
+        "/SR-Data/Exports/Output{\"Fn::GetAtt\":[\"ModelsC55D3500\",\"Arn\"]}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputFnGetAttModelsC55D3500ArnC820EBA0"
+          }
+        ],
+        "/SR-Data/Exports/Output{\"Ref\":\"ModelsC55D3500\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefModelsC55D3500937A2AB2"
+          }
+        ],
+        "/SR-Data/Exports/Output{\"Ref\":\"CuratedF137945A\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefCuratedF137945ACE2864B7"
+          }
+        ],
         "/SR-Data/BootstrapVersion": [
           {
             "type": "aws:cdk:logicalId",
@@ -614,7 +638,7 @@
               "new Function2 (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/node_modules/.pnpm/aws-cdk-lib@2.219.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda/lib/function.js:1:14936)",
               "new Function2 (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/node_modules/.pnpm/aws-cdk-lib@2.219.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:488)",
               "new ComputeStack (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/lib/compute-stack.ts:18:30)",
-              "Object.<anonymous> (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/bin/app.ts:22:1)",
+              "Object.<anonymous> (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/bin/app.ts:23:1)",
               "Module._compile (node:internal/modules/cjs/loader:1706:14)",
               "Module.m._compile (/Users/inv-tech-eng-mac-05/Documents/Smart Notification Routing Engine/Smart Notification Routing Engine/infra/cdk/node_modules/.pnpm/ts-node@10.9.2_@types+node@24.7.1_typescript@5.9.3/node_modules/ts-node/src/index.ts:1618:23)",
               "node:internal/modules/cjs/loader:1839:10",
@@ -797,6 +821,134 @@
         ]
       },
       "displayName": "SR-Compute"
+    },
+    "SR-ML.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SR-ML.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SR-ML": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://196177110614/us-west-2",
+      "properties": {
+        "templateFile": "SR-ML.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-deploy-role-196177110614-us-west-2",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-cfn-exec-role-196177110614-us-west-2",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/a68c4fbca9ec62108a790db27348a4977958033c64c40e9b7d98700cf5c7f51c.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SR-ML.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-lookup-role-196177110614-us-west-2",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SR-Data",
+        "SR-Security",
+        "SR-ML.assets"
+      ],
+      "metadata": {
+        "/SR-ML/GlueServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GlueServiceRole38141B95"
+          }
+        ],
+        "/SR-ML/GlueServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GlueServiceRoleDefaultPolicy1E6C9521"
+          }
+        ],
+        "/SR-ML/SageMakerExecutionRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SageMakerExecutionRole7843F3B8"
+          }
+        ],
+        "/SR-ML/SageMakerExecutionRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SageMakerExecutionRoleDefaultPolicy2414594F"
+          }
+        ],
+        "/SR-ML/BuildHourlyFeaturesJob": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BuildHourlyFeaturesJob"
+          }
+        ],
+        "/SR-ML/MlOrchestratorLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MlOrchestratorLogGroupCE64DCB4"
+          }
+        ],
+        "/SR-ML/MlOrchestrator/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MlOrchestratorRole15E764E1"
+          }
+        ],
+        "/SR-ML/MlOrchestrator/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MlOrchestratorRoleDefaultPolicy6DC74CDF"
+          }
+        ],
+        "/SR-ML/MlOrchestrator/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MlOrchestratorE93E64A6"
+          }
+        ],
+        "/SR-ML/GlueJobName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GlueJobName"
+          }
+        ],
+        "/SR-ML/StateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StateMachineArn"
+          }
+        ],
+        "/SR-ML/SageMakerRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SageMakerRoleArn"
+          }
+        ],
+        "/SR-ML/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SR-ML/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SR-ML/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SR-ML"
     },
     "Tree": {
       "type": "cdk:tree",

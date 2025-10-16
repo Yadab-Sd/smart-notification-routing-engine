@@ -266,6 +266,44 @@
    "Export": {
     "Name": "SR-Data:ExportsOutputRefEventsRaw13CDDB6C46B89D81"
    }
+  },
+  "ExportsOutputFnGetAttCuratedF137945AArn216E9DDA": {
+   "Value": {
+    "Fn::GetAtt": [
+     "CuratedF137945A",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputFnGetAttCuratedF137945AArn216E9DDA"
+   }
+  },
+  "ExportsOutputFnGetAttModelsC55D3500ArnC820EBA0": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ModelsC55D3500",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputFnGetAttModelsC55D3500ArnC820EBA0"
+   }
+  },
+  "ExportsOutputRefModelsC55D3500937A2AB2": {
+   "Value": {
+    "Ref": "ModelsC55D3500"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefModelsC55D3500937A2AB2"
+   }
+  },
+  "ExportsOutputRefCuratedF137945ACE2864B7": {
+   "Value": {
+    "Ref": "CuratedF137945A"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefCuratedF137945ACE2864B7"
+   }
   }
  },
  "Parameters": {
