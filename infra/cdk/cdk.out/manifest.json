@@ -444,7 +444,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-deploy-role-196177110614-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-cfn-exec-role-196177110614-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/6d6bddd54c5c6d12915e1b3d4e9be8b6664287fedd64f76a9211c76c265b4bdc.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/28316f302fecd5b8e0370fee7d8ceb5f1b0398b4d7894c9a554562cac4f4372f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -563,16 +563,16 @@
             "data": "ExportsOutputFnGetAttModelsC55D3500ArnC820EBA0"
           }
         ],
-        "/SR-Data/Exports/Output{\"Ref\":\"ModelsC55D3500\"}": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExportsOutputRefModelsC55D3500937A2AB2"
-          }
-        ],
         "/SR-Data/Exports/Output{\"Ref\":\"CuratedF137945A\"}": [
           {
             "type": "aws:cdk:logicalId",
             "data": "ExportsOutputRefCuratedF137945ACE2864B7"
+          }
+        ],
+        "/SR-Data/Exports/Output{\"Ref\":\"ModelsC55D3500\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefModelsC55D3500937A2AB2"
           }
         ],
         "/SR-Data/BootstrapVersion": [
@@ -839,7 +839,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-deploy-role-196177110614-us-west-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::196177110614:role/cdk-hnb659fds-cfn-exec-role-196177110614-us-west-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/a68c4fbca9ec62108a790db27348a4977958033c64c40e9b7d98700cf5c7f51c.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-196177110614-us-west-2/9cdc05b1e0ee4d5f87b14fd16fa8184715ccd5118d390b9149668a0d0a48a707.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -857,16 +857,10 @@
         "SR-ML.assets"
       ],
       "metadata": {
-        "/SR-ML/GlueServiceRole/Resource": [
+        "/SR-ML/GlueExecRole/Policy/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "GlueServiceRole38141B95"
-          }
-        ],
-        "/SR-ML/GlueServiceRole/DefaultPolicy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "GlueServiceRoleDefaultPolicy1E6C9521"
+            "data": "GlueExecRolePolicy10C29E17"
           }
         ],
         "/SR-ML/SageMakerExecutionRole/Resource": [

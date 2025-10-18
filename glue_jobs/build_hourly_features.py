@@ -38,7 +38,7 @@ joined = sends.alias('s').join(
     clicks.alias('c'),
     (F.col('s.userId') == F.col('c.userId')) &
     (F.col('c.ts') >= F.col('s.ts')) &
-    (F.col('c.ts') <= F.expr("timestampadd(HOUR,24, s.ts)")),
+    (F.col('c.ts') <= F.expr("s.ts + INTERVAL 24 HOURS")),
     how='left'
 )
 
