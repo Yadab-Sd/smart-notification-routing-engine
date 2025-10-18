@@ -1,36 +1,38 @@
 // infra/cdk/lib/ml-stack.ts
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { aws_iam as iam, aws_glue as glue, aws_s3 as s3, aws_ec2 as ec2,  aws_logs as logs } from 'aws-cdk-lib';
+import {
+    aws_iam as iam,
+    aws_glue as glue,
+    aws_s3 as s3,
+    aws_ec2 as ec2,
+    aws_logs as logs,
+    aws_kms as kms
+} from 'aws-cdk-lib';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import {DataStack} from "./data-stack";
 import {InputMode} from "aws-cdk-lib/aws-stepfunctions-tasks";
+import {SecurityStack} from "./security-stack";
 
 interface MlStackProps extends cdk.StackProps {
     data: DataStack;
+    kmsKey: kms.Key;
 }
 
 export class MlStack extends cdk.Stack {
-    constructor(scope: Construct, id: string, {data, ...props}: MlStackProps) {
+    constructor(scope: Construct, id: string, {data, kmsKey, ...props}: MlStackProps) {
         super(scope, id, props);
 
-        const glueScriptS3Path = `s3://${data.modelsBucket.bucketName}/scripts/build_hourly_features.py`;
+        const glueScriptS3Path = `s3://sr-data-modelsc55d3500-p76bdxaj5h8s/scripts/build_hourly_features.py`;
         const trainingImageUri = '683313688378.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'; // example for us-west-2
 
         // 1) Glue Service Role
-        const glueRole = new iam.Role(this, 'GlueServiceRole', {
-            assumedBy: new iam.ServicePrincipal('glue.amazonaws.com'),
-            description: 'Role for Glue jobs to access S3 / DynamoDB',
-        });
+        // import by ARN
+        const glueRole = iam.Role.fromRoleArn(this, 'GlueExecRole', 'arn:aws:iam::196177110614:role/GlueExecutionRole');
         data.eventsBucket.grantRead(glueRole);
         data.curatedBucket.grantReadWrite(glueRole);
-
-        // Add DynamoDB read permission if needed (profiles snapshot)
-        glueRole.addToPolicy(new iam.PolicyStatement({
-            actions: ['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:Scan'],
-            resources: [data.profilesTable.tableArn],
-        }));
+        kmsKey.grantDecrypt(glueRole);
 
         // 2) SageMaker execution role (used by Step Functions to start a training job)
         const sagemakerRole = new iam.Role(this, 'SageMakerExecutionRole', {
@@ -45,17 +47,40 @@ export class MlStack extends cdk.Stack {
             name: `${this.stackName}-build-hourly-features`,
             role: glueRole.roleArn,
             command: {
-                name: 'glueetl',
-                pythonVersion: '3',
-                scriptLocation: glueScriptS3Path.replace('s3://', 's3://') // use S3 path
+                name: 'glueetl',           // Glue ETL with Spark
+                pythonVersion: '3',        // Python 3
+                scriptLocation: glueScriptS3Path, // s3://.../scripts/build_hourly_features.py
             },
+
+            // ✅ Use a modern Glue runtime
+            glueVersion: '4.0',
+
+            // ✅ Use worker model (not legacy DPUs)
+            workerType: 'G.1X',          // or 'G.2X' depending on size
+            numberOfWorkers: 2,          // adjust as needed
+
+            // ✅ Pass all script args your code expects
             defaultArguments: {
+                '--job-language': 'python',
+                '--enable-metrics': 'true',
                 '--TempDir': `s3://${data.curatedBucket.bucketName}/glue-temp/`,
-                '--additional-python-modules': 'pyarrow==9.0.0,pandas==2.0.1' // adjust versions as needed
+
+                // your script requires these:
+                '--EVENTS_BUCKET': data.eventsBucket.bucketName,
+                '--CURATED_BUCKET': data.curatedBucket.bucketName,
+
+                // optional: bookmark, etc.
+                // '--job-bookmark-option': 'job-bookmark-enable',
+                // '--enable-glue-datacatalog': 'true',
+                // extra libs if you really need them (4.0 already has recent Spark/Arrow):
+                // '--additional-python-modules': 'pyarrow==9.0.0,pandas==2.0.1',
             },
+
             maxRetries: 1,
-            executionProperty: { maxConcurrentRuns: 1 }
+            executionProperty: { maxConcurrentRuns: 1 },
         });
+
+        data.modelsBucket.grantRead(glueRole);
 
         // 4) Step Functions: Start Glue Job -> Wait -> Start SageMaker Training Job
         // a) Start Glue Job task (StartJobRun)
@@ -119,10 +144,7 @@ export class MlStack extends cdk.Stack {
         // --- Chain them: start glue, then start SageMaker training ---
         const definition = startGlue.next(sageMakerTrain);
 
-        const logGroup = new logs.LogGroup(this, 'MlOrchestratorLogGroup', {
-            // REMOVE 'logGroupName' property entirely.
-            removalPolicy: cdk.RemovalPolicy.DESTROY,
-        });
+        const logGroup = new logs.LogGroup(this, 'MlOrchestratorLogGroup');
         const sm = new sfn.StateMachine(this, 'MlOrchestrator', {
             // stateMachineName: cdk.PhysicalName.GENERATE_IF_NEEDED,
             definition, // see deprecation note below

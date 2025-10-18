@@ -25,4 +25,5 @@ new ComputeStack(app, 'SR-Compute', {env, vpc: network.vpc, kmsKey: security.dat
 new MlStack(app, 'SR-ML', {
     env,
     data,
+    kmsKey: security.dataKey
 });
