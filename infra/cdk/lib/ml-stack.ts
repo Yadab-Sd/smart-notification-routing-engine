@@ -1,6 +1,6 @@
 // infra/cdk/lib/ml-stack.ts
 import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import {Construct} from 'constructs';
 import {
     aws_iam as iam,
     aws_glue as glue,
@@ -25,7 +25,7 @@ export class MlStack extends cdk.Stack {
         super(scope, id, props);
 
         const glueScriptS3Path = `s3://sr-data-modelsc55d3500-p76bdxaj5h8s/scripts/build_hourly_features.py`;
-        const trainingImageUri = '683313688378.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'; // example for us-west-2
+        const trainingImageUri = '246618743249.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'
 
         // 1) Glue Service Role
         // import by ARN
@@ -41,6 +41,14 @@ export class MlStack extends cdk.Stack {
         });
         data.curatedBucket.grantRead(sagemakerRole);
         data.modelsBucket.grantReadWrite(sagemakerRole);
+        sagemakerRole.addToPolicy(new iam.PolicyStatement({
+            actions: ['ecr:GetAuthorizationToken'],
+            resources: ['*'],
+        }));
+        sagemakerRole.addToPolicy(new iam.PolicyStatement({
+            actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'],
+            resources: ['arn:aws:ecr:us-west-2:246618743249:repository/sagemaker-xgboost'],
+        }));
 
         // 3) Glue Job (CfnJob) - points at script in S3 (script must be uploaded first)
         const glueJob = new glue.CfnJob(this, 'BuildHourlyFeaturesJob', {
@@ -77,7 +85,7 @@ export class MlStack extends cdk.Stack {
             },
 
             maxRetries: 1,
-            executionProperty: { maxConcurrentRuns: 1 },
+            executionProperty: {maxConcurrentRuns: 1},
         });
 
         data.modelsBucket.grantRead(glueRole);
@@ -106,37 +114,38 @@ export class MlStack extends cdk.Stack {
         // The SageMaker task expects properly typed enums & values (no JsonPath for these fields)
 
         const sageMakerTrain = new tasks.SageMakerCreateTrainingJob(this, 'StartSageMakerTraining', {
-            // trainingJobName: cdk.PhysicalName.GENERATE_IF_NEEDED,
-            trainingJobName: sfn.JsonPath.stringAt('$.State.UUID'),
+            trainingJobName: sfn.JsonPath.format('send-time-{}', sfn.JsonPath.uuid()),
             algorithmSpecification: {
-                trainingImage: trainingImage,
-                trainingInputMode: InputMode.FILE,
+                trainingImage: trainingImage,                 // xgboost:1.7-1
+                trainingInputMode: tasks.InputMode.FILE,
             },
             role: sagemakerRole,
-            inputDataConfig: [
-                {
-                    channelName: 'train',
-                    dataSource: {
-                        s3DataSource: {
-                            s3Location: tasks.S3Location.fromBucket(data.curatedBucket, 'features/'),
-                        },
+            inputDataConfig: [{
+                channelName: 'train',
+                dataSource: {
+                    s3DataSource: {
+                        s3Location: tasks.S3Location.fromBucket(data.curatedBucket, 'features-csv/'), // must contain CSV files
+                        // s3DataDistributionType: tasks.S3DataDistributionType.SHARDED_BY_S3_KEY,
                     },
-                    contentType: 'application/x-parquet',
                 },
-            ],
+                contentType: 'text/csv',
+                compressionType: tasks.CompressionType.NONE,
+                recordWrapperType: tasks.RecordWrapperType.NONE,
+            }],
+            hyperparameters: {
+                num_round: '200',
+                objective: 'binary:logistic',
+                eval_metric: 'auc',
+            },
             outputDataConfig: {
                 s3OutputLocation: tasks.S3Location.fromBucket(data.modelsBucket, 'training-output/'),
-                // optional: encryptionKey: myKmsKey
             },
             resourceConfig: {
                 instanceCount: 1,
-                // enum from aws-stepfunctions-tasks
                 instanceType: ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.XLARGE),
                 volumeSize: cdk.Size.gibibytes(30),
             },
-            stoppingCondition: {
-                maxRuntime: cdk.Duration.hours(3),
-            },
+            stoppingCondition: { maxRuntime: cdk.Duration.hours(3) },
             integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         });
 
@@ -156,8 +165,8 @@ export class MlStack extends cdk.Stack {
         });
 
         // output names
-        new cdk.CfnOutput(this, 'GlueJobName', { value: glueJob.name as string });
-        new cdk.CfnOutput(this, 'StateMachineArn', { value: sm.stateMachineArn });
-        new cdk.CfnOutput(this, 'SageMakerRoleArn', { value: sagemakerRole.roleArn });
+        new cdk.CfnOutput(this, 'GlueJobName', {value: glueJob.name as string});
+        new cdk.CfnOutput(this, 'StateMachineArn', {value: sm.stateMachineArn});
+        new cdk.CfnOutput(this, 'SageMakerRoleArn', {value: sagemakerRole.roleArn});
     }
 }
