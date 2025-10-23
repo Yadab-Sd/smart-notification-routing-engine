@@ -56,6 +56,48 @@ export class ComputeStack extends Stack {
         });
 
 
+        // Sender Lambda - render S3 template, send via Pinpoint ==========================================
+        const senderFn = new lambda.Function(this,'SenderFn',{
+            runtime: lambda.Runtime.JAVA_21,
+            handler: 'com.yadab.sr.sender.Handler::handleRequest',
+            code: lambda.Code.fromAsset('../../services/sender-service/target/sender.zip'),
+            memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc
+        });
+        data.curatedBucket.grantRead(senderFn); // templates
+        senderFn.addToRolePolicy(new iam.PolicyStatement({
+            actions:['mobiletargeting:SendMessages'],
+            resources:['*'] // or restrict to your Pinpoint app ARN
+        }));
+
+        // Role that EventBridge Scheduler assumes to invoke senderFn
+        const schedulerRole = new iam.Role(this,'SchedulerInvokeSender',{
+            assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com')
+        });
+        senderFn.grantInvoke(schedulerRole);
+        new cdk.CfnOutput(this,'SchedulerRoleArn',{ value: schedulerRole.roleArn });
+        new cdk.CfnOutput(this,'SenderFnArn',{ value: senderFn.functionArn });
+
+
+        //     3) Decision Lambda (Java 21) — preview & schedule ================================================
+        const decisionFn = new lambda.Function(this,'DecisionFn',{
+            runtime: lambda.Runtime.JAVA_21,
+            handler: 'com.yadab.sr.decision.Handler::handleRequest',
+            code: lambda.Code.fromAsset('../../services/decision-service/target/decision.zip'),
+            memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc,
+            environment: {
+                USER_PROFILES_TABLE: data.profilesTable.tableName,
+                SENDTIME_ENDPOINT: 'send-time-v1', // your SageMaker endpoint name from Sprint 3
+                SENDER_FUNCTION_ARN: senderFn.functionArn,
+                SCHEDULER_ROLE_ARN: schedulerRole.roleArn
+            }
+        });
+        data.profilesTable.grantReadData(decisionFn);
+        decisionFn.addToRolePolicy(new iam.PolicyStatement({
+            actions:['sagemaker:InvokeEndpoint'], resources:['*'] // narrow later
+        }));
+
+
+
         // Common
         // (Optional) decisionFn wired later; for sprint 1 we only need health + events
 
@@ -78,6 +120,7 @@ export class ComputeStack extends Stack {
         const jwtAuth = new HttpJwtAuthorizer('CognitoJWT', issuer, { jwtAudience: audience });
 
         const integ = new HttpLambdaIntegration('CP-Integration', controlPlane);
+        const decisionInteg = new apigwInt.HttpLambdaIntegration('DecisionInteg', decisionFn);
 
         new apigwv2.HttpRoute(this, 'HealthRoute', {
             httpApi,
@@ -104,6 +147,20 @@ export class ComputeStack extends Stack {
             routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}/preferences', apigwv2.HttpMethod.PUT),
             integration: integ,
             authorizer: jwtAuth, // ✅ L2 authorizer (has .bind)
+        });
+
+        // Add API routes (JWT auth same authorizer as before) -
+        new apigwv2.HttpRoute(this,'DecisionPreview',{
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/decisions/preview', apigwv2.HttpMethod.POST),
+            integration: decisionInteg,
+            authorizer: jwtAuth
+        });
+        new apigwv2.HttpRoute(this,'DecisionSchedule',{
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/decisions/schedule', apigwv2.HttpMethod.POST),
+            integration: decisionInteg,
+            authorizer: jwtAuth
         });
 
         new cdk.CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });

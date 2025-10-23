@@ -14,6 +14,7 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import {DataStack} from "./data-stack";
 import {InputMode} from "aws-cdk-lib/aws-stepfunctions-tasks";
 import {SecurityStack} from "./security-stack";
+import * as sagemaker from 'aws-cdk-lib/aws-sagemaker';
 
 interface MlStackProps extends cdk.StackProps {
     data: DataStack;
@@ -21,10 +22,12 @@ interface MlStackProps extends cdk.StackProps {
 }
 
 export class MlStack extends cdk.Stack {
+    public readonly sagemakerRole: iam.Role;
+
     constructor(scope: Construct, id: string, {data, kmsKey, ...props}: MlStackProps) {
         super(scope, id, props);
 
-        const glueScriptS3Path = `s3://sr-data-modelsc55d3500-p76bdxaj5h8s/scripts/build_hourly_features.py`;
+        const glueScriptS3Path = `s3://${data.modelsBucket.bucketName}/scripts/build_hourly_features.py`;
         const trainingImageUri = '246618743249.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'
 
         // 1) Glue Service Role
@@ -35,17 +38,18 @@ export class MlStack extends cdk.Stack {
         kmsKey.grantDecrypt(glueRole);
 
         // 2) SageMaker execution role (used by Step Functions to start a training job)
-        const sagemakerRole = new iam.Role(this, 'SageMakerExecutionRole', {
+        this.sagemakerRole = new iam.Role(this, 'SageMakerExecutionRole', {
             assumedBy: new iam.ServicePrincipal('sagemaker.amazonaws.com'),
             description: 'Role used by SageMaker training jobs',
         });
-        data.curatedBucket.grantRead(sagemakerRole);
-        data.modelsBucket.grantReadWrite(sagemakerRole);
-        sagemakerRole.addToPolicy(new iam.PolicyStatement({
-            actions: ['ecr:GetAuthorizationToken'],
+        data.curatedBucket.grantRead(this.sagemakerRole);
+        data.modelsBucket.grantReadWrite(this.sagemakerRole);
+        this.sagemakerRole.addToPolicy(new iam.PolicyStatement({
+            actions: ['ecr:GetAuthorizationToken', 'ecr:GetDownloadUrlForLayer',
+                'ecr:BatchGetImage', 'ecr:BatchCheckLayerAvailability'],
             resources: ['*'],
         }));
-        sagemakerRole.addToPolicy(new iam.PolicyStatement({
+        this.sagemakerRole.addToPolicy(new iam.PolicyStatement({
             actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'],
             resources: ['arn:aws:ecr:us-west-2:246618743249:repository/sagemaker-xgboost'],
         }));
@@ -119,7 +123,7 @@ export class MlStack extends cdk.Stack {
                 trainingImage: trainingImage,                 // xgboost:1.7-1
                 trainingInputMode: tasks.InputMode.FILE,
             },
-            role: sagemakerRole,
+            role: this.sagemakerRole,
             inputDataConfig: [{
                 channelName: 'train',
                 dataSource: {
@@ -145,7 +149,7 @@ export class MlStack extends cdk.Stack {
                 instanceType: ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.XLARGE),
                 volumeSize: cdk.Size.gibibytes(30),
             },
-            stoppingCondition: { maxRuntime: cdk.Duration.hours(3) },
+            stoppingCondition: {maxRuntime: cdk.Duration.hours(3)},
             integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         });
 
@@ -164,9 +168,10 @@ export class MlStack extends cdk.Stack {
             stateMachineType: sfn.StateMachineType.STANDARD
         });
 
+
         // output names
         new cdk.CfnOutput(this, 'GlueJobName', {value: glueJob.name as string});
         new cdk.CfnOutput(this, 'StateMachineArn', {value: sm.stateMachineArn});
-        new cdk.CfnOutput(this, 'SageMakerRoleArn', {value: sagemakerRole.roleArn});
+        new cdk.CfnOutput(this, 'SageMakerRoleArn', {value: this.sagemakerRole.roleArn});
     }
 }
