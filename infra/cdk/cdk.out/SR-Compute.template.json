@@ -457,6 +457,428 @@
     "aws:cdk:path": "SR-Compute/EventsConsumerESM/Resource"
    }
   },
+  "SenderFnServiceRole10C00263": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SenderFn/ServiceRole/Resource"
+   }
+  },
+  "SenderFnServiceRoleDefaultPolicy6A1237B8": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttCuratedF137945AArn216E9DDA"
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttCuratedF137945AArn216E9DDA"
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": "mobiletargeting:SendMessages",
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SenderFnServiceRoleDefaultPolicy6A1237B8",
+    "Roles": [
+     {
+      "Ref": "SenderFnServiceRole10C00263"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SenderFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SenderFnSecurityGroup30711F3B": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatic security group for Lambda Function SRComputeSenderFn00F8D7EE",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "SR-Network:ExportsOutputRefVpc8378EB38272D6E3A"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SenderFn/SecurityGroup/Resource"
+   }
+  },
+  "SenderFn24C7D1EB": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-196177110614-us-west-2",
+     "S3Key": "e6162b7bfa0eb42f196106a02cd1e6d73f268a192c495c4f17515ce4fbf58fa0.zip"
+    },
+    "Handler": "com.yadab.sr.sender.Handler::handleRequest",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "SenderFnServiceRole10C00263",
+      "Arn"
+     ]
+    },
+    "Runtime": "java21",
+    "Timeout": 20,
+    "VpcConfig": {
+     "SecurityGroupIds": [
+      {
+       "Fn::GetAtt": [
+        "SenderFnSecurityGroup30711F3B",
+        "GroupId"
+       ]
+      }
+     ],
+     "SubnetIds": [
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet1Subnet536B997AFD4CC940"
+      },
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet2Subnet3788AAA1380949A3"
+      }
+     ]
+    }
+   },
+   "DependsOn": [
+    "SenderFnServiceRoleDefaultPolicy6A1237B8",
+    "SenderFnServiceRole10C00263"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SenderFn/Resource",
+    "aws:asset:path": "asset.e6162b7bfa0eb42f196106a02cd1e6d73f268a192c495c4f17515ce4fbf58fa0.zip",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SchedulerInvokeSenderAD9A35EA": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "scheduler.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SchedulerInvokeSender/Resource"
+   }
+  },
+  "SchedulerInvokeSenderDefaultPolicyDD8225A5": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SenderFn24C7D1EB",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SenderFn24C7D1EB",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SchedulerInvokeSenderDefaultPolicyDD8225A5",
+    "Roles": [
+     {
+      "Ref": "SchedulerInvokeSenderAD9A35EA"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/SchedulerInvokeSender/DefaultPolicy/Resource"
+   }
+  },
+  "DecisionFnServiceRoleFE457E67": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionFn/ServiceRole/Resource"
+   }
+  },
+  "DecisionFnServiceRoleDefaultPolicy79EE5025": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "SR-Security:ExportsOutputFnGetAttDataKey17AFBB84ArnCE2A1BC6"
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::ImportValue": "SR-Data:ExportsOutputFnGetAttUserProfiles32DFB678ArnC5440FB8"
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "sagemaker:InvokeEndpoint",
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "DecisionFnServiceRoleDefaultPolicy79EE5025",
+    "Roles": [
+     {
+      "Ref": "DecisionFnServiceRoleFE457E67"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionFn/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "DecisionFnSecurityGroup62626665": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatic security group for Lambda Function SRComputeDecisionFn8DE7D527",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "SR-Network:ExportsOutputRefVpc8378EB38272D6E3A"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionFn/SecurityGroup/Resource"
+   }
+  },
+  "DecisionFn9F002F88": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-196177110614-us-west-2",
+     "S3Key": "fd4df85e83eec432eae83d2115d089283872be50215111762336b2038754a5e9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "USER_PROFILES_TABLE": {
+       "Fn::ImportValue": "SR-Data:ExportsOutputRefUserProfiles32DFB678CB275D73"
+      },
+      "SENDTIME_ENDPOINT": "send-time-v1",
+      "SENDER_FUNCTION_ARN": {
+       "Fn::GetAtt": [
+        "SenderFn24C7D1EB",
+        "Arn"
+       ]
+      },
+      "SCHEDULER_ROLE_ARN": {
+       "Fn::GetAtt": [
+        "SchedulerInvokeSenderAD9A35EA",
+        "Arn"
+       ]
+      }
+     }
+    },
+    "Handler": "com.yadab.sr.decision.Handler::handleRequest",
+    "MemorySize": 1024,
+    "Role": {
+     "Fn::GetAtt": [
+      "DecisionFnServiceRoleFE457E67",
+      "Arn"
+     ]
+    },
+    "Runtime": "java21",
+    "Timeout": 20,
+    "VpcConfig": {
+     "SecurityGroupIds": [
+      {
+       "Fn::GetAtt": [
+        "DecisionFnSecurityGroup62626665",
+        "GroupId"
+       ]
+      }
+     ],
+     "SubnetIds": [
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet1Subnet536B997AFD4CC940"
+      },
+      {
+       "Fn::ImportValue": "SR-Network:ExportsOutputRefVpcPrivateSubnet2Subnet3788AAA1380949A3"
+      }
+     ]
+    }
+   },
+   "DependsOn": [
+    "DecisionFnServiceRoleDefaultPolicy79EE5025",
+    "DecisionFnServiceRoleFE457E67"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionFn/Resource",
+    "aws:asset:path": "asset.fd4df85e83eec432eae83d2115d089283872be50215111762336b2038754a5e9.zip",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
   "HttpApiF5A9A8A7": {
    "Type": "AWS::ApiGatewayV2::Api",
    "Properties": {
@@ -800,6 +1222,143 @@
     "aws:cdk:path": "SR-Compute/PutPrefsRoute/Resource"
    }
   },
+  "DecisionPreviewDecisionIntegC2969B47": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "DecisionFn9F002F88",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionPreview/DecisionInteg/Resource"
+   }
+  },
+  "DecisionPreviewDecisionIntegPermission98A5D20C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "DecisionFn9F002F88",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/decisions/preview"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionPreview/DecisionInteg-Permission"
+   }
+  },
+  "DecisionPreviewF5657915": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "HttpApiCognitoJWT5F93069C"
+    },
+    "RouteKey": "POST /v1/decisions/preview",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "DecisionPreviewDecisionIntegC2969B47"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionPreview/Resource"
+   }
+  },
+  "DecisionScheduleDecisionIntegPermission71C247D5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "DecisionFn9F002F88",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-west-2:196177110614:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/v1/decisions/schedule"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionSchedule/DecisionInteg-Permission"
+   }
+  },
+  "DecisionSchedule92380B05": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "HttpApiCognitoJWT5F93069C"
+    },
+    "RouteKey": "POST /v1/decisions/schedule",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "DecisionPreviewDecisionIntegC2969B47"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SR-Compute/DecisionSchedule/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
@@ -811,6 +1370,22 @@
   }
  },
  "Outputs": {
+  "SchedulerRoleArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SchedulerInvokeSenderAD9A35EA",
+     "Arn"
+    ]
+   }
+  },
+  "SenderFnArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "SenderFn24C7D1EB",
+     "Arn"
+    ]
+   }
+  },
   "ApiUrl": {
    "Value": {
     "Fn::GetAtt": [

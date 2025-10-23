@@ -289,6 +289,14 @@
     "Name": "SR-Data:ExportsOutputFnGetAttModelsC55D3500ArnC820EBA0"
    }
   },
+  "ExportsOutputRefModelsC55D3500937A2AB2": {
+   "Value": {
+    "Ref": "ModelsC55D3500"
+   },
+   "Export": {
+    "Name": "SR-Data:ExportsOutputRefModelsC55D3500937A2AB2"
+   }
+  },
   "ExportsOutputRefCuratedF137945ACE2864B7": {
    "Value": {
     "Ref": "CuratedF137945A"
@@ -297,12 +305,15 @@
     "Name": "SR-Data:ExportsOutputRefCuratedF137945ACE2864B7"
    }
   },
-  "ExportsOutputRefModelsC55D3500937A2AB2": {
+  "ExportsOutputFnGetAttDeliveriesRawD977A4C2Arn6C77BFED": {
    "Value": {
-    "Ref": "ModelsC55D3500"
+    "Fn::GetAtt": [
+     "DeliveriesRawD977A4C2",
+     "Arn"
+    ]
    },
    "Export": {
-    "Name": "SR-Data:ExportsOutputRefModelsC55D3500937A2AB2"
+    "Name": "SR-Data:ExportsOutputFnGetAttDeliveriesRawD977A4C2Arn6C77BFED"
    }
   }
  },

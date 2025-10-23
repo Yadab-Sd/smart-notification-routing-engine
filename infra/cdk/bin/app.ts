@@ -8,6 +8,9 @@ import {ComputeStack} from '../lib/compute-stack';
 
 import dotenv from "dotenv";
 import {MlStack} from "../lib/ml-stack";
+import {MessagingStack} from "../lib/messaging-stack";
+import {SageMakerStack} from "../lib/sagemaker-stack";
+
 dotenv.config();
 
 console.log("env: ", process.env);
@@ -22,8 +25,21 @@ const security = new SecurityStack(app, 'SR-Security', {env});
 const data = new DataStack(app, 'SR-Data', {env, kmsKey: security.dataKey});
 new ComputeStack(app, 'SR-Compute', {env, vpc: network.vpc, kmsKey: security.dataKey, data, identity});
 // after creating DataStack (named `data`) and IdentityStack...
-new MlStack(app, 'SR-ML', {
+const ml = new MlStack(app, 'SR-ML', {
     env,
     data,
     kmsKey: security.dataKey
+});
+
+new MessagingStack(app, 'SR-Messaging', {
+    env,
+    data,
+    vpc: network.vpc
+});
+
+// After Training data and generating model by step function
+new SageMakerStack(app, 'SR-SageMaker', {
+    env,
+    data,
+    ml
 });
