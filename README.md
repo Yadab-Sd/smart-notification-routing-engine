@@ -48,7 +48,6 @@ Curated S3 CSV - 0,14,0.0,2 // x, hour, x, number of events
 
 
 NB: Comment out SageMakerStack in app.ts for the first deployment and until you train
-![IMG_6047](https://github.com/user-attachments/assets/42714da3-86b0-4679-bbd3-6149cee82dc1)
-
+<img width="2100" height="1700" alt="Smart Notification Routing Engine drawio (2)" src="https://github.com/user-attachments/assets/84cf8db4-8aa3-4319-8420-714feef593c0" />
 
 AWS Sagemaker XGBoost Image - https://github.com/aws/sagemaker-xgboost-container?tab=readme-ov-file
