@@ -19,14 +19,14 @@ Built entirely on AWS serverless architecture, the system processes millions of 
 
 ### Key Capabilities
 
-- ** ML-Driven Send-Time Optimization**: XGBoost models predict optimal delivery windows per user
-- ** Real-Time Feature Engineering**: Apache Spark ETL pipelines transform raw events into ML features
-- ** Sub-Second Inference**: SageMaker endpoints serve predictions with <100ms p99 latency
-- ** Event-Driven Architecture**: Fully decoupled microservices using Kinesis and EventBridge
-- ** Enterprise Security**: KMS encryption, VPC isolation, Cognito authentication, IAM least-privilege
-- ** Scalable Data Lake**: S3-based architecture handling 10M+ events/day with efficient partitioning
-- ** Multi-Channel Support**: Unified delivery via Amazon Pinpoint (Email, SMS, Push, WhatsApp)
-- ** Infrastructure as Code**: Complete AWS CDK deployment with modular stack architecture
+- **ML-Driven Send-Time Optimization**: XGBoost models predict optimal delivery windows per user
+- **Real-Time Feature Engineering**: Apache Spark ETL pipelines transform raw events into ML features
+- **Sub-Second Inference**: SageMaker endpoints serve predictions with <100ms p99 latency
+- **Event-Driven Architecture**: Fully decoupled microservices using Kinesis and EventBridge
+- **Enterprise Security**: KMS encryption, VPC isolation, Cognito authentication, IAM least-privilege
+- **Scalable Data Lake**: S3-based architecture handling 10M+ events/day with efficient partitioning
+- **Multi-Channel Support**: Unified delivery via Amazon Pinpoint (Email, SMS, Push, WhatsApp)
+- **Infrastructure as Code**: Complete AWS CDK deployment with modular stack architecture
 
 ---
 
