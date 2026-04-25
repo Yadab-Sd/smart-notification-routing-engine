@@ -38,7 +38,7 @@
   - [Performance Characteristics](#performance-characteristics)
     - [Scalability Targets](#scalability-targets)
     - [Cost Optimization](#cost-optimization)
-  - [Getting Started](#getting-started)
+  - [Getting Started](#getting-started) ⭐
     - [Prerequisites](#prerequisites)
     - [Quick Start](#quick-start)
       - [1. Infrastructure Deployment](#1-infrastructure-deployment)
