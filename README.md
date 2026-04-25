@@ -11,6 +11,75 @@
 
 > **Project Status**: 🚧 Active Development - Core infrastructure and ML pipeline implemented. Performance benchmarking and production validation in progress.
 
+## Table of Contents
+
+- [Smart Notification Routing Engine](#smart-notification-routing-engine)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [Key Capabilities](#key-capabilities)
+  - [Architecture](#architecture)
+    - [System Components](#system-components)
+      - [1. **Data Ingestion Layer**](#1-data-ingestion-layer)
+      - [2. **Machine Learning Pipeline**](#2-machine-learning-pipeline)
+      - [3. **Decision \& Delivery Layer**](#3-decision--delivery-layer)
+      - [4. **Storage \& State**](#4-storage--state)
+      - [5. **Security \& Observability**](#5-security--observability)
+  - [Technical Deep Dive](#technical-deep-dive)
+    - [Machine Learning Formulation](#machine-learning-formulation)
+      - [Problem Statement](#problem-statement)
+      - [Model Architecture](#model-architecture)
+      - [Training Pipeline](#training-pipeline)
+    - [Infrastructure Architecture](#infrastructure-architecture)
+      - [Deployment Stacks (AWS CDK)](#deployment-stacks-aws-cdk)
+      - [Data Flow](#data-flow)
+    - [Code Architecture](#code-architecture)
+      - [Microservices Design](#microservices-design)
+      - [Data Schemas](#data-schemas)
+  - [Performance Characteristics](#performance-characteristics)
+    - [Scalability Targets](#scalability-targets)
+    - [Cost Optimization](#cost-optimization)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Quick Start](#quick-start)
+      - [1. Infrastructure Deployment](#1-infrastructure-deployment)
+      - [2. Build Services](#2-build-services)
+      - [3. Initialize ML Pipeline](#3-initialize-ml-pipeline)
+      - [4. Deploy SageMaker Endpoint](#4-deploy-sagemaker-endpoint)
+      - [5. Test the API](#5-test-the-api)
+  - [Configuration](#configuration)
+    - [Environment Variables](#environment-variables)
+    - [Model Hyperparameters](#model-hyperparameters)
+  - [Monitoring \& Operations](#monitoring--operations)
+    - [Key Metrics](#key-metrics)
+    - [Alarms](#alarms)
+    - [Logging](#logging)
+  - [Security](#security)
+    - [Authentication \& Authorization](#authentication--authorization)
+    - [Encryption](#encryption)
+    - [Network Security](#network-security)
+    - [Compliance](#compliance)
+  - [Performance Benchmarks](#performance-benchmarks)
+    - [Target Latency Profile](#target-latency-profile)
+    - [Expected Throughput](#expected-throughput)
+  - [ML Model Performance](#ml-model-performance)
+    - [Target Model Metrics](#target-model-metrics)
+    - [Planned A/B Testing](#planned-ab-testing)
+  - [Research Contributions \& Innovation](#research-contributions--innovation)
+    - [Technical Contributions](#technical-contributions)
+    - [Broader Impact](#broader-impact)
+    - [Industry Relevance](#industry-relevance)
+  - [Roadmap](#roadmap)
+    - [Planned Features](#planned-features)
+    - [Future Enhancements](#future-enhancements)
+  - [Contributing](#contributing)
+    - [Development Setup](#development-setup)
+  - [License](#license)
+  - [Citation](#citation)
+  - [Contact \& Support](#contact--support)
+  - [Acknowledgments](#acknowledgments)
+  - [Project Status](#project-status)
+
+
 ## Overview
 
 A **production-grade, enterprise-scale notification routing engine** designed to leverage machine learning for optimizing message delivery timing and channel selection. This system addresses the critical problem of notification fatigue by intelligently predicting when users are most likely to engage with notifications, with projected **engagement rate improvements of 40-60%** compared to traditional uniform delivery strategies.
@@ -28,7 +97,6 @@ Built entirely on AWS serverless architecture, the system processes millions of 
 - **Multi-Channel Support**: Unified delivery via Amazon Pinpoint (Email, SMS, Push, WhatsApp)
 - **Infrastructure as Code**: Complete AWS CDK deployment with modular stack architecture
 
----
 
 ## Architecture
 
@@ -64,7 +132,6 @@ Built entirely on AWS serverless architecture, the system processes millions of 
 - **VPC with Private Subnets**: Network isolation with interface endpoints
 - **CloudWatch**: Centralized logging, metrics, and distributed tracing
 
----
 
 ## Technical Deep Dive
 
@@ -121,7 +188,6 @@ Metric: Top-1 accuracy, calibration error (ECE)
 - **Offline**: Holdout validation (80/20 split), AUC-PR, calibration curves
 - **Online**: A/B testing with uplift measurement vs. baseline (uniform send-time)
 
----
 
 ### Infrastructure Architecture
 
@@ -171,7 +237,6 @@ EventBridge (nightly) → Step Functions → Glue Job (Spark)
                                         S3 (models/send_time/v1/)
 ```
 
----
 
 ### Code Architecture
 
@@ -257,7 +322,6 @@ label,hour,click_rate_7d,sends_count_hour,days_since_last_seen
 1,9,0.31,152,0
 ```
 
----
 
 ## Performance Characteristics
 
@@ -279,7 +343,6 @@ label,hour,click_rate_7d,sends_count_hour,days_since_last_seen
 - **SageMaker Serverless Inference**: Pay-per-invocation for low-traffic models
 - **Spot Instances**: 70% cost savings for training jobs (non-critical workloads)
 
----
 
 ## Getting Started
 
@@ -380,7 +443,6 @@ curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/v1/decisions/
   }'
 ```
 
----
 
 ## Configuration
 
@@ -409,7 +471,6 @@ hyperparameters: {
 }
 ```
 
----
 
 ## Monitoring & Operations
 
@@ -454,7 +515,6 @@ Query logs:
 aws logs tail /aws/lambda/SR-DecisionService --follow --format short
 ```
 
----
 
 ## Security
 
@@ -485,7 +545,6 @@ aws logs tail /aws/lambda/SR-DecisionService --follow --format short
 - **HIPAA Eligible**: All services HIPAA-compliant when configured
 - **SOC 2**: CloudTrail audit logs for all API calls
 
----
 
 ## Performance Benchmarks
 
@@ -510,7 +569,6 @@ aws logs tail /aws/lambda/SR-DecisionService --follow --format short
 - Kinesis throughput: 1 MB/sec per shard (scalable)
 - DynamoDB: On-demand scaling to match workload
 
----
 
 ## ML Model Performance
 
@@ -543,7 +601,6 @@ aws logs tail /aws/lambda/SR-DecisionService --follow --format short
 - Reduced notification fatigue: -30-50% unsubscribes
 - Higher conversion rates: +30-40%
 
----
 
 ## Research Contributions & Innovation
 
@@ -579,7 +636,6 @@ This work addresses challenges faced by:
 
 The architecture patterns demonstrated here are applicable to any domain requiring intelligent, time-sensitive decision-making at scale.
 
----
 
 ## Roadmap
 
@@ -600,7 +656,6 @@ The architecture patterns demonstrated here are applicable to any domain requiri
 - **Observability**: AWS X-Ray distributed tracing
 - **Multi-Region**: Active-active deployment for global users
 
----
 
 ## Contributing
 
@@ -649,7 +704,6 @@ pnpm install
 pnpm test
 ```
 
----
 
 ## License
 
@@ -679,7 +733,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
----
 
 ## Citation
 
@@ -695,7 +748,6 @@ If you use this work in research or production, please cite:
 }
 ```
 
----
 
 ## Contact & Support
 
@@ -704,7 +756,6 @@ If you use this work in research or production, please cite:
 - **Email**: yadab.sutradhar@yahoo.com
 - **LinkedIn**: [Yadab Sutradhar](https://www.linkedin.com/in/yadab-sutradhar)
 
----
 
 ## Acknowledgments
 
@@ -713,7 +764,6 @@ If you use this work in research or production, please cite:
 - **Apache Spark**: For distributed feature engineering capabilities
 - **Open Source Community**: For inspiration from similar notification systems
 
----
 
 ## Project Status
 
@@ -727,7 +777,6 @@ This project is under active development. The core infrastructure and ML pipelin
 
 Contributions, feedback, and collaboration opportunities are welcome!
 
----
 
 **Built with ❤️ by [Yadab Sutradhar](https://www.linkedin.com/in/yadab-sutradhar) for engineers who care about user experience and system reliability**
 

@@ -2,3 +2,30 @@ node_modules
 target
 .idea
 .env
+Info.txt
+
+# CDK
+cdk.out
+*.d.ts
+*.js
+.cdk.staging
+
+# Build artifacts
+*.jar
+*.zip
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
