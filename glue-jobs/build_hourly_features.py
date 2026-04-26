@@ -1,4 +1,4 @@
-# smart-router/glue_jobs/build_hourly_features.py
+# smart-router/glue-jobs/build_hourly_features.py
 import sys
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext

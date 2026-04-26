@@ -584,7 +584,7 @@ This will package your Lambda JARs and deploy them to AWS.
 
 ```bash
 # Upload Glue scripts
-aws s3 cp glue_jobs/build_hourly_features.py s3://sr-scripts-prod/glue/
+aws s3 cp glue-jobs/build_hourly_features.py s3://sr-scripts-prod/glue/
 
 # Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
 aws stepfunctions start-execution \
@@ -707,7 +707,7 @@ aws stepfunctions start-execution \
 | DynamoDB schema | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Database tables (⚠️ may cause data migration) |
 | Kinesis configuration | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Kinesis stream settings |
 | ML pipeline (Step Functions) | `cd infra/cdk && pnpm exec cdk deploy SR-ML` | State machine definition |
-| Glue ETL script | `aws s3 cp glue_jobs/*.py s3://bucket/scripts/` | Just the script file |
+| Glue ETL script | `aws s3 cp glue-jobs/*.py s3://bucket/scripts/` | Just the script file |
 | SageMaker endpoint config | `cd infra/cdk && pnpm exec cdk deploy SR-SageMaker` | Endpoint configuration |
 | VPC or networking | `cd infra/cdk && pnpm exec cdk deploy SR-Network` | Network infrastructure |
 
