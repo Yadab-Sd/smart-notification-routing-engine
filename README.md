@@ -668,12 +668,14 @@ aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
 #### 4. Initialize ML Pipeline
 
 ```bash
-# First, get your models bucket name from CDK outputs
-# After deploying SR-Data stack, check CloudFormation outputs or run:
-# aws cloudformation describe-stacks --stack-name SR-Data --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text
+# Get your models bucket name from CDK outputs (deployed in step 1)
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
 
-# Upload Glue script to the models bucket (replace YOUR_MODELS_BUCKET with actual bucket name)
-aws s3 cp glue-jobs/build_hourly_features.py s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
+echo "Models bucket: $MODELS_BUCKET"
+
+# Upload Glue script to the models bucket
+aws s3 cp glue-jobs/build_hourly_features.py s3://${MODELS_BUCKET}/scripts/build_hourly_features.py
 
 # Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
 EXECUTION_ARN=$(aws stepfunctions start-execution \
@@ -733,8 +735,14 @@ aws sagemaker list-training-jobs --region us-west-2 \
 
 After first successful training:
 ```bash
-# Update sagemaker-stack.ts with trained model S3 path from training output
-# Example: s3://sr-models-prod/send_time/v1/model.tar.gz
+# Get your models bucket name
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# The training job outputs model.tar.gz to: s3://${MODELS_BUCKET}/training-output/
+# Update sagemaker-stack.ts with the trained model S3 path from training job output
+# Example path: s3://sr-data-modelsbucketxxxx-xxxxx/training-output/send-time-xxx/output/model.tar.gz
+
 cd infra/cdk
 pnpm exec cdk deploy SR-SageMaker
 ```
@@ -847,10 +855,13 @@ pnpm exec cdk deploy SR-STACK-NAME
 When you modify Glue ETL scripts:
 
 ```bash
-# Upload updated script to S3 (replace YOUR_MODELS_BUCKET with your actual bucket name)
-# Find bucket name: aws cloudformation describe-stacks --stack-name SR-Data --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text
+# Get your models bucket name from CloudFormation outputs
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# Upload updated script to S3
 aws s3 cp glue-jobs/build_hourly_features.py \
-    s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
+    s3://${MODELS_BUCKET}/scripts/build_hourly_features.py
 
 # Trigger the pipeline to test
 aws stepfunctions start-execution \
@@ -867,9 +878,20 @@ aws stepfunctions start-execution \
 | DynamoDB schema | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Database tables (⚠️ may cause data migration) |
 | Kinesis configuration | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Kinesis stream settings |
 | ML pipeline (Step Functions) | `cd infra/cdk && pnpm exec cdk deploy SR-ML` | State machine definition |
-| Glue ETL script | `aws s3 cp glue-jobs/build_hourly_features.py s3://YOUR_MODELS_BUCKET/scripts/` | Just the script file |
+| Glue ETL script | Get bucket name: `aws cloudformation describe-stacks --stack-name SR-Data --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text`<br/>Upload: `aws s3 cp glue-jobs/build_hourly_features.py s3://BUCKET_NAME/scripts/` | Just the script file |
 | SageMaker endpoint config | `cd infra/cdk && pnpm exec cdk deploy SR-SageMaker` | Endpoint configuration |
 | VPC or networking | `cd infra/cdk && pnpm exec cdk deploy SR-Network` | Network infrastructure |
+
+**Note:** To find bucket names and other resource identifiers, use CloudFormation outputs:
+```bash
+# Get all SR-Data stack outputs
+aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[*].[OutputKey,OutputValue]" --output table
+
+# Get specific bucket names
+aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text
+```
 
 ### Testing Locally
 
@@ -925,9 +947,13 @@ aws stepfunctions start-execution \
 
 **Scenario 4: Updated feature engineering logic**
 ```bash
-# Upload new Glue script (replace YOUR_MODELS_BUCKET with your actual bucket name)
+# Get your models bucket name from CloudFormation outputs
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# Upload new Glue script
 aws s3 cp glue-jobs/build_hourly_features.py \
-    s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
+    s3://${MODELS_BUCKET}/scripts/build_hourly_features.py
 
 # Trigger pipeline
 aws stepfunctions start-execution \

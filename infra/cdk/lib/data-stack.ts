@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import { Duration, RemovalPolicy, Stack,
     type StackProps, aws_dynamodb as ddb, aws_kinesis as kinesis, aws_s3 as s3, aws_glue as glue, aws_kms as kms, aws_iam as iam } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
@@ -45,5 +46,36 @@ export class DataStack extends Stack {
 
 
         this.glueDb = new glue.CfnDatabase(this,'GlueDb',{ catalogId: this.account, databaseInput:{ name:'sr_datacatalog' }});
+
+        // Outputs - expose important resource identifiers
+        new cdk.CfnOutput(this, 'EventsBucketName', {
+            value: this.eventsBucket.bucketName,
+            description: 'S3 bucket for raw events data',
+            exportName: `${this.stackName}-EventsBucketName`
+        });
+
+        new cdk.CfnOutput(this, 'ModelsBucketName', {
+            value: this.modelsBucket.bucketName,
+            description: 'S3 bucket for ML models and Glue scripts',
+            exportName: `${this.stackName}-ModelsBucketName`
+        });
+
+        new cdk.CfnOutput(this, 'CuratedBucketName', {
+            value: this.curatedBucket.bucketName,
+            description: 'S3 bucket for curated/processed data',
+            exportName: `${this.stackName}-CuratedBucketName`
+        });
+
+        new cdk.CfnOutput(this, 'UserEventsStreamName', {
+            value: this.userEvents.streamName,
+            description: 'Kinesis stream for user events',
+            exportName: `${this.stackName}-UserEventsStreamName`
+        });
+
+        new cdk.CfnOutput(this, 'UserProfilesTableName', {
+            value: this.profilesTable.tableName,
+            description: 'DynamoDB table for user profiles',
+            exportName: `${this.stackName}-UserProfilesTableName`
+        });
     }
 }
