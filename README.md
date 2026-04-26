@@ -465,14 +465,14 @@ npm install -g aws-cdk
 # Verify installation
 cdk --version
 
-# Bootstrap your account (replace with your account ID)
-cdk bootstrap aws://123456789012/us-west-2
+# Bootstrap your account (replace YOUR_ACCOUNT_ID with your actual account ID)
+cdk bootstrap aws://YOUR_ACCOUNT_ID/us-west-2
 
 # To find your account ID:
 aws sts get-caller-identity --query Account --output text
 
 # Expected output:
-# ✅ Environment aws://123456789012/us-west-2 bootstrapped
+# ✅ Environment aws://YOUR_ACCOUNT_ID/us-west-2 bootstrapped
 ```
 
 **What does bootstrap do?**
@@ -553,9 +553,9 @@ mkdir -p target && cp target/control-plane-1.0.0.jar target/control-plane.zip
 # Upload Glue scripts
 aws s3 cp glue_jobs/build_hourly_features.py s3://sr-scripts-prod/glue/
 
-# Manually trigger Step Functions
+# Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:123456789012:stateMachine:SR-ML-Pipeline \
+    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-Pipeline \
     --input '{}'
 
 # Monitor training
@@ -574,14 +574,14 @@ pnpm exec cdk deploy SR-SageMaker
 #### 5. Test the API
 
 ```bash
-# Authenticate (Cognito)
+# Authenticate (Cognito) - replace YOUR_CLIENT_ID with actual Cognito app client ID
 aws cognito-idp initiate-auth \
     --auth-flow USER_PASSWORD_AUTH \
-    --client-id 7a8b9c0d1e2f3g4h5i6j7k8l \
+    --client-id YOUR_CLIENT_ID \
     --auth-parameters USERNAME=user@domain.com,PASSWORD=SecurePass123!
 
-# Ingest event
-curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/events \
+# Ingest event - replace YOUR_API_ID with actual API Gateway ID
+curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/events \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -592,7 +592,7 @@ curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/events \
   }'
 
 # Get optimal send time
-curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/decisions/preview \
+curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/decisions/preview \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -611,7 +611,7 @@ curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/decisions/
 | `EVENTS_STREAM_NAME` | Kinesis stream for ingestion | `SR-UserEvents` |
 | `USER_PROFILES_TABLE` | DynamoDB table | `SR-UserProfiles` |
 | `SAGEMAKER_ENDPOINT` | ML inference endpoint | `send-time-v1` |
-| `PINPOINT_APP_ID` | Messaging application ID | `a1b2c3d4e5f6789012345678` |
+| `PINPOINT_APP_ID` | Messaging application ID | `YOUR_PINPOINT_APP_ID` |
 | `TEMPLATES_BUCKET` | S3 bucket for templates | `sr-templates-prod-us-west-2` |
 
 ### Model Hyperparameters
