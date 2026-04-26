@@ -10,7 +10,18 @@ export class SecurityStack extends Stack {
         this.dataKey = new kms.Key(this, 'DataKey', {
             enableKeyRotation: true,
             description: 'KMS key for encrypting data at rest (S3, DynamoDB, Kinesis)',
+            // Ensure CloudFormation can manage the key
+            alias: 'sr-data-encryption-key',
         });
+
+        // Grant root account full access (CloudFormation needs this)
+        this.dataKey.addToResourcePolicy(new iam.PolicyStatement({
+            sid: 'Enable IAM User Permissions',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.AccountRootPrincipal()],
+            actions: ['kms:*'],
+            resources: ['*'],
+        }));
 
         // Grant Kinesis service permission to use this key
         this.dataKey.addToResourcePolicy(new iam.PolicyStatement({
@@ -20,6 +31,8 @@ export class SecurityStack extends Stack {
             actions: [
                 'kms:Decrypt',
                 'kms:GenerateDataKey',
+                'kms:CreateGrant',
+                'kms:DescribeKey',
             ],
             resources: ['*'],
             conditions: {

@@ -24,7 +24,12 @@ export class DataStack extends Stack {
         this.modelsBucket = new s3.Bucket(this,'Models',{...enc});
         this.auditBucket = new s3.Bucket(this,'Audit',{...enc});
 
-        this.userEvents = new kinesis.Stream(this,'UserEvents',{ shardCount:1, encryption: kinesis.StreamEncryption.KMS, encryptionKey: kmsKey });
+        // Try with default encryption first (AWS managed key)
+        // If this works, we can switch to customer-managed KMS later
+        this.userEvents = new kinesis.Stream(this,'UserEvents',{
+            shardCount:1,
+            encryption: kinesis.StreamEncryption.MANAGED
+        });
 
         this.profilesTable = new ddb.Table(this,'UserProfiles',{
             partitionKey:{ name:'pk', type: ddb.AttributeType.STRING },
