@@ -542,7 +542,7 @@ pnpm install
 # Synthesize CloudFormation templates
 pnpm exec cdk synth
 
-# Deploy foundational stacks (no Lambda code required)
+# Deploy foundational stacks (no Lambda code required). SR = Smart Routing :smile:
 pnpm exec cdk deploy SR-Network SR-Security SR-Identity SR-Data SR-ML SR-Messaging
 ```
 
@@ -588,8 +588,12 @@ This will package your Lambda JARs and deploy them to AWS.
 #### 4. Initialize ML Pipeline
 
 ```bash
-# Upload Glue scripts
-aws s3 cp glue-jobs/build_hourly_features.py s3://sr-scripts-prod/glue/
+# First, get your models bucket name from CDK outputs
+# After deploying SR-Data stack, check CloudFormation outputs or run:
+# aws cloudformation describe-stacks --stack-name SR-Data --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text
+
+# Upload Glue script to the models bucket (replace YOUR_MODELS_BUCKET with actual bucket name)
+aws s3 cp glue-jobs/build_hourly_features.py s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
 
 # Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
 aws stepfunctions start-execution \
@@ -693,7 +697,8 @@ pnpm exec cdk deploy SR-STACK-NAME
 When you modify Glue ETL scripts:
 
 ```bash
-# Upload updated script to S3
+# Upload updated script to S3 (replace YOUR_MODELS_BUCKET with your actual bucket name)
+# Find bucket name: aws cloudformation describe-stacks --stack-name SR-Data --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text
 aws s3 cp glue-jobs/build_hourly_features.py \
     s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
 
@@ -712,7 +717,7 @@ aws stepfunctions start-execution \
 | DynamoDB schema | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Database tables (⚠️ may cause data migration) |
 | Kinesis configuration | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Kinesis stream settings |
 | ML pipeline (Step Functions) | `cd infra/cdk && pnpm exec cdk deploy SR-ML` | State machine definition |
-| Glue ETL script | `aws s3 cp glue-jobs/*.py s3://bucket/scripts/` | Just the script file |
+| Glue ETL script | `aws s3 cp glue-jobs/build_hourly_features.py s3://YOUR_MODELS_BUCKET/scripts/` | Just the script file |
 | SageMaker endpoint config | `cd infra/cdk && pnpm exec cdk deploy SR-SageMaker` | Endpoint configuration |
 | VPC or networking | `cd infra/cdk && pnpm exec cdk deploy SR-Network` | Network infrastructure |
 
@@ -770,9 +775,9 @@ aws stepfunctions start-execution \
 
 **Scenario 4: Updated feature engineering logic**
 ```bash
-# Upload new Glue script
+# Upload new Glue script (replace YOUR_MODELS_BUCKET with your actual bucket name)
 aws s3 cp glue-jobs/build_hourly_features.py \
-    s3://YOUR_MODELS_BUCKET/scripts/
+    s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
 
 # Trigger pipeline
 aws stepfunctions start-execution \
