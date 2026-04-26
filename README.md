@@ -38,7 +38,7 @@
   - [Performance Characteristics](#performance-characteristics)
     - [Scalability Targets](#scalability-targets)
     - [Cost Optimization](#cost-optimization)
-  - [Getting Started](#getting-started) ⭐
+  - [Getting Started](#getting-started)
     - [Complete Setup from Scratch](#complete-setup-from-scratch)
       - [Step 0: AWS Account Setup](#step-0-aws-account-setup)
       - [Step 1: Install Required Tools](#step-1-install-required-tools)
@@ -54,8 +54,13 @@
       - [6. Test the API](#6-test-the-api)
   - [Development Workflow](#development-workflow)
     - [Making Code Changes](#making-code-changes)
+      - [Lambda Function Code Changes](#lambda-function-code-changes)
+      - [Infrastructure Changes (CDK Code)](#infrastructure-changes-cdk-code)
+      - [Glue Scripts or Step Functions](#glue-scripts-or-step-functions)
     - [Quick Reference Table](#quick-reference-table)
     - [Testing Locally](#testing-locally)
+      - [Test Lambda Functions Locally](#test-lambda-functions-locally)
+      - [Test CDK Changes Without Deploying](#test-cdk-changes-without-deploying)
     - [Common Development Scenarios](#common-development-scenarios)
     - [Rollback Strategy](#rollback-strategy)
     - [Cleaning Up](#cleaning-up)
@@ -689,7 +694,7 @@ When you modify Glue ETL scripts:
 
 ```bash
 # Upload updated script to S3
-aws s3 cp glue_jobs/build_hourly_features.py \
+aws s3 cp glue-jobs/build_hourly_features.py \
     s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
 
 # Trigger the pipeline to test
@@ -766,7 +771,7 @@ aws stepfunctions start-execution \
 **Scenario 4: Updated feature engineering logic**
 ```bash
 # Upload new Glue script
-aws s3 cp glue_jobs/build_hourly_features.py \
+aws s3 cp glue-jobs/build_hourly_features.py \
     s3://YOUR_MODELS_BUCKET/scripts/
 
 # Trigger pipeline
