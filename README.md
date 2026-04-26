@@ -39,7 +39,12 @@
     - [Scalability Targets](#scalability-targets)
     - [Cost Optimization](#cost-optimization)
   - [Getting Started](#getting-started) ⭐
-    - [Prerequisites](#prerequisites)
+    - [Complete Setup from Scratch](#complete-setup-from-scratch)
+      - [Step 0: AWS Account Setup](#step-0-aws-account-setup)
+      - [Step 1: Install Required Tools](#step-1-install-required-tools)
+      - [Step 2: Bootstrap AWS CDK](#step-2-bootstrap-aws-cdk)
+      - [Step 3: Check AWS Service Quotas](#step-3-check-aws-service-quotas)
+      - [Step 4: Clone and Prepare Repository](#step-4-clone-and-prepare-repository)
     - [Quick Start](#quick-start)
       - [1. Infrastructure Deployment](#1-infrastructure-deployment)
       - [2. Build Services](#2-build-services)
@@ -346,13 +351,166 @@ label,hour,click_rate_7d,sends_count_hour,days_since_last_seen
 
 ## Getting Started
 
-### Prerequisites
+### Complete Setup from Scratch
 
-- **AWS Account** with CDK bootstrap (`cdk bootstrap aws://123456789012/us-east-1`)
-- **Java 21**: OpenJDK or Corretto ([download](https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/downloads-list.html))
-- **Node.js 18+** and **pnpm** ([install pnpm](https://pnpm.io/installation))
-- **Maven 3.9+** ([download](https://maven.apache.org/download.cgi))
-- **AWS CLI v2** configured with credentials
+This guide walks you through setting up the entire system from a fresh AWS account.
+
+#### Step 0: AWS Account Setup
+
+**Create AWS Account** (if you haven't already)
+1. Go to [aws.amazon.com](https://aws.amazon.com) and click "Create an AWS Account"
+2. Complete the registration with email, password, and payment information
+3. Choose a support plan (Basic/Free is fine for development)
+
+**Configure IAM User** (recommended over using root account)
+```bash
+# Log into AWS Console as root user
+# Navigate to IAM → Users → Create User
+
+# Create user with these settings:
+# - Username: sr-admin (or your preferred name)
+# - Access type: ✓ Programmatic access, ✓ AWS Management Console access
+# - Permissions: Attach existing policy "AdministratorAccess" (for development)
+# - Download the credentials CSV file (contains Access Key ID and Secret Access Key)
+```
+
+**Select Your Region**
+- Choose a region close to you: `us-west-2`, `us-east-1`, `eu-west-1`, etc.
+- **Important**: Use the same region throughout all commands
+- We'll use `us-west-2` in examples below (recommended for this project)
+
+#### Step 1: Install Required Tools
+
+**Install AWS CLI v2**
+```bash
+# macOS
+brew install awscli
+
+# Linux
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Windows
+# Download from: https://aws.amazon.com/cli/
+
+# Verify installation
+aws --version  # Should show: aws-cli/2.x.x
+```
+
+**Configure AWS CLI**
+```bash
+aws configure
+
+# Enter when prompted:
+# AWS Access Key ID: [from credentials CSV]
+# AWS Secret Access Key: [from credentials CSV]
+# Default region name: us-west-2 (or your chosen region)
+# Default output format: json
+
+# Test configuration
+aws sts get-caller-identity
+# Should display your account ID and user ARN
+```
+
+**Install Node.js 18+ and pnpm**
+```bash
+# macOS
+brew install node@18
+npm install -g pnpm
+
+# Linux (using nvm)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 18
+npm install -g pnpm
+
+# Verify
+node --version  # Should be v18.x or higher
+pnpm --version
+```
+
+**Install Java 21**
+```bash
+# macOS
+brew install openjdk@21
+
+# Linux
+sudo apt-get update
+sudo apt-get install openjdk-21-jdk
+
+# Verify
+java -version  # Should show version 21
+```
+
+**Install Maven 3.9+**
+```bash
+# macOS
+brew install maven
+
+# Linux
+sudo apt-get install maven
+
+# Verify
+mvn -version  # Should be 3.9.x or higher
+```
+
+#### Step 2: Bootstrap AWS CDK
+
+CDK requires a one-time setup per account/region:
+
+```bash
+# Install AWS CDK globally
+npm install -g aws-cdk
+
+# Verify installation
+cdk --version
+
+# Bootstrap your account (replace with your account ID)
+cdk bootstrap aws://123456789012/us-west-2
+
+# To find your account ID:
+aws sts get-caller-identity --query Account --output text
+
+# Expected output:
+# ✅ Environment aws://123456789012/us-west-2 bootstrapped
+```
+
+**What does bootstrap do?**
+- Creates an S3 bucket for CDK assets (Lambda code, etc.)
+- Creates IAM roles for CloudFormation
+- Sets up ECR repository for Docker images
+
+#### Step 3: Check AWS Service Quotas
+
+Some services have default limits. Check these before deployment:
+
+```bash
+# Check SageMaker instance quotas
+aws service-quotas get-service-quota \
+    --service-code sagemaker \
+    --quota-code L-1E9C780D \
+    --region us-west-2
+
+# If needed, request quota increases in AWS Console:
+# Service Quotas → AWS Services → SageMaker → ml.m5.large for endpoint usage
+```
+
+#### Step 4: Clone and Prepare Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/Yadab-Sd/smart-notification-routing-engine.git
+cd smart-notification-routing-engine
+
+# Install CDK dependencies
+cd infra/cdk
+pnpm install
+
+# Verify CDK can synthesize (generates CloudFormation templates)
+pnpm exec cdk synth
+
+# You should see: "Successfully synthesized to cdk.out"
+```
 
 ### Quick Start
 
@@ -397,7 +555,7 @@ aws s3 cp glue_jobs/build_hourly_features.py s3://sr-scripts-prod/glue/
 
 # Manually trigger Step Functions
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-east-1:123456789012:stateMachine:SR-ML-Pipeline \
+    --state-machine-arn arn:aws:states:us-west-2:123456789012:stateMachine:SR-ML-Pipeline \
     --input '{}'
 
 # Monitor training
@@ -423,7 +581,7 @@ aws cognito-idp initiate-auth \
     --auth-parameters USERNAME=user@domain.com,PASSWORD=SecurePass123!
 
 # Ingest event
-curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/v1/events \
+curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/events \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -434,7 +592,7 @@ curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/v1/events \
   }'
 
 # Get optimal send time
-curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/v1/decisions/preview \
+curl -X POST https://abc123xyz.execute-api.us-west-2.amazonaws.com/v1/decisions/preview \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -454,7 +612,7 @@ curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/v1/decisions/
 | `USER_PROFILES_TABLE` | DynamoDB table | `SR-UserProfiles` |
 | `SAGEMAKER_ENDPOINT` | ML inference endpoint | `send-time-v1` |
 | `PINPOINT_APP_ID` | Messaging application ID | `a1b2c3d4e5f6789012345678` |
-| `TEMPLATES_BUCKET` | S3 bucket for templates | `sr-templates-prod-us-east-1` |
+| `TEMPLATES_BUCKET` | S3 bucket for templates | `sr-templates-prod-us-west-2` |
 
 ### Model Hyperparameters
 

@@ -6,6 +6,7 @@ Info.txt
 
 # CDK
 cdk.out
+cdk.context.json
 *.d.ts
 *.js
 .cdk.staging

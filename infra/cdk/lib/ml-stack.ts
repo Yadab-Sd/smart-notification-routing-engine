@@ -28,11 +28,33 @@ export class MlStack extends cdk.Stack {
         super(scope, id, props);
 
         const glueScriptS3Path = `s3://${data.modelsBucket.bucketName}/scripts/build_hourly_features.py`;
-        const trainingImageUri = '246618743249.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'
 
-        // 1) Glue Service Role
-        // import by ARN
-        const glueRole = iam.Role.fromRoleArn(this, 'GlueExecRole', 'arn:aws:iam::196177110614:role/GlueExecutionRole');
+        // SageMaker XGBoost training image URIs by region
+        // See: https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-algo-docker-registry-paths.html
+        const sagemakerAccounts: Record<string, string> = {
+            'us-east-1': '683313688378',
+            'us-east-2': '257758044811',
+            'us-west-1': '746614075791',
+            'us-west-2': '246618743249',
+            'eu-west-1': '685385470294',
+            'eu-central-1': '492215442770',
+            'ap-southeast-1': '121021644041',
+            'ap-southeast-2': '783357654285',
+            'ap-northeast-1': '501404015308',
+        };
+        const region = cdk.Stack.of(this).region;
+        const sagemakerAccount = sagemakerAccounts[region] || sagemakerAccounts['us-east-1'];
+        const trainingImageUri = `${sagemakerAccount}.dkr.ecr.${region}.amazonaws.com/sagemaker-xgboost:1.7-1`;
+
+        // 1) Glue Service Role - Create it instead of importing
+        // This way it works with any AWS account
+        const glueRole = new iam.Role(this, 'GlueExecutionRole', {
+            assumedBy: new iam.ServicePrincipal('glue.amazonaws.com'),
+            description: 'Role used by AWS Glue ETL jobs for feature engineering',
+            managedPolicies: [
+                iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSGlueServiceRole'),
+            ],
+        });
         data.eventsBucket.grantRead(glueRole);
         data.curatedBucket.grantReadWrite(glueRole);
         kmsKey.grantDecrypt(glueRole);
@@ -51,7 +73,7 @@ export class MlStack extends cdk.Stack {
         }));
         this.sagemakerRole.addToPolicy(new iam.PolicyStatement({
             actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'],
-            resources: ['arn:aws:ecr:us-west-2:246618743249:repository/sagemaker-xgboost'],
+            resources: [`arn:aws:ecr:${region}:${sagemakerAccount}:repository/sagemaker-xgboost`],
         }));
 
         // 3) Glue Job (CfnJob) - points at script in S3 (script must be uploaded first)
