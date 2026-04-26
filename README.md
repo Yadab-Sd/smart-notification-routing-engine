@@ -536,15 +536,28 @@ pnpm exec cdk deploy SR-Compute SR-ML SR-Messaging
 
 #### 2. Build Services
 
+**Option A: Build all services at once (Recommended)**
+```bash
+# From project root
+chmod +x build-services.sh
+./build-services.sh
+```
+
+**Option B: Build services individually**
 ```bash
 cd services/control-plane
 mvn clean package -DskipTests
-mkdir -p target && cp target/control-plane-1.0.0.jar target/control-plane.zip
 
-# Repeat for other services:
-# - events-consumer
-# - decision-service
-# - sender-service
+cd ../events-consumer
+mvn clean package -DskipTests
+
+cd ../decision-service
+mvn clean package -DskipTests
+
+cd ../sender-service
+mvn clean package -DskipTests
+
+cd ../..
 ```
 
 #### 3. Initialize ML Pipeline
