@@ -546,6 +546,35 @@ pnpm exec cdk synth
 pnpm exec cdk deploy SR-Network SR-Security SR-Identity SR-Data SR-ML SR-Messaging
 ```
 
+**✅ Verify Deployment:**
+
+After successful deployment, check the resources:
+
+```bash
+# View all deployed stacks
+aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE --region us-west-2 \
+    --query "StackSummaries[?contains(StackName, 'SR-')].StackName" --output table
+
+# Get important outputs (bucket names, stream names, etc.)
+aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[*].[OutputKey,OutputValue]" --output table
+```
+
+**🖥️ AWS Console Verification:**
+1. Go to [CloudFormation Console](https://us-west-2.console.aws.amazon.com/cloudformation/home?region=us-west-2)
+2. Look for stacks: SR-Network, SR-Security, SR-Identity, SR-Data, SR-ML, SR-Messaging
+3. Status should show: **CREATE_COMPLETE** (green)
+4. Click each stack → **Outputs** tab to see resource names
+
+**📋 What Was Created:**
+- **SR-Network**: VPC with private subnets, NAT Gateway, VPC endpoints
+- **SR-Security**: KMS encryption key with auto-rotation
+- **SR-Identity**: Cognito User Pool and App Client
+- **SR-Data**: S3 buckets, Kinesis stream, DynamoDB table
+- **SR-ML**: Glue job, Step Functions state machine
+- **SR-Messaging**: Pinpoint app, Kinesis Firehose
+```
+
 #### 2. Build Lambda Services
 
 Now build all Java Lambda services:
@@ -574,6 +603,21 @@ mvn clean package -DskipTests
 cd ../..
 ```
 
+**✅ Verify Build:**
+
+Check that JAR files were created:
+
+```bash
+# List all built JARs
+find services -name "*.jar" -path "*/target/*" | grep -v sources | grep -v javadoc
+
+# Expected output:
+# services/control-plane/target/control-plane.jar
+# services/events-consumer/target/events-consumer.jar
+# services/decision-service/target/decision-service.jar
+# services/sender-service/target/sender-service.jar
+```
+
 #### 3. Deploy Lambda Functions
 
 After building services, deploy the Compute stack:
@@ -584,6 +628,42 @@ pnpm exec cdk deploy SR-Compute
 ```
 
 This will package your Lambda JARs and deploy them to AWS.
+
+**✅ Verify Lambda Deployment:**
+
+Check that Lambda functions were created:
+
+```bash
+# List all Lambda functions
+aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'SR-Compute')].{Name:FunctionName,Runtime:Runtime,Size:CodeSize}" \
+    --output table
+
+# Get API Gateway URL from CDK outputs
+aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
+```
+
+**🖥️ AWS Console Verification:**
+1. **Lambda Console**: [https://us-west-2.console.aws.amazon.com/lambda](https://us-west-2.console.aws.amazon.com/lambda)
+   - Look for functions: ControlPlaneFn, EventsConsumerFn, DecisionFn, SenderFn
+   - Check **Configuration** → Code source shows the uploaded code
+
+2. **API Gateway Console**: [https://us-west-2.console.aws.amazon.com/apigateway](https://us-west-2.console.aws.amazon.com/apigateway)
+   - Find your HTTP API
+   - Check **Routes** shows: `/v1/health`, `/v1/events`, `/v1/users/{id}`, `/v1/decisions/preview`
+
+3. **Test Health Endpoint**:
+   ```bash
+   # Get API URL (from output above)
+   API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+       --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
+
+   # Test public health endpoint (no auth required)
+   curl $API_URL/v1/health
+
+   # Expected response: {"status":"healthy"}
+   ```
 
 #### 4. Initialize ML Pipeline
 
@@ -596,13 +676,58 @@ This will package your Lambda JARs and deploy them to AWS.
 aws s3 cp glue-jobs/build_hourly_features.py s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
 
 # Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
-aws stepfunctions start-execution \
+EXECUTION_ARN=$(aws stepfunctions start-execution \
     --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-Pipeline \
-    --input '{}'
+    --input '{}' \
+    --query 'executionArn' --output text)
 
-# Monitor training
-aws sagemaker describe-training-job --training-job-name send-time-20250406-020000
+echo "Started execution: $EXECUTION_ARN"
 ```
+
+**✅ Monitor ML Pipeline Execution:**
+
+```bash
+# Check execution status
+aws stepfunctions describe-execution \
+    --execution-arn $EXECUTION_ARN \
+    --query '{Status:status,StartDate:startDate,StopDate:stopDate}' \
+    --output table
+
+# View execution history (see each step)
+aws stepfunctions get-execution-history \
+    --execution-arn $EXECUTION_ARN \
+    --query 'events[*].{Time:timestamp,Type:type,State:stateEnteredEventDetails.name}' \
+    --output table
+
+# Once Glue job completes, find the SageMaker training job
+aws sagemaker list-training-jobs --region us-west-2 \
+    --sort-by CreationTime --sort-order Descending \
+    --max-results 5 \
+    --query 'TrainingJobSummaries[*].{Name:TrainingJobName,Status:TrainingJobStatus,Time:CreationTime}' \
+    --output table
+```
+
+**🖥️ AWS Console Monitoring:**
+
+1. **Step Functions Console**: [https://us-west-2.console.aws.amazon.com/states/home?region=us-west-2](https://us-west-2.console.aws.amazon.com/states/home?region=us-west-2)
+   - Click on **SR-ML-Pipeline** state machine
+   - See execution history with visual graph
+   - Check if Glue job and SageMaker training completed
+
+2. **AWS Glue Console**: [https://us-west-2.console.aws.amazon.com/glue/home?region=us-west-2#/v2/etl-jobs](https://us-west-2.console.aws.amazon.com/glue/home?region=us-west-2#/v2/etl-jobs)
+   - Find **SR-ML-build-hourly-features** job
+   - Check **Runs** tab to see execution history
+   - Click **Logs** to view CloudWatch logs
+
+3. **SageMaker Console**: [https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs](https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs)
+   - See training job (name starts with `send-time-`)
+   - Status should show: **InProgress** → **Completed**
+   - Click job → **Monitor** to see logs and metrics
+
+**Expected Timeline:**
+- Glue job: ~5-15 minutes (processes events → creates features CSV)
+- SageMaker training: ~10-20 minutes (trains XGBoost model)
+- **Total**: ~15-35 minutes for first run
 
 #### 5. Deploy SageMaker Endpoint
 
@@ -613,6 +738,31 @@ After first successful training:
 cd infra/cdk
 pnpm exec cdk deploy SR-SageMaker
 ```
+
+**✅ Verify SageMaker Endpoint:**
+
+```bash
+# Check endpoint status
+aws sagemaker describe-endpoint --endpoint-name send-time-v1 --region us-west-2 \
+    --query '{Name:EndpointName,Status:EndpointStatus,Instance:ProductionVariants[0].InstanceType}' \
+    --output table
+
+# Test endpoint with sample prediction
+aws sagemaker-runtime invoke-endpoint \
+    --endpoint-name send-time-v1 \
+    --body '0,14,0.12,47,2' \
+    --content-type text/csv \
+    --region us-west-2 \
+    /tmp/prediction.txt && cat /tmp/prediction.txt
+
+# Expected output: a probability score between 0 and 1
+```
+
+**🖥️ AWS Console Verification:**
+- **SageMaker Endpoints**: [https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints](https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints)
+  - Find **send-time-v1** endpoint
+  - Status should be: **InService** (green)
+  - Check **Monitor** tab for invocation metrics
 
 #### 6. Test the API
 
