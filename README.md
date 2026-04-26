@@ -46,11 +46,19 @@
       - [Step 3: Check AWS Service Quotas](#step-3-check-aws-service-quotas)
       - [Step 4: Clone and Prepare Repository](#step-4-clone-and-prepare-repository)
     - [Quick Start](#quick-start)
-      - [1. Infrastructure Deployment](#1-infrastructure-deployment)
-      - [2. Build Services](#2-build-services)
-      - [3. Initialize ML Pipeline](#3-initialize-ml-pipeline)
-      - [4. Deploy SageMaker Endpoint](#4-deploy-sagemaker-endpoint)
-      - [5. Test the API](#5-test-the-api)
+      - [1. Deploy Foundation Infrastructure](#1-deploy-foundation-infrastructure)
+      - [2. Build Lambda Services](#2-build-lambda-services)
+      - [3. Deploy Lambda Functions](#3-deploy-lambda-functions)
+      - [4. Initialize ML Pipeline](#4-initialize-ml-pipeline)
+      - [5. Deploy SageMaker Endpoint](#5-deploy-sagemaker-endpoint)
+      - [6. Test the API](#6-test-the-api)
+  - [Development Workflow](#development-workflow)
+    - [Making Code Changes](#making-code-changes)
+    - [Quick Reference Table](#quick-reference-table)
+    - [Testing Locally](#testing-locally)
+    - [Common Development Scenarios](#common-development-scenarios)
+    - [Rollback Strategy](#rollback-strategy)
+    - [Cleaning Up](#cleaning-up)
   - [Configuration](#configuration)
     - [Environment Variables](#environment-variables)
     - [Model Hyperparameters](#model-hyperparameters)
@@ -514,7 +522,11 @@ pnpm exec cdk synth
 
 ### Quick Start
 
-#### 1. Infrastructure Deployment
+Follow these steps in order for initial deployment:
+
+#### 1. Deploy Foundation Infrastructure
+
+Deploy the foundational stacks (these don't need Lambda code yet):
 
 ```bash
 cd infra/cdk
@@ -525,16 +537,13 @@ pnpm install
 # Synthesize CloudFormation templates
 pnpm exec cdk synth
 
-# Deploy foundational stacks
-pnpm exec cdk deploy SR-Network SR-Security SR-Identity SR-Data
-
-# Deploy application stacks
-pnpm exec cdk deploy SR-Compute SR-ML SR-Messaging
-
-# Note: Deploy SR-SageMaker only after training first model
+# Deploy foundational stacks (no Lambda code required)
+pnpm exec cdk deploy SR-Network SR-Security SR-Identity SR-Data SR-ML SR-Messaging
 ```
 
-#### 2. Build Services
+#### 2. Build Lambda Services
+
+Now build all Java Lambda services:
 
 **Option A: Build all services at once (Recommended)**
 ```bash
@@ -560,7 +569,18 @@ mvn clean package -DskipTests
 cd ../..
 ```
 
-#### 3. Initialize ML Pipeline
+#### 3. Deploy Lambda Functions
+
+After building services, deploy the Compute stack:
+
+```bash
+cd infra/cdk
+pnpm exec cdk deploy SR-Compute
+```
+
+This will package your Lambda JARs and deploy them to AWS.
+
+#### 4. Initialize ML Pipeline
 
 ```bash
 # Upload Glue scripts
@@ -575,16 +595,17 @@ aws stepfunctions start-execution \
 aws sagemaker describe-training-job --training-job-name send-time-20250406-020000
 ```
 
-#### 4. Deploy SageMaker Endpoint
+#### 5. Deploy SageMaker Endpoint
 
 After first successful training:
 ```bash
 # Update sagemaker-stack.ts with trained model S3 path from training output
 # Example: s3://sr-models-prod/send_time/v1/model.tar.gz
+cd infra/cdk
 pnpm exec cdk deploy SR-SageMaker
 ```
 
-#### 5. Test the API
+#### 6. Test the API
 
 ```bash
 # Authenticate (Cognito) - replace YOUR_CLIENT_ID with actual Cognito app client ID
@@ -614,6 +635,179 @@ curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/decision
   }'
 ```
 
+---
+
+## Development Workflow
+
+After initial setup, use these commands for ongoing development and deployment.
+
+### Making Code Changes
+
+#### Lambda Function Code Changes
+
+When you modify Lambda function code (Java services):
+
+```bash
+# 1. Rebuild the specific service (or all services)
+./build-services.sh
+
+# 2. Redeploy only the Compute stack
+cd infra/cdk
+pnpm exec cdk deploy SR-Compute
+
+# CDK will detect changes and update only modified Lambda functions
+```
+
+**What gets updated**: Only the Lambda functions with code changes
+**Downtime**: Minimal (Lambda versioning handles smooth transitions)
+
+#### Infrastructure Changes (CDK Code)
+
+When you modify infrastructure code (TypeScript in `infra/cdk/lib/`):
+
+```bash
+cd infra/cdk
+
+# 1. Synthesize to check for errors
+pnpm exec cdk synth
+
+# 2. See what will change (optional but recommended)
+pnpm exec cdk diff SR-STACK-NAME
+
+# 3. Deploy the specific stack
+pnpm exec cdk deploy SR-STACK-NAME
+```
+
+**Examples:**
+- Modified `compute-stack.ts` → `pnpm exec cdk deploy SR-Compute`
+- Modified `ml-stack.ts` → `pnpm exec cdk deploy SR-ML`
+- Modified `data-stack.ts` → `pnpm exec cdk deploy SR-Data`
+
+#### Glue Scripts or Step Functions
+
+When you modify Glue ETL scripts:
+
+```bash
+# Upload updated script to S3
+aws s3 cp glue_jobs/build_hourly_features.py \
+    s3://YOUR_MODELS_BUCKET/scripts/build_hourly_features.py
+
+# Trigger the pipeline to test
+aws stepfunctions start-execution \
+    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-Pipeline \
+    --input '{}'
+```
+
+### Quick Reference Table
+
+| What Changed | Commands to Run | What Gets Redeployed |
+|--------------|----------------|---------------------|
+| Lambda function code (Java) | `./build-services.sh` <br/> `cd infra/cdk && pnpm exec cdk deploy SR-Compute` | Only modified Lambda functions |
+| API Gateway routes | `cd infra/cdk && pnpm exec cdk deploy SR-Compute` | API Gateway configuration |
+| DynamoDB schema | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Database tables (⚠️ may cause data migration) |
+| Kinesis configuration | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Kinesis stream settings |
+| ML pipeline (Step Functions) | `cd infra/cdk && pnpm exec cdk deploy SR-ML` | State machine definition |
+| Glue ETL script | `aws s3 cp glue_jobs/*.py s3://bucket/scripts/` | Just the script file |
+| SageMaker endpoint config | `cd infra/cdk && pnpm exec cdk deploy SR-SageMaker` | Endpoint configuration |
+| VPC or networking | `cd infra/cdk && pnpm exec cdk deploy SR-Network` | Network infrastructure |
+
+### Testing Locally
+
+#### Test Lambda Functions Locally
+
+```bash
+# Run unit tests
+cd services/control-plane
+mvn test
+
+# Package for local testing with SAM (optional)
+sam local invoke ControlPlaneFn -e test-event.json
+```
+
+#### Test CDK Changes Without Deploying
+
+```bash
+cd infra/cdk
+
+# Check what will change
+pnpm exec cdk diff SR-Compute
+
+# Synthesize CloudFormation (no deployment)
+pnpm exec cdk synth SR-Compute
+```
+
+### Common Development Scenarios
+
+**Scenario 1: Fixed a bug in decision-service Lambda**
+```bash
+./build-services.sh
+cd infra/cdk && pnpm exec cdk deploy SR-Compute
+```
+
+**Scenario 2: Added a new API endpoint**
+```bash
+# Edit compute-stack.ts to add new route
+cd infra/cdk
+pnpm exec cdk deploy SR-Compute
+```
+
+**Scenario 3: Changed ML model hyperparameters**
+```bash
+# Edit ml-stack.ts hyperparameters
+cd infra/cdk
+pnpm exec cdk deploy SR-ML
+
+# Trigger retraining
+aws stepfunctions start-execution \
+    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-Pipeline \
+    --input '{}'
+```
+
+**Scenario 4: Updated feature engineering logic**
+```bash
+# Upload new Glue script
+aws s3 cp glue_jobs/build_hourly_features.py \
+    s3://YOUR_MODELS_BUCKET/scripts/
+
+# Trigger pipeline
+aws stepfunctions start-execution \
+    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-Pipeline \
+    --input '{}'
+```
+
+### Rollback Strategy
+
+If a deployment causes issues:
+
+```bash
+# Option 1: Rollback via AWS Console
+# Go to CloudFormation → Select Stack → Actions → Roll back
+
+# Option 2: Redeploy previous version
+git checkout <previous-commit>
+./build-services.sh
+cd infra/cdk && pnpm exec cdk deploy SR-Compute
+```
+
+### Cleaning Up
+
+To destroy all infrastructure (⚠️ this deletes everything):
+
+```bash
+cd infra/cdk
+
+# Destroy stacks in reverse order
+pnpm exec cdk destroy SR-SageMaker
+pnpm exec cdk destroy SR-Messaging
+pnpm exec cdk destroy SR-ML
+pnpm exec cdk destroy SR-Compute
+pnpm exec cdk destroy SR-Data
+pnpm exec cdk destroy SR-Identity
+pnpm exec cdk destroy SR-Security
+pnpm exec cdk destroy SR-Network
+```
+
+---
 
 ## Configuration
 

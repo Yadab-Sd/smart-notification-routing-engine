@@ -18,7 +18,7 @@ export class ComputeStack extends Stack {
         const controlPlane = new lambda.Function(this,'ControlPlaneFn',{
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.controlplane.Handler::handleRequest',
-            code: lambda.Code.fromAsset('../../services/control-plane/target/control-plane.zip'),
+            code: lambda.Code.fromAsset('../../services/control-plane/target/control-plane.jar'),
             timeout: cdk.Duration.seconds(15),
             memorySize: 1024,
             environment: { USER_EVENTS_STREAM: data.userEvents.streamName },
@@ -34,7 +34,7 @@ export class ComputeStack extends Stack {
         const eventsConsumer = new lambda.Function(this,'EventsConsumerFn',{
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.eventsconsumer.Handler::handleRequest',
-            code: lambda.Code.fromAsset('../../services/events-consumer/target/events-consumer.zip'),
+            code: lambda.Code.fromAsset('../../services/events-consumer/target/events-consumer.jar'),
             timeout: cdk.Duration.seconds(30),
             memorySize: 512,
             environment: {
@@ -60,7 +60,7 @@ export class ComputeStack extends Stack {
         const senderFn = new lambda.Function(this,'SenderFn',{
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.sender.Handler::handleRequest',
-            code: lambda.Code.fromAsset('../../services/sender-service/target/sender.zip'),
+            code: lambda.Code.fromAsset('../../services/sender-service/target/sender-service.jar'),
             memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc
         });
         data.curatedBucket.grantRead(senderFn); // templates
@@ -82,7 +82,7 @@ export class ComputeStack extends Stack {
         const decisionFn = new lambda.Function(this,'DecisionFn',{
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.decision.Handler::handleRequest',
-            code: lambda.Code.fromAsset('../../services/decision-service/target/decision.zip'),
+            code: lambda.Code.fromAsset('../../services/decision-service/target/decision-service.jar'),
             memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc,
             environment: {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
