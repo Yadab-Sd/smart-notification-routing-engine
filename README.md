@@ -478,14 +478,15 @@ npm install -g aws-cdk
 # Verify installation
 cdk --version
 
-# Bootstrap your account (replace YOUR_ACCOUNT_ID with your actual account ID)
-cdk bootstrap aws://YOUR_ACCOUNT_ID/us-west-2
+# Set your AWS account ID (run this once, use throughout the session)
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+echo "Account ID: $ACCOUNT_ID"
 
-# To find your account ID:
-aws sts get-caller-identity --query Account --output text
+# Bootstrap your account
+cdk bootstrap aws://${ACCOUNT_ID}/us-west-2
 
 # Expected output:
-# ✅ Environment aws://YOUR_ACCOUNT_ID/us-west-2 bootstrapped
+# ✅ Environment aws://123456789012/us-west-2 bootstrapped
 ```
 
 **What does bootstrap do?**
@@ -528,6 +529,11 @@ pnpm exec cdk synth
 ### Quick Start
 
 Follow these steps in order for initial deployment:
+
+**Prerequisites:** Before starting, ensure you've set your AWS account ID variable (from Step 2):
+```bash
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+```
 
 #### 1. Deploy Foundation Infrastructure
 
@@ -677,9 +683,9 @@ echo "Models bucket: $MODELS_BUCKET"
 # Upload Glue script to the models bucket
 aws s3 cp glue-jobs/build_hourly_features.py s3://${MODELS_BUCKET}/scripts/build_hourly_features.py
 
-# Manually trigger Step Functions (replace YOUR_ACCOUNT_ID with your actual account ID)
+# Manually trigger Step Functions
 EXECUTION_ARN=$(aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
     --region us-west-2 \
     --input '{}' \
     --query 'executionArn' --output text)
@@ -866,7 +872,7 @@ aws s3 cp glue-jobs/build_hourly_features.py \
 
 # Trigger the pipeline to test
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
     --region us-west-2 \
     --input '{}'
 ```
@@ -943,7 +949,7 @@ pnpm exec cdk deploy SR-ML
 
 # Trigger retraining
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
     --region us-west-2 \
     --input '{}'
 ```
@@ -960,7 +966,7 @@ aws s3 cp glue-jobs/build_hourly_features.py \
 
 # Trigger pipeline
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:YOUR_ACCOUNT_ID:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
     --region us-west-2 \
     --input '{}'
 ```
