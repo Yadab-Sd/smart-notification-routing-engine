@@ -685,7 +685,7 @@ aws s3 cp glue-jobs/build_hourly_features.py s3://${MODELS_BUCKET}/scripts/build
 
 # Manually trigger Step Functions
 EXECUTION_ARN=$(aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-Pipeline \
     --region us-west-2 \
     --input '{}' \
     --query 'executionArn' --output text)
@@ -872,7 +872,7 @@ aws s3 cp glue-jobs/build_hourly_features.py \
 
 # Trigger the pipeline to test
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-Pipeline \
     --region us-west-2 \
     --input '{}'
 ```
@@ -949,7 +949,7 @@ pnpm exec cdk deploy SR-ML
 
 # Trigger retraining
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-Pipeline \
     --region us-west-2 \
     --input '{}'
 ```
@@ -966,7 +966,7 @@ aws s3 cp glue-jobs/build_hourly_features.py \
 
 # Trigger pipeline
 aws stepfunctions start-execution \
-    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-MlOrchestrator \
+    --state-machine-arn arn:aws:states:us-west-2:${ACCOUNT_ID}:stateMachine:SR-ML-Pipeline \
     --region us-west-2 \
     --input '{}'
 ```

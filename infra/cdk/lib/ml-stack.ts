@@ -181,7 +181,7 @@ export class MlStack extends cdk.Stack {
 
         const logGroup = new logs.LogGroup(this, 'MlOrchestratorLogGroup');
         const sm = new sfn.StateMachine(this, 'MlOrchestrator', {
-            // stateMachineName: cdk.PhysicalName.GENERATE_IF_NEEDED,
+            stateMachineName: 'SR-ML-Pipeline',
             definitionBody: sfn.DefinitionBody.fromChainable(definition),
             logs: {
                 destination: logGroup,
