@@ -161,19 +161,6 @@ final_df.show(10)
  .csv(out_path))
 
 print(f"Successfully wrote CSV files to {out_path}")
-
-# Verify files were written
-from py4j.java_gateway import java_import
-java_import(spark._jvm, 'org.apache.hadoop.fs.Path')
-java_import(spark._jvm, 'org.apache.hadoop.fs.FileSystem')
-fs = spark._jvm.FileSystem.get(spark._jsc.hadoopConfiguration())
-path = spark._jvm.Path(out_path)
-if fs.exists(path):
-    files = fs.listStatus(path)
-    print(f"Files written: {files.length}")
-    for i in range(files.length):
-        print(f"  - {files[i].getPath()}")
-else:
-    print(f"ERROR: Output path {out_path} does not exist!")
+print("Verify files at: aws s3 ls " + out_path + " --recursive")
 
 job.commit()
