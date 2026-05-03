@@ -23,6 +23,7 @@ const security = new SecurityStack(app, 'SR-Security', {env});
 const data = new DataStack(app, 'SR-Data', {env, kmsKey: security.dataKey});
 
 new ComputeStack(app, 'SR-Compute', {env, vpc: network.vpc, kmsKey: security.dataKey, data, identity});
+
 // after creating DataStack (named `data`) and IdentityStack...
 const ml = new MlStack(app, 'SR-ML', {
     env,

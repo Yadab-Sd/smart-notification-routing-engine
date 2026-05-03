@@ -1,4 +1,4 @@
-import { Stack, StackProps, aws_cognito as cognito } from 'aws-cdk-lib';
+import { Stack, StackProps, aws_cognito as cognito, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 
@@ -10,5 +10,9 @@ export class IdentityStack extends Stack {
         this.userPool = new cognito.UserPool(this,'AdminUsers',{ selfSignUpEnabled:true, signInAliases:{ email:true }, standardAttributes:{ email:{ required:true, mutable:false } }});
         this.userPool.addDomain('HostedDomain',{ cognitoDomain:{ domainPrefix:`sr-admin-${this.account.slice(-6)}` }});
         this.userPoolClient = this.userPool.addClient('WebClient',{ authFlows:{ userPassword:true, userSrp:true }, oAuth:{ flows:{ authorizationCodeGrant:true }, scopes:[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL]} });
+
+        // Outputs for easy reference
+        new CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
+        new CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
     }
 }

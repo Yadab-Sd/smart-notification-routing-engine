@@ -47,11 +47,11 @@
       - [Step 4: Clone and Prepare Repository](#step-4-clone-and-prepare-repository)
     - [Quick Start](#quick-start)
       - [1. Deploy Foundation Infrastructure](#1-deploy-foundation-infrastructure)
-      - [2. Build Lambda Services](#2-build-lambda-services)
       - [3. Deploy Lambda Functions](#3-deploy-lambda-functions)
-      - [4. Initialize ML Pipeline](#4-initialize-ml-pipeline)
-      - [5. Deploy SageMaker Endpoint](#5-deploy-sagemaker-endpoint)
-      - [6. Test the API](#6-test-the-api)
+      - [4. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)](#4-ingest-sample-events-important---do-this-before-ml-pipeline)
+      - [5. Initialize ML Pipeline](#5-initialize-ml-pipeline)
+      - [6. Deploy SageMaker Endpoint](#6-deploy-sagemaker-endpoint)
+      - [7. Test the API](#7-test-the-api)
   - [Development Workflow](#development-workflow)
     - [Making Code Changes](#making-code-changes)
       - [Lambda Function Code Changes](#lambda-function-code-changes)
@@ -675,6 +675,53 @@ aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
 
 **⚠️ Critical:** The ML pipeline needs event data to train on. You must ingest events first!
 
+**First, authenticate to get a JWT token:**
+
+```bash
+# Get Cognito details
+USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name SR-Identity --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+
+CLIENT_ID=$(aws cloudformation describe-stacks --stack-name SR-Identity --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+
+TEST_USER_EMAIL=<testuser@example.com>
+
+# Create a test user (one-time setup)
+aws cognito-idp admin-create-user \
+    --user-pool-id ${USER_POOL_ID} \
+    --username ${TEST_USER_EMAIL} \
+    --user-attributes Name=email,Value=${TEST_USER_EMAIL} Name=email_verified,Value=true \
+    --temporary-password TempPass123! \
+    --region us-west-2
+
+# Check the user 
+aws cognito-idp list-users \
+    --user-pool-id ${USER_POOL_ID} \
+    --region us-west-2
+
+# Set permanent password
+aws cognito-idp admin-set-user-password \
+    --user-pool-id ${USER_POOL_ID} \
+    --username ${TEST_USER_EMAIL} \
+    --password SecurePass123! \
+    --permanent \
+    --region us-west-2
+
+# Authenticate and get JWT token
+JWT_TOKEN=$(aws cognito-idp initiate-auth \
+    --auth-flow USER_PASSWORD_AUTH \
+    --client-id ${CLIENT_ID} \
+    --auth-parameters USERNAME=${TEST_USER_EMAIL},PASSWORD=SecurePass123! \
+    --region us-west-2 \
+    --query 'AuthenticationResult.IdToken' \
+    --output text)
+
+echo "JWT Token obtained: ${JWT_TOKEN:0:20}..."
+```
+
+**Now send sample events with authentication:**
+
 ```bash
 # Get API URL
 API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
@@ -682,6 +729,7 @@ API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us
 
 # Send sample events (repeat this multiple times with different timestamps)
 curl -X POST ${API_URL}/v1/events \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user_001",
@@ -691,6 +739,7 @@ curl -X POST ${API_URL}/v1/events \
   }'
 
 curl -X POST ${API_URL}/v1/events \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user_001",
