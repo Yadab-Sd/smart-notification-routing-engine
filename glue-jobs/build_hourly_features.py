@@ -29,13 +29,27 @@ try:
         .option("recursiveFileLookup", "true") \
         .json(events_path)
 
+    # Debug: Print schema and sample data
+    print(f"Schema from {events_path}:")
+    df.printSchema()
+    print("Sample rows:")
+    df.show(5, truncate=False)
+    print(f"Total records: {df.count()}")
+
     if df.count() == 0:
         print(f"No events found in {events_path}. Please ingest events before running the ML pipeline.")
         job.commit()
         sys.exit(0)
+
+    # Check if _corrupt_record exists (indicates JSON parsing issues)
+    if '_corrupt_record' in df.columns:
+        print("WARNING: Found _corrupt_record column. Some JSON records are malformed.")
+        df.filter(F.col('_corrupt_record').isNotNull()).show(10, truncate=False)
+        raise Exception("JSON parsing errors detected. Check the event format in S3.")
+
 except Exception as e:
     print(f"Error reading from {events_path}: {str(e)}")
-    print("No events found. Please ingest events first via the /v1/events API endpoint.")
+    print("No events found or JSON parsing failed. Please check the /v1/events API endpoint and S3 data.")
     job.commit()
     sys.exit(0)
 

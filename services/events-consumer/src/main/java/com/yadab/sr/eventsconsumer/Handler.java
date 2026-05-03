@@ -48,9 +48,11 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         try {
             for (KinesisEvent.KinesisEventRecord rec : event.getRecords()) {
                 ByteBuffer bb = rec.getKinesis().getData();
-                String json = StandardCharsets.UTF_8.decode(bb).toString();
+                String rawJson = StandardCharsets.UTF_8.decode(bb).toString();
 
-                JsonNode node = MAPPER.readTree(json);
+                // Parse and re-serialize to compact JSON (single line)
+                JsonNode node = MAPPER.readTree(rawJson);
+                String json = MAPPER.writeValueAsString(node);
 
                 // ts handling (fallback to now if missing)
                 String ts = node.path("ts").asText(null);
