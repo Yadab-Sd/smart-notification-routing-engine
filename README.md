@@ -988,6 +988,131 @@ curl -X POST ${API_URL}/v1/decisions/preview \
     \"windowEnd\": ${WINDOW_END},
     \"schedule\": false
   }"
+
+# Create schedule (schedule notification for optimal time)
+curl -X POST ${API_URL}/v1/decisions/schedule \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"userId\": \"user_001\",
+    \"windowStart\": ${WINDOW_START},
+    \"windowEnd\": ${WINDOW_END},
+    \"schedule\": true
+  }"
+
+# Expected response:
+# {
+#   "hour": 20,
+#   "probability": 0.5,
+#   "scheduled": true
+# }
+```
+
+**✅ Verify Schedule Creation:**
+
+After creating a schedule, verify it was created in EventBridge:
+
+```bash
+# List all schedules
+aws scheduler list-schedules --region us-west-2 --output table
+
+# Get schedules starting with 'send-email-'
+aws scheduler list-schedules --region us-west-2 \
+    --query 'Schedules[?starts_with(Name, `send-email-`)].[Name,State,Target.Arn]' \
+    --output table
+
+# Get detailed info about a specific schedule
+SCHEDULE_NAME=$(aws scheduler list-schedules --region us-west-2 \
+    --query 'Schedules[?starts_with(Name, `send-email-`)].Name' --output text | head -1)
+
+aws scheduler get-schedule --name ${SCHEDULE_NAME} --region us-west-2
+```
+
+**🖥️ AWS Console Verification:**
+1. Go to [EventBridge Scheduler Console](https://us-west-2.console.aws.amazon.com/scheduler/home?region=us-west-2#schedules)
+2. Look for schedules starting with `send-email-`
+3. Click on a schedule to see:
+   - Schedule expression (e.g., `at(2026-05-04T20:00:00)`)
+   - Target: SR-Compute-SenderFn Lambda
+   - Payload: `{userId: user_001}`
+   - Execution Role: SR-Compute-SchedulerInvokeSender
+
+**🧪 Test Sender Lambda Manually:**
+
+Don't want to wait for the scheduled time? Test the Sender Lambda now:
+
+```bash
+# Get Sender Lambda ARN
+SENDER_ARN=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='SenderFnArn'].OutputValue" --output text)
+
+# Create test payload
+cat > /tmp/sender-test.json <<'EOF'
+{
+  "userId": "user_001"
+}
+EOF
+
+# Invoke Sender Lambda
+aws lambda invoke \
+    --function-name ${SENDER_ARN} \
+    --region us-west-2 \
+    --cli-binary-format raw-in-base64-out \
+    --payload file:///tmp/sender-test.json \
+    /tmp/sender-response.json
+
+# View response
+cat /tmp/sender-response.json
+
+# Check logs
+aws logs tail /aws/lambda/$(basename ${SENDER_ARN}) --follow --region us-west-2
+```
+
+**📊 Monitor Scheduled Execution:**
+
+When the scheduled time arrives, EventBridge will automatically invoke the Sender Lambda. Monitor execution:
+
+```bash
+# View Sender Lambda logs (wait for scheduled time to see execution)
+SENDER_ARN=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='SenderFnArn'].OutputValue" --output text)
+
+aws logs tail /aws/lambda/$(basename ${SENDER_ARN}) --follow --region us-west-2
+
+# Check recent Lambda invocations
+aws lambda get-function --function-name ${SENDER_ARN} --region us-west-2 \
+    --query 'Configuration.{Name:FunctionName,LastModified:LastModified}' --output table
+
+# View EventBridge Scheduler execution history
+aws scheduler list-schedule-groups --region us-west-2
+```
+
+**🖥️ AWS Console Monitoring:**
+1. **Lambda Console**: [https://us-west-2.console.aws.amazon.com/lambda](https://us-west-2.console.aws.amazon.com/lambda)
+   - Click **SR-Compute-SenderFn**
+   - Go to **Monitor** tab → **Logs** → Recent invocations
+   - Check if invocation succeeded at the scheduled time
+
+2. **EventBridge Scheduler**: [https://us-west-2.console.aws.amazon.com/scheduler](https://us-west-2.console.aws.amazon.com/scheduler)
+   - Click on your schedule
+   - Check **Last execution** and **Next execution** times
+
+3. **CloudWatch Logs**: [https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups)
+   - Find `/aws/lambda/SR-Compute-SenderFn`
+   - View log streams to see execution details
+
+**🗑️ Delete a Schedule (if needed):**
+
+```bash
+# Delete a specific schedule
+aws scheduler delete-schedule --name ${SCHEDULE_NAME} --region us-west-2
+
+# Or delete all schedules starting with 'send-email-'
+for schedule in $(aws scheduler list-schedules --region us-west-2 \
+    --query 'Schedules[?starts_with(Name, `send-email-`)].Name' --output text); do
+    echo "Deleting schedule: $schedule"
+    aws scheduler delete-schedule --name $schedule --region us-west-2
+done
 ```
 
 ---
