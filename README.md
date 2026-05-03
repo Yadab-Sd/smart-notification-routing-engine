@@ -671,7 +671,49 @@ aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
    # Expected response: {"status":"healthy"}
    ```
 
-#### 4. Initialize ML Pipeline
+#### 4. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)
+
+**⚠️ Critical:** The ML pipeline needs event data to train on. You must ingest events first!
+
+```bash
+# Get API URL
+API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
+
+# Send sample events (repeat this multiple times with different timestamps)
+curl -X POST ${API_URL}/v1/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user_001",
+    "type": "PLAY_MOVIE",
+    "ts": "2025-04-26T10:30:00Z",
+    "attrs": {"device": "mobile", "movieId": "movie_123"}
+  }'
+
+curl -X POST ${API_URL}/v1/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user_001",
+    "type": "CLICK",
+    "ts": "2025-04-26T11:00:00Z",
+    "attrs": {"device": "mobile", "buttonId": "watch_now"}
+  }'
+
+# Send more events with different users and timestamps...
+# The more events you send, the better the ML model will train
+```
+
+**Verify events are in S3:**
+```bash
+EVENTS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='EventsBucketName'].OutputValue" --output text)
+
+aws s3 ls s3://${EVENTS_BUCKET}/raw/ --recursive
+```
+
+#### 5. Initialize ML Pipeline
+
+**Now that you have event data, run the ML pipeline:**
 
 ```bash
 # Get your models bucket name from CDK outputs (deployed in step 1)
@@ -738,7 +780,7 @@ aws sagemaker list-training-jobs --region us-west-2 \
 - SageMaker training: ~10-20 minutes (trains XGBoost model)
 - **Total**: ~15-35 minutes for first run
 
-#### 5. Deploy SageMaker Endpoint
+#### 6. Deploy SageMaker Endpoint
 
 After first successful training:
 ```bash
@@ -779,7 +821,7 @@ aws sagemaker-runtime invoke-endpoint \
   - Status should be: **InService** (green)
   - Check **Monitor** tab for invocation metrics
 
-#### 6. Test the API
+#### 7. Test the API
 
 ```bash
 # Authenticate (Cognito) - replace YOUR_CLIENT_ID with actual Cognito app client ID

@@ -22,8 +22,18 @@ out_path = f"s3://{curated_bucket}/features-csv/"  # <-- CSV for XGBoost
 
 spark._jsc.hadoopConfiguration().set("mapreduce.fileoutputcommitter.marksuccessfuljobs", "false") # not to create empty csv
 
-# Read raw JSONL
-df = spark.read.option("multiLine", False).json(events_path)
+# Check if events path exists and has data
+try:
+    df = spark.read.option("multiLine", False).json(events_path)
+    if df.count() == 0:
+        print(f"No events found in {events_path}. Please ingest events before running the ML pipeline.")
+        job.commit()
+        sys.exit(0)
+except Exception as e:
+    print(f"Error reading from {events_path}: {str(e)}")
+    print("No events found. Please ingest events first via the /v1/events API endpoint.")
+    job.commit()
+    sys.exit(0)
 
 # Normalize timestamp column
 if 'ts' not in df.columns and 'timestamp' in df.columns:
