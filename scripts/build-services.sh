@@ -13,6 +13,7 @@ SERVICES=(
     "events-consumer"
     "decision-service"
     "sender-service"
+    "endpoint-deployer"
 )
 
 for service in "${SERVICES[@]}"; do
@@ -47,8 +48,10 @@ echo "  - services/control-plane/target/control-plane.jar"
 echo "  - services/events-consumer/target/events-consumer.jar"
 echo "  - services/decision-service/target/decision-service.jar"
 echo "  - services/sender-service/target/sender-service.jar"
+echo "  - services/endpoint-deployer/target/endpoint-deployer.jar"
 echo ""
-echo "Note: These JAR files are what the CDK deployment will use to create Lambda functions inside SR-Compute stack (compute-stack.ts)."
+echo "Note: These JAR files are what the CDK deployment will use to create Lambda functions."
 echo ""
 echo "Next steps:"
 echo "  1. Deploy Lambda functions: cd infra/cdk && pnpm exec cdk deploy SR-Compute"
+echo "  2. Deploy ML pipeline: cd infra/cdk && pnpm exec cdk deploy SR-ML"

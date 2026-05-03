@@ -15,6 +15,7 @@ import {DataStack} from "./data-stack";
 import {InputMode} from "aws-cdk-lib/aws-stepfunctions-tasks";
 import {SecurityStack} from "./security-stack";
 import * as sagemaker from 'aws-cdk-lib/aws-sagemaker';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 
 interface MlStackProps extends cdk.StackProps {
     data: DataStack;
@@ -175,9 +176,45 @@ export class MlStack extends cdk.Stack {
             integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         });
 
+        // --- Lambda: Deploy/Update SageMaker Endpoint (Java 21) ---
+        const endpointDeployerFn = new lambda.Function(this, 'EndpointDeployerFn', {
+            runtime: lambda.Runtime.JAVA_21,
+            handler: 'com.yadab.sr.endpointdeployer.Handler::handleRequest',
+            code: lambda.Code.fromAsset('../../services/endpoint-deployer/target/endpoint-deployer.jar'),
+            timeout: cdk.Duration.minutes(5),
+            memorySize: 512,
+            environment: {
+                SAGEMAKER_ROLE_ARN: this.sagemakerRole.roleArn
+            }
+        });
+
+        // Grant permissions to create/update SageMaker resources
+        endpointDeployerFn.addToRolePolicy(new iam.PolicyStatement({
+            actions: [
+                'sagemaker:CreateModel',
+                'sagemaker:CreateEndpointConfig',
+                'sagemaker:CreateEndpoint',
+                'sagemaker:UpdateEndpoint',
+                'sagemaker:DescribeEndpoint',
+                'sagemaker:DescribeEndpointConfig',
+                'sagemaker:DescribeModel'
+            ],
+            resources: ['*']
+        }));
+        endpointDeployerFn.addToRolePolicy(new iam.PolicyStatement({
+            actions: ['iam:PassRole'],
+            resources: [this.sagemakerRole.roleArn]
+        }));
+
+        // Step Functions task to invoke endpoint deployer
+        const deployEndpoint = new tasks.LambdaInvoke(this, 'DeployEndpoint', {
+            lambdaFunction: endpointDeployerFn,
+            resultPath: '$.EndpointDeployment'
+        });
+
         // d) State Machine
-        // --- Chain them: start glue, then start SageMaker training ---
-        const definition = startGlue.next(sageMakerTrain);
+        // --- Chain them: start glue, then start SageMaker training, then deploy endpoint ---
+        const definition = startGlue.next(sageMakerTrain).next(deployEndpoint);
 
         const logGroup = new logs.LogGroup(this, 'MlOrchestratorLogGroup');
         const sm = new sfn.StateMachine(this, 'MlOrchestrator', {
@@ -191,9 +228,31 @@ export class MlStack extends cdk.Stack {
         });
 
 
+        // --- Separate workflow for endpoint-only deployment ---
+        // Useful for redeploying existing models without retraining
+        // Note: We create a new LambdaInvoke task because a state can only belong to one state machine
+        const deployEndpointOnly = new tasks.LambdaInvoke(this, 'DeployEndpointOnly', {
+            lambdaFunction: endpointDeployerFn,
+            resultPath: '$.EndpointDeployment'
+        });
+
+        const deployOnlyLogGroup = new logs.LogGroup(this, 'DeployOnlyLogGroup');
+        const deployOnlySm = new sfn.StateMachine(this, 'DeployEndpointOnlyStateMachine', {
+            stateMachineName: 'SR-Deploy-Endpoint-Only',
+            definitionBody: sfn.DefinitionBody.fromChainable(deployEndpointOnly),
+            logs: {
+                destination: deployOnlyLogGroup,
+                level: sfn.LogLevel.ALL
+            },
+            stateMachineType: sfn.StateMachineType.STANDARD,
+            comment: 'Deploy/update SageMaker endpoint with a trained model (skips Glue and training)'
+        });
+
         // output names
         new cdk.CfnOutput(this, 'GlueJobName', {value: glueJob.name as string});
         new cdk.CfnOutput(this, 'StateMachineArn', {value: sm.stateMachineArn});
+        new cdk.CfnOutput(this, 'DeployOnlyStateMachineArn', {value: deployOnlySm.stateMachineArn, description: 'Step Functions workflow for endpoint-only deployment'});
         new cdk.CfnOutput(this, 'SageMakerRoleArn', {value: this.sagemakerRole.roleArn});
+        new cdk.CfnOutput(this, 'EndpointName', {value: 'send-time-v1', description: 'SageMaker endpoint name (auto-deployed by pipeline)'});
     }
 }

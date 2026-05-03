@@ -9,7 +9,8 @@ import {ComputeStack} from '../lib/compute-stack';
 import dotenv from "dotenv";
 import {MlStack} from "../lib/ml-stack";
 import {MessagingStack} from "../lib/messaging-stack";
-import {SageMakerStack} from "../lib/sagemaker-stack";
+// SageMakerStack is no longer needed - endpoint deployment is now automated via ML pipeline
+// import {SageMakerStack} from "../lib/sagemaker-stack";
 
 dotenv.config();
 
@@ -37,9 +38,15 @@ new MessagingStack(app, 'SR-Messaging', {
     vpc: network.vpc
 });
 
-// After Training data and generating model by step function
-new SageMakerStack(app, 'SR-SageMaker', {
-    env,
-    data,
-    ml
-});
+// NOTE: SR-SageMaker stack is deprecated and no longer used
+// The endpoint is now automatically deployed by the ML pipeline (SR-ML)
+// after training completes via the endpoint-deployer Lambda function
+//
+// To manually deploy a specific model version (optional):
+// Uncomment the lines below and run: cdk deploy SR-SageMaker -c modelPath=training-output/send-time-xxx/output/model.tar.gz
+//
+// new SageMakerStack(app, 'SR-SageMaker', {
+//     env,
+//     data,
+//     ml
+// });

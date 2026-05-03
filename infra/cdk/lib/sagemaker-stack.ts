@@ -1,4 +1,15 @@
 // SageMakerStack.ts
+//
+// ⚠️ DEPRECATED: This stack is no longer actively used
+//
+// Endpoint deployment is now automated via the ML pipeline (SR-ML stack)
+// After training completes, the endpoint-deployer Lambda automatically creates/updates
+// the endpoint with the newly trained model.
+//
+// This stack is kept for optional manual deployments (e.g., rollbacks, specific model versions)
+// To use: Uncomment in bin/app.ts and deploy with:
+//   cdk deploy SR-SageMaker -c modelPath=training-output/send-time-xxx/output/model.tar.gz
+//
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as sagemaker from 'aws-cdk-lib/aws-sagemaker';
@@ -16,7 +27,14 @@ export class SageMakerStack extends Stack {
 
         // CDK Tip: If deploying to a new AWS account/region, run `cdk bootstrap` first to prepare the environment.
         const region = Stack.of(this).region;
-        const modelDataUrl = 's3://sr-data-modelsc55d3500-p76bdxaj5h8s/training-output/send-time-d96d3a88-84ed-4574-9cd2-da9740d90ffb/output/model.tar.gz'; // TODO: Check if the subderectory can change
+
+        // Get model path from CDK context or use default
+        // To deploy with a specific model: cdk deploy SR-SageMaker -c modelPath=training-output/send-time-xxx/output/model.tar.gz
+        const modelPath = this.node.tryGetContext('modelPath') || 'training-output/REPLACE_WITH_YOUR_MODEL_PATH/output/model.tar.gz';
+        const modelDataUrl = `s3://${data.modelsBucket.bucketName}/${modelPath}`;
+
+        console.log(`Deploying SageMaker endpoint with model: ${modelDataUrl}`);
+
         const imageUri =  '246618743249.dkr.ecr.us-west-2.amazonaws.com/sagemaker-xgboost:1.7-1'
 
         // Generate unique names for the model and endpoint config using a timestamp suffix

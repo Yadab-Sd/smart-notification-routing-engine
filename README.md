@@ -589,8 +589,8 @@ Now build all Java Lambda services:
 **Option A: Build all services at once (Recommended)**
 ```bash
 # From project root
-chmod +x build-services.sh
-./build-services.sh
+chmod +x scripts/build-services.sh
+./scripts/build-services.sh
 ```
 
 **Option B: Build services individually**
@@ -828,41 +828,38 @@ aws sagemaker list-training-jobs --region us-west-2 \
 **Expected Timeline:**
 - Glue job: ~5-15 minutes (processes events → creates features CSV)
 - SageMaker training: ~10-20 minutes (trains XGBoost model)
-- **Total**: ~15-35 minutes for first run
+- **Endpoint deployment**: ~5-10 minutes (automatic, creates/updates endpoint)
+- **Total**: ~20-45 minutes for first run
 
-#### 6. Deploy SageMaker Endpoint
+#### 6. SageMaker Endpoint (Automatically Deployed)
 
-After first successful training:
-```bash
-# Get your models bucket name
-MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
-    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+**🎉 The endpoint is now deployed automatically!**
 
-# The training job outputs model.tar.gz to: s3://${MODELS_BUCKET}/training-output/
-# Update sagemaker-stack.ts with the trained model S3 path from training job output
-# Example path: s3://sr-data-modelsbucketxxxx-xxxxx/training-output/send-time-xxx/output/model.tar.gz
+After training completes, the pipeline automatically creates or updates the `send-time-v1` endpoint with the new model. You don't need to do anything manually.
 
-cd infra/cdk
-pnpm exec cdk deploy SR-SageMaker
-```
+**What happens automatically:**
+1. **Training completes** → Model saved to S3 (`training-output/send-time-xxx/output/model.tar.gz`)
+2. **Endpoint Deployer Lambda** → Creates/updates `send-time-v1` endpoint
+3. **Status transition** → Creating/Updating → InService (~5-10 minutes)
 
-**✅ Verify SageMaker Endpoint:**
+**✅ Verify Endpoint is Ready:**
 
 ```bash
-# Check endpoint status
+# Check endpoint status (wait for InService)
 aws sagemaker describe-endpoint --endpoint-name send-time-v1 --region us-west-2 \
     --query '{Name:EndpointName,Status:EndpointStatus,Instance:ProductionVariants[0].InstanceType}' \
     --output table
 
-# Test endpoint with sample prediction
+# Test endpoint with sample prediction (4 features: hour, click_rate, sends_count)
+echo "14,0.12,47,2" > /tmp/test.csv
 aws sagemaker-runtime invoke-endpoint \
     --endpoint-name send-time-v1 \
-    --body '0,14,0.12,47,2' \
+    --body fileb:///tmp/test.csv \
     --content-type text/csv \
     --region us-west-2 \
     /tmp/prediction.txt && cat /tmp/prediction.txt
 
-# Expected output: a probability score between 0 and 1
+# Expected output: a probability score between 0 and 1 (e.g., 0.73 = 73% click probability)
 ```
 
 **🖥️ AWS Console Verification:**
@@ -870,6 +867,86 @@ aws sagemaker-runtime invoke-endpoint \
   - Find **send-time-v1** endpoint
   - Status should be: **InService** (green)
   - Check **Monitor** tab for invocation metrics
+  - Each training run creates a new model and updates this endpoint
+
+**🚀 Deploy Endpoint Without Full Pipeline (Optional)**
+
+If you have a trained model and want to deploy/update the endpoint without running the full ML pipeline, you have three options:
+
+**Option 1: Helper Script (Easiest)**
+```bash
+# Make script executable
+chmod +x scripts/deploy-endpoint.sh
+
+# Deploy the latest trained model
+./scripts/deploy-endpoint.sh latest
+
+# Or deploy a specific model
+./scripts/deploy-endpoint.sh training-output/send-time-abc123/output/model.tar.gz
+```
+
+**Option 2: Separate Step Functions Workflow**
+```bash
+# Get the models bucket
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# Get the deploy-only state machine ARN
+DEPLOY_SM_ARN=$(aws cloudformation describe-stacks --stack-name SR-ML --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='DeployOnlyStateMachineArn'].OutputValue" --output text)
+
+# Find the latest trained model automatically
+LATEST_MODEL=$(aws s3 ls s3://${MODELS_BUCKET}/training-output/ --recursive \
+    | grep model.tar.gz | sort | tail -1 | awk '{print $4}')
+
+echo "Deploying model: s3://${MODELS_BUCKET}/${LATEST_MODEL}"
+
+# Trigger deployment with the latest model
+aws stepfunctions start-execution \
+    --state-machine-arn ${DEPLOY_SM_ARN} \
+    --region us-west-2 \
+    --input "{\"TrainingJobName\":\"manual-deploy\",\"ModelArtifacts\":{\"S3ModelArtifacts\":\"s3://${MODELS_BUCKET}/${LATEST_MODEL}\"}}"
+
+# Or deploy a specific model:
+# --input "{\"TrainingJobName\":\"manual-deploy\",\"ModelArtifacts\":{\"S3ModelArtifacts\":\"s3://${MODELS_BUCKET}/training-output/send-time-xxx/output/model.tar.gz\"}}"
+```
+
+**Option 3: Direct Lambda Invocation**
+```bash
+# Get Lambda function name
+LAMBDA_NAME=$(aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'EndpointDeployerFn')].FunctionName" --output text)
+
+# Get models bucket
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# Find the latest trained model automatically
+LATEST_MODEL=$(aws s3 ls s3://${MODELS_BUCKET}/training-output/ --recursive \
+    | grep model.tar.gz | sort | tail -1 | awk '{print $4}')
+
+echo "Deploying model: s3://${MODELS_BUCKET}/${LATEST_MODEL}"
+
+# Create payload file
+cat > /tmp/deploy-payload.json <<EOF
+{
+  "TrainingJobName": "manual-deploy",
+  "ModelArtifacts": {
+    "S3ModelArtifacts": "s3://${MODELS_BUCKET}/${LATEST_MODEL}"
+  }
+}
+EOF
+
+# Invoke Lambda directly
+aws lambda invoke \
+    --function-name ${LAMBDA_NAME} \
+    --region us-west-2 \
+    --cli-binary-format raw-in-base64-out \
+    --payload file:///tmp/deploy-payload.json \
+    /tmp/deploy-response.json
+
+cat /tmp/deploy-response.json | jq '.'
+```
 
 #### 7. Test the API
 
@@ -915,7 +992,7 @@ When you modify Lambda function code (Java services):
 
 ```bash
 # 1. Rebuild the specific service (or all services)
-./build-services.sh
+./scripts/build-services.sh
 
 # 2. Redeploy only the Compute stack
 cd infra/cdk
@@ -973,7 +1050,7 @@ aws stepfunctions start-execution \
 
 | What Changed | Commands to Run | What Gets Redeployed |
 |--------------|----------------|---------------------|
-| Lambda function code (Java) | `./build-services.sh` <br/> `cd infra/cdk && pnpm exec cdk deploy SR-Compute` | Only modified Lambda functions |
+| Lambda function code (Java) | `./scripts/build-services.sh` <br/> `cd infra/cdk && pnpm exec cdk deploy SR-Compute` | Only modified Lambda functions |
 | API Gateway routes | `cd infra/cdk && pnpm exec cdk deploy SR-Compute` | API Gateway configuration |
 | DynamoDB schema | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Database tables (⚠️ may cause data migration) |
 | Kinesis configuration | `cd infra/cdk && pnpm exec cdk deploy SR-Data` | Kinesis stream settings |
@@ -1022,7 +1099,7 @@ pnpm exec cdk synth SR-Compute
 
 **Scenario 1: Fixed a bug in decision-service Lambda**
 ```bash
-./build-services.sh
+./scripts/build-services.sh
 cd infra/cdk && pnpm exec cdk deploy SR-Compute
 ```
 
@@ -1073,7 +1150,7 @@ If a deployment causes issues:
 
 # Option 2: Redeploy previous version
 git checkout <previous-commit>
-./build-services.sh
+./scripts/build-services.sh
 cd infra/cdk && pnpm exec cdk deploy SR-Compute
 ```
 
