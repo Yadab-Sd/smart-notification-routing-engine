@@ -36,6 +36,7 @@
               <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                 <mainClass>com.yadab.sr.controlplane.Handler</mainClass>
               </transformer>
+comi              <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
             </transformers>
           </configuration></execution></executions>
       </plugin>
