@@ -167,9 +167,9 @@ Given a user profile and notification payload, predict:
 ```
 Algorithm: XGBoost Binary Classifier
 Objective: Predict P(click | send at hour H)
-Features: [hour, day_of_week, click_rate_7d, sends_count_hour, days_since_last_seen]
+Features: [hour, click_rate_7d, sends_count_hour]
 Label: Binary (clicked within 24 hours)
-Training: Nightly on 90 days of historical data
+Training: Nightly on historical data (all events in S3)
 Validation: AUC-PR > 0.75 threshold for production promotion
 ```
 
@@ -198,10 +198,10 @@ Metric: Top-1 accuracy, calibration error (ECE)
 **Orchestration**: EventBridge triggers Step Functions at 02:00 UTC daily
 
 **Feature Engineering**:
-- Window-based aggregations (7-day, 30-day click rates)
-- Time-based features (hour, day_of_week, is_weekend)
-- User-level features (lifetime events, days_since_last_seen)
-- Sparse categorical encoding for campaign types
+- Window-based aggregations (click rate calculated from historical data)
+- Time-based features (hour of day)
+- User-hour level features (sends count per hour)
+- Future: day_of_week, is_weekend, days_since_last_seen, campaign encoding
 
 **Model Evaluation**:
 - **Offline**: Holdout validation (80/20 split), AUC-PR, calibration curves
@@ -336,9 +336,9 @@ for (int hour = 0; hour < 48; hour++) {
 
 **Feature Vector** (CSV for XGBoost)
 ```csv
-label,hour,click_rate_7d,sends_count_hour,days_since_last_seen
-0,14,0.12,47,2
-1,9,0.31,152,0
+label,hour,click_rate_7d,sends_count_hour
+0,14,0.12,47
+1,9,0.31,152
 ```
 
 
@@ -850,8 +850,8 @@ aws sagemaker describe-endpoint --endpoint-name send-time-v1 --region us-west-2 
     --query '{Name:EndpointName,Status:EndpointStatus,Instance:ProductionVariants[0].InstanceType}' \
     --output table
 
-# Test endpoint with sample prediction (4 features: hour, click_rate, sends_count)
-echo "14,0.12,47,2" > /tmp/test.csv
+# Test endpoint with sample prediction (3 features: hour, click_rate_7d, sends_count_hour)
+echo "14,0.12,47" > /tmp/test.csv
 aws sagemaker-runtime invoke-endpoint \
     --endpoint-name send-time-v1 \
     --body fileb:///tmp/test.csv \
