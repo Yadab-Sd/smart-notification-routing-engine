@@ -37,21 +37,28 @@ try:
     print(f"Total records: {df.count()}")
 
     if df.count() == 0:
-        print(f"No events found in {events_path}. Please ingest events before running the ML pipeline.")
+        error_msg = f"No events found in {events_path}. Please ingest events via /v1/events API before running the ML pipeline."
+        print(f"ERROR: {error_msg}")
         job.commit()
-        sys.exit(0)
+        raise ValueError(error_msg)
 
     # Check if _corrupt_record exists (indicates JSON parsing issues)
     if '_corrupt_record' in df.columns:
         print("WARNING: Found _corrupt_record column. Some JSON records are malformed.")
         df.filter(F.col('_corrupt_record').isNotNull()).show(10, truncate=False)
-        raise Exception("JSON parsing errors detected. Check the event format in S3.")
+        error_msg = "JSON parsing errors detected. Events are not in valid JSONL format. Check the event format in S3."
+        print(f"ERROR: {error_msg}")
+        job.commit()
+        raise ValueError(error_msg)
 
+except ValueError as e:
+    # Re-raise ValueError exceptions (our custom errors)
+    raise e
 except Exception as e:
-    print(f"Error reading from {events_path}: {str(e)}")
-    print("No events found or JSON parsing failed. Please check the /v1/events API endpoint and S3 data.")
+    error_msg = f"Error reading from {events_path}: {str(e)}. Please check S3 permissions and data format."
+    print(f"ERROR: {error_msg}")
     job.commit()
-    sys.exit(0)
+    raise ValueError(error_msg)
 
 # Normalize timestamp column
 if 'ts' not in df.columns and 'timestamp' in df.columns:
@@ -134,13 +141,16 @@ final_df.printSchema()
 print(f"Final dataframe count: {final_df.count()}")
 
 if final_df.count() == 0:
-    print("ERROR: No training data generated. Possible reasons:")
-    print("  1. Not enough events ingested (need PLAY_MOVIE and CLICK events)")
-    print("  2. Events don't have matching userIds")
-    print("  3. Timestamps are in the wrong format")
-    print("Please ingest more events via /v1/events endpoint and retry.")
+    error_msg = """
+    No training data generated. Possible reasons:
+    1. Not enough events ingested (need both PLAY_MOVIE and CLICK events)
+    2. Events don't have matching userIds
+    3. Timestamps are in the wrong format or outside 24h window
+    Please ingest more events via /v1/events endpoint and retry.
+    """
+    print(f"ERROR: {error_msg}")
     job.commit()
-    sys.exit(1)
+    raise ValueError(error_msg)  # ← Raise exception instead of sys.exit
 
 # Write CSV suitable for XGBoost:
 #  - No header
