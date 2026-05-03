@@ -47,11 +47,10 @@
       - [Step 4: Clone and Prepare Repository](#step-4-clone-and-prepare-repository)
     - [Quick Start](#quick-start)
       - [1. Deploy Foundation Infrastructure](#1-deploy-foundation-infrastructure)
-      - [2. Build Lambda Services](#2-build-lambda-services)
       - [3. Deploy Lambda Functions](#3-deploy-lambda-functions)
       - [4. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)](#4-ingest-sample-events-important---do-this-before-ml-pipeline)
       - [5. Initialize ML Pipeline](#5-initialize-ml-pipeline)
-      - [6. Deploy SageMaker Endpoint](#6-deploy-sagemaker-endpoint)
+      - [6. SageMaker Endpoint (Automatically Deployed)](#6-sagemaker-endpoint-automatically-deployed)
       - [7. Test the API](#7-test-the-api)
   - [Development Workflow](#development-workflow)
     - [Making Code Changes](#making-code-changes)
@@ -952,13 +951,16 @@ cat /tmp/deploy-response.json | jq '.'
 
 ```bash
 # Authenticate (Cognito) - replace YOUR_CLIENT_ID with actual Cognito app client ID
-aws cognito-idp initiate-auth \
+JWT_TOKEN=$(aws cognito-idp initiate-auth \
     --auth-flow USER_PASSWORD_AUTH \
-    --client-id YOUR_CLIENT_ID \
-    --auth-parameters USERNAME=user@domain.com,PASSWORD=SecurePass123!
+    --client-id ${CLIENT_ID} \
+    --auth-parameters USERNAME=${TEST_USER_EMAIL},PASSWORD=SecurePass123! \
+    --region us-west-2 \
+    --query 'AuthenticationResult.IdToken' \
+    --output text)
 
 # Ingest event - replace YOUR_API_ID with actual API Gateway ID
-curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/events \
+curl -X POST ${API_URL}/v1/events \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -969,7 +971,7 @@ curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/events \
   }'
 
 # Get optimal send time
-curl -X POST https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com/v1/decisions/preview \
+curl -X POST ${API_URL}/v1/decisions/preview \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
