@@ -17,12 +17,23 @@ job.init(args['JOB_NAME'], args)
 events_bucket = args['EVENTS_BUCKET']
 curated_bucket = args['CURATED_BUCKET']
 
+# Debug: Print bucket names
+print(f"EVENTS_BUCKET argument: '{events_bucket}'")
+print(f"CURATED_BUCKET argument: '{curated_bucket}'")
+
+if not events_bucket or not curated_bucket:
+    raise ValueError(f"Bucket names not provided. EVENTS_BUCKET='{events_bucket}', CURATED_BUCKET='{curated_bucket}'. Check Glue job DefaultArguments.")
+
 events_path = f"s3://{events_bucket}/raw/"
 out_path = f"s3://{curated_bucket}/features-csv/"  # <-- CSV for XGBoost
 
+print(f"Events path: {events_path}")
+print(f"Output path: {out_path}")
+
 spark._jsc.hadoopConfiguration().set("mapreduce.fileoutputcommitter.marksuccessfuljobs", "false") # not to create empty csv
 
-# Check if events path exists and has data
+# Try to read events - if path doesn't exist or is empty, catch the exception
+print(f"Attempting to read events from {events_path}")
 try:
     # Read JSON files recursively, ignoring partition directories
     df = spark.read.option("multiLine", False) \
@@ -55,7 +66,15 @@ except ValueError as e:
     # Re-raise ValueError exceptions (our custom errors)
     raise e
 except Exception as e:
-    error_msg = f"Error reading from {events_path}: {str(e)}. Please check S3 permissions and data format."
+    error_str = str(e)
+    # Check for specific error patterns
+    if "Path does not exist" in error_str or "No such file or directory" in error_str:
+        error_msg = f"Events path {events_path} does not exist. No events have been ingested yet. Please send events via /v1/events API endpoint first, then retry the pipeline."
+    elif "Access Denied" in error_str or "AccessDenied" in error_str:
+        error_msg = f"Access denied reading from {events_path}. Check IAM permissions for Glue role."
+    else:
+        error_msg = f"Error reading from {events_path}: {error_str}. Please check S3 permissions and data format."
+
     print(f"ERROR: {error_msg}")
     job.commit()
     raise ValueError(error_msg)
