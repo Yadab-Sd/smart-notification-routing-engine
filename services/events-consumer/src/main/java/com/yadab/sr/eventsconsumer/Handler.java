@@ -66,7 +66,8 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
 
                 // ddb counters
                 String uid = node.path("userId").asText("unknown");
-                ddbUpdateUser(uid, ts);
+                String eventType = node.path("type").asText("UNKNOWN");
+                ddbUpdateUser(uid, ts, eventType);
             }
 
             // flush per key as JSONL
@@ -99,9 +100,10 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         }
     }
 
-    public static void ddbUpdateUser(String userId, String tsIso) {
+    public static void ddbUpdateUser(String userId, String tsIso, String eventType) {
         if (userId == null || userId.isBlank()) userId = "unknown";
         if (tsIso == null || tsIso.isBlank()) tsIso = Instant.now().toString();
+        if (eventType == null || eventType.isBlank()) eventType = "UNKNOWN";
 
         Map<String, AttributeValue> key = Map.of(
                 "pk", AttributeValue.builder().s("USER#" + userId).build(),
@@ -131,17 +133,33 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
             throw e;
         }
 
-        // 2) Now increment counters.events and set lastSeenAt
+        // 2) Now increment appropriate counters based on event type
+        // Treat PLAY_MOVIE as a "send" (user saw content, simulating notification sent)
+        // Treat CLICK as a "click" (user clicked, simulating notification click)
         Map<String, AttributeValue> exprVals = Map.of(
                 ":zero", AttributeValue.builder().n("0").build(),
                 ":one", AttributeValue.builder().n("1").build(),
                 ":ts", AttributeValue.builder().s(tsIso).build()
         );
 
+        String updateExpression;
+        if ("CLICK".equals(eventType)) {
+            // Increment both events and clicks
+            updateExpression = "SET counters.events = if_not_exists(counters.events, :zero) + :one, " +
+                    "counters.clicks = if_not_exists(counters.clicks, :zero) + :one, lastSeenAt = :ts";
+        } else if ("PLAY_MOVIE".equals(eventType)) {
+            // Increment both events and sends (treat as notification sent)
+            updateExpression = "SET counters.events = if_not_exists(counters.events, :zero) + :one, " +
+                    "counters.sends = if_not_exists(counters.sends, :zero) + :one, lastSeenAt = :ts";
+        } else {
+            // Just increment events for other types
+            updateExpression = "SET counters.events = if_not_exists(counters.events, :zero) + :one, lastSeenAt = :ts";
+        }
+
         UpdateItemRequest incrementReq = UpdateItemRequest.builder()
                 .tableName(USER_TABLE)
                 .key(key)
-                .updateExpression("SET counters.events = if_not_exists(counters.events, :zero) + :one, lastSeenAt = :ts")
+                .updateExpression(updateExpression)
                 .expressionAttributeValues(exprVals)
                 .build();
 
