@@ -1115,6 +1115,196 @@ for schedule in $(aws scheduler list-schedules --region us-west-2 \
 done
 ```
 
+**📧 Configure User Emails and Test Notification Delivery**
+
+The Sender Lambda requires user email addresses in DynamoDB to send notifications. Follow these steps to add emails and test delivery:
+
+**Step 1: Add Email to User Profiles**
+
+```bash
+# Get DynamoDB table name
+USER_TABLE=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='UserProfilesTableName'].OutputValue" --output text)
+
+echo "User Profiles Table: ${USER_TABLE}"
+
+# Add email to user_001
+aws dynamodb update-item \
+    --table-name ${USER_TABLE} \
+    --region us-west-2 \
+    --key '{"pk":{"S":"USER#user_001"},"sk":{"S":"PROFILE"}}' \
+    --update-expression "SET email = :email" \
+    --expression-attribute-values '{":email":{"S":"your-email@example.com"}}'
+
+# Add email to user_B
+aws dynamodb update-item \
+    --table-name ${USER_TABLE} \
+    --region us-west-2 \
+    --key '{"pk":{"S":"USER#user_B"},"sk":{"S":"PROFILE"}}' \
+    --update-expression "SET email = :email" \
+    --expression-attribute-values '{":email":{"S":"your-email@example.com"}}'
+
+# Verify email was added
+aws dynamodb get-item \
+    --table-name ${USER_TABLE} \
+    --region us-west-2 \
+    --key '{"pk":{"S":"USER#user_001"},"sk":{"S":"PROFILE"}}' \
+    --query 'Item.email.S' --output text
+```
+
+**Step 2: Verify Sender Email Address in Amazon Pinpoint/SES**
+
+Before sending emails, you must verify your sender email address:
+
+```bash
+# Option 1: Verify email identity (recommended for testing)
+aws sesv2 create-email-identity \
+    --email-identity notifications@example.com \
+    --region us-west-2
+
+# Check verification status (should be VERIFIED after clicking confirmation email)
+aws sesv2 get-email-identity \
+    --email-identity notifications@example.com \
+    --region us-west-2 \
+    --query 'VerifiedForSendingStatus' --output text
+
+# Option 2: For production, verify entire domain
+aws sesv2 create-email-identity \
+    --email-identity example.com \
+    --region us-west-2
+```
+
+**Important**: Check your inbox for a verification email from AWS and click the confirmation link. Without verification, emails will not send.
+
+**Step 3: Update Sender Lambda with Pinpoint App ID**
+
+```bash
+# Get Pinpoint App ID from Messaging stack
+PINPOINT_APP_ID=$(aws cloudformation describe-stacks --stack-name SR-Messaging --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='PinpointAppId'].OutputValue" --output text)
+
+echo "Pinpoint App ID: ${PINPOINT_APP_ID}"
+
+# Get Sender Lambda function name
+SENDER_FN=$(aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'SenderFn')].FunctionName" --output text)
+
+# Get bucket names
+CURATED_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='CuratedBucketName'].OutputValue" --output text)
+
+# Update Lambda environment variables
+aws lambda update-function-configuration \
+    --function-name ${SENDER_FN} \
+    --region us-west-2 \
+    --environment "Variables={USER_PROFILES_TABLE=${USER_TABLE},CURATED_BUCKET=${CURATED_BUCKET},PINPOINT_APP_ID=${PINPOINT_APP_ID},DEFAULT_FROM_ADDRESS=notifications@example.com}"
+
+# Verify configuration
+aws lambda get-function-configuration \
+    --function-name ${SENDER_FN} \
+    --region us-west-2 \
+    --query 'Environment.Variables' --output json
+```
+
+**Step 4: Test Sender Lambda Manually**
+
+Now test sending a notification manually (without waiting for schedule):
+
+```bash
+# Create test payload with userId
+cat > /tmp/sender-test.json <<'EOF'
+{
+  "userId": "user_001"
+}
+EOF
+
+# Invoke Sender Lambda
+aws lambda invoke \
+    --function-name ${SENDER_FN} \
+    --region us-west-2 \
+    --cli-binary-format raw-in-base64-out \
+    --payload file:///tmp/sender-test.json \
+    /tmp/sender-response.json
+
+# View response
+cat /tmp/sender-response.json
+# Expected output: {"statusCode":200,"userId":"user_001","email":"your-email@example.com","message":"Notification sent successfully"}
+
+# Check Lambda logs for details
+aws logs tail /aws/lambda/${SENDER_FN} --follow --region us-west-2
+```
+
+**Step 5: Verify Email Delivery**
+
+```bash
+# Check Pinpoint send events (may take a few minutes)
+aws pinpoint get-application-date-range-kpi \
+    --application-id ${PINPOINT_APP_ID} \
+    --kpi-name successful-email-message-deliveries \
+    --region us-west-2
+
+# View delivery logs in S3 (written by Kinesis Firehose)
+DELIVERIES_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='DeliveriesBucketName'].OutputValue" --output text)
+
+aws s3 ls s3://${DELIVERIES_BUCKET}/pinpoint/ --recursive
+```
+
+**🖥️ AWS Console Verification:**
+
+1. **Email Inbox**: Check your inbox for the notification email
+   - Subject: "Notification from Smart Routing Engine"
+   - Body: "Notification for user_001"
+
+2. **Pinpoint Console**: [https://us-west-2.console.aws.amazon.com/pinpoint/home?region=us-west-2](https://us-west-2.console.aws.amazon.com/pinpoint/home?region=us-west-2)
+   - Click your Pinpoint app
+   - Go to **Analytics** → **Transactional messaging** to see send metrics
+
+3. **Lambda Logs**: [https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups)
+   - Find `/aws/lambda/SR-Compute-SenderFn`
+   - Look for: "Email sent successfully to: your-email@example.com"
+
+**🐛 Troubleshooting:**
+
+If email doesn't arrive:
+
+1. **Check email verification status**: Email must be verified in SES/Pinpoint
+   ```bash
+   aws sesv2 get-email-identity --email-identity notifications@example.com --region us-west-2
+   ```
+
+2. **Check Sender Lambda logs** for errors:
+   ```bash
+   aws logs tail /aws/lambda/${SENDER_FN} --region us-west-2 | grep -i error
+   ```
+
+3. **Check spam folder**: Test emails often go to spam
+
+4. **Verify user has email** in DynamoDB:
+   ```bash
+   aws dynamodb get-item \
+       --table-name ${USER_TABLE} \
+       --region us-west-2 \
+       --key '{"pk":{"S":"USER#user_001"},"sk":{"S":"PROFILE"}}' \
+       --query 'Item.email'
+   ```
+
+5. **Check Pinpoint is in sandbox mode**: In sandbox, you can only send to verified email addresses
+   - Go to SES Console → Account dashboard → Check if "Production access" is enabled
+   - If in sandbox, verify recipient email addresses too:
+     ```bash
+     aws sesv2 create-email-identity --email-identity recipient@example.com --region us-west-2
+     ```
+
+**📝 Common Error Messages:**
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `User email not found for userId: user_001` | User profile missing email field | Run Step 1 to add email to DynamoDB |
+| `MessageRejected: Email address is not verified` | Sender email not verified | Run Step 2 and click confirmation link |
+| `NotFoundException: Endpoint not found` | PINPOINT_APP_ID incorrect | Run Step 3 to update environment variable |
+| `AccessDenied: mobiletargeting:SendMessages` | Missing IAM permissions | Check compute-stack.ts grants Pinpoint permissions |
+
 ---
 
 ## Development Workflow

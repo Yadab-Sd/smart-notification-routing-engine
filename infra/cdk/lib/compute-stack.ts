@@ -61,9 +61,16 @@ export class ComputeStack extends Stack {
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.sender.Handler::handleRequest',
             code: lambda.Code.fromAsset('../../services/sender-service/target/sender-service.jar'),
-            memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc
+            memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc,
+            environment: {
+                USER_PROFILES_TABLE: data.profilesTable.tableName,
+                CURATED_BUCKET: data.curatedBucket.bucketName,
+                PINPOINT_APP_ID: 'PLACEHOLDER', // Will be set manually or via stack dependency
+                DEFAULT_FROM_ADDRESS: 'notifications@example.com'
+            }
         });
         data.curatedBucket.grantRead(senderFn); // templates
+        data.profilesTable.grantReadData(senderFn); // read user profiles
         senderFn.addToRolePolicy(new iam.PolicyStatement({
             actions:['mobiletargeting:SendMessages'],
             resources:['*'] // or restrict to your Pinpoint app ARN
