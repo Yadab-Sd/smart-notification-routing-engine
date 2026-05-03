@@ -104,16 +104,41 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                         .build();
             }
 
+            // Extract user statistics from DynamoDB counters
+            int totalEvents = 0;
+            int totalClicks = 0;
+            int totalSends = 0;
+
+            if (item.containsKey("counters")) {
+                Map<String, AttributeValue> counters = item.get("counters").m();
+                if (counters.containsKey("events")) {
+                    totalEvents = Integer.parseInt(counters.get("events").n());
+                }
+                if (counters.containsKey("clicks")) {
+                    totalClicks = Integer.parseInt(counters.get("clicks").n());
+                }
+                if (counters.containsKey("sends")) {
+                    totalSends = Integer.parseInt(counters.get("sends").n());
+                }
+            }
+
+            // Calculate click rate (default to 0.0 if no history)
+            double clickRate = totalSends > 0 ? (double) totalClicks / totalSends : 0.0;
+
+            context.getLogger().log(String.format("User stats - Events: %d, Clicks: %d, Sends: %d, Click Rate: %.3f",
+                totalEvents, totalClicks, totalSends, clickRate));
+
             for (Instant ts = startTs; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
                 int hour = ts.atZone(ZoneOffset.UTC).getHour();  // 0–23
 
-                // Extract other features like day-of-week, recency, etc.
-                int dow = ts.atZone(ZoneOffset.UTC).getDayOfWeek().getValue();
-                String lastSeenAt = item.get("lastSeenAt").s();// 1=Mon to 7=Sun
-                long daysSinceLastSeen = Duration.between(Instant.parse(lastSeenAt), ts).toDays();
+                // Calculate sends count for this specific hour (use total sends as proxy for now)
+                int sendsCountHour = totalSends / 24; // Simple distribution across 24 hours
 
-                // CSV row for SageMaker
-                String csvRow = String.format("%d,%d,%d\n", hour, dow, daysSinceLastSeen);
+                // Build CSV row with 3 features matching model training:
+                // Feature 1: hour (0-23)
+                // Feature 2: click_rate_7d (historical click rate)
+                // Feature 3: sends_count_hour (sends at this hour)
+                String csvRow = String.format("%d,%.4f,%d", hour, clickRate, sendsCountHour);
 
                 context.getLogger().log("SageMaker Input: " + csvRow);
                 InvokeEndpointRequest invokeReq = InvokeEndpointRequest.builder()

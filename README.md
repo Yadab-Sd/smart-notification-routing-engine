@@ -970,14 +970,24 @@ curl -X POST ${API_URL}/v1/events \
     "attrs": {"device": "mobile"}
   }'
 
-# Get optimal send time
+# Get optimal send time (preview without scheduling)
+# windowStart/windowEnd are Unix epoch seconds
+WINDOW_START=$(date -u +%s)  # Now
+
+# macOS/BSD: use -v flag
+WINDOW_END=$(date -u -v+24H +%s)  # 24 hours from now
+# Linux/GNU: use -d flag (if above fails, try this)
+# WINDOW_END=$(date -u -d "+24 hours" +%s)
+
 curl -X POST ${API_URL}/v1/decisions/preview \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user_001",
-    "campaignId": "weekly_digest"
-  }'
+  -d "{
+    \"userId\": \"user_001\",
+    \"windowStart\": ${WINDOW_START},
+    \"windowEnd\": ${WINDOW_END},
+    \"schedule\": false
+  }"
 ```
 
 ---
