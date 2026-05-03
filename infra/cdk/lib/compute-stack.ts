@@ -95,7 +95,21 @@ export class ComputeStack extends Stack {
         decisionFn.addToRolePolicy(new iam.PolicyStatement({
             actions:['sagemaker:InvokeEndpoint'], resources:['*'] // narrow later
         }));
-
+        // EventBridge Scheduler permissions for Decision Lambda to create schedules
+        decisionFn.addToRolePolicy(new iam.PolicyStatement({
+            actions:[
+                'scheduler:CreateSchedule',
+                'scheduler:GetSchedule',
+                'scheduler:DeleteSchedule',
+                'scheduler:UpdateSchedule'
+            ],
+            resources:['*'] // or arn:aws:scheduler:region:account:schedule/default/*
+        }));
+        // Allow Decision Lambda to pass the scheduler role to EventBridge Scheduler
+        decisionFn.addToRolePolicy(new iam.PolicyStatement({
+            actions:['iam:PassRole'],
+            resources:[schedulerRole.roleArn]
+        }));
 
 
         // Common
