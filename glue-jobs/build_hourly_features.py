@@ -24,7 +24,11 @@ spark._jsc.hadoopConfiguration().set("mapreduce.fileoutputcommitter.marksuccessf
 
 # Check if events path exists and has data
 try:
-    df = spark.read.option("multiLine", False).json(events_path)
+    # Read JSON files recursively, ignoring partition directories
+    df = spark.read.option("multiLine", False) \
+        .option("recursiveFileLookup", "true") \
+        .json(events_path)
+
     if df.count() == 0:
         print(f"No events found in {events_path}. Please ingest events before running the ML pipeline.")
         job.commit()
