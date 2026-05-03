@@ -186,8 +186,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 if (!targetTime.isAfter(nowUtc)) {
                     targetTime = targetTime.plusDays(1);  // if time already passed today, schedule for next day
                 }
-                Instant runAt = targetTime.toInstant();
-                String scheduleExpression = "at(" + runAt.toString() + ")";
+
+                // Format for EventBridge Scheduler: at(yyyy-MM-ddTHH:mm:ss) - NO timezone indicator
+                String scheduleExpression = "at(" + targetTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")) + ")";
 
                 // Build the scheduler target and request:contentReference[oaicite:14]{index=14}:contentReference[oaicite:15]{index=15}
                 // Input to sender could include necessary data (here just userId for example)
