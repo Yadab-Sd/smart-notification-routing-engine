@@ -47,6 +47,7 @@
       - [Step 4: Clone and Prepare Repository](#step-4-clone-and-prepare-repository)
     - [Quick Start](#quick-start)
       - [1. Deploy Foundation Infrastructure](#1-deploy-foundation-infrastructure)
+      - [2. Build Lambda Services](#2-build-lambda-services)
       - [3. Deploy Lambda Functions](#3-deploy-lambda-functions)
       - [4. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)](#4-ingest-sample-events-important---do-this-before-ml-pipeline)
       - [5. Initialize ML Pipeline](#5-initialize-ml-pipeline)
