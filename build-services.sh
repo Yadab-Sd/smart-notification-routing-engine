@@ -23,7 +23,7 @@ for service in "${SERVICES[@]}"; do
     mvn clean package -DskipTests
 
     # Find the generated JAR (usually named service-name-version.jar)
-    jar_file=$(find target -maxdepth 1 -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -n 1)
+    jar_file=$(find target -maxdepth 1 -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -not -name "original-*.jar" | head -n 1)
 
     if [ -z "$jar_file" ]; then
         echo "❌ Error: Could not find JAR file for $service"
