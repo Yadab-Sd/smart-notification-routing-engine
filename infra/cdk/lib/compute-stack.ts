@@ -58,6 +58,9 @@ export class ComputeStack extends Stack {
 
 
         // Sender Lambda - render S3 template, send via Pinpoint ==========================================
+        // Get sender email from environment variable or use a placeholder
+        const senderEmail = process.env.SENDER_EMAIL || 'CHANGE_ME@example.com';
+
         const senderFn = new lambda.Function(this,'SenderFn',{
             runtime: lambda.Runtime.JAVA_21,
             handler: 'com.yadab.sr.sender.Handler::handleRequest',
@@ -67,7 +70,7 @@ export class ComputeStack extends Stack {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
                 CURATED_BUCKET: data.curatedBucket.bucketName,
                 PINPOINT_APP_ID: messaging?.pinpointAppId || 'PLACEHOLDER', // Automatically from MessagingStack, or placeholder if not deployed yet
-                DEFAULT_FROM_ADDRESS: 'notifications@example.com'
+                DEFAULT_FROM_ADDRESS: senderEmail // Configurable via SENDER_EMAIL environment variable
             }
         });
         data.curatedBucket.grantRead(senderFn); // templates
@@ -186,5 +189,6 @@ export class ComputeStack extends Stack {
         });
 
         new cdk.CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
+        new cdk.CfnOutput(this, 'SenderEmailAddress', { value: senderEmail, description: 'Email address used for sending notifications (must be verified in SES)' });
     }
 }

@@ -626,16 +626,50 @@ find services -name "*.jar" -path "*/target/*" | grep -v sources | grep -v javad
 # services/sender-service/target/sender-service.jar
 ```
 
-#### 3. Deploy Lambda Functions
+#### 3. Configure Sender Email
 
-After building services, deploy the Compute stack:
+Before deploying Lambda functions, configure your sender email address in the `.env` file:
 
 ```bash
 cd infra/cdk
-pnpm exec cdk deploy SR-Compute
+
+# Copy the .env.example template to .env (if not already done)
+cp .env.example .env
+
+# Edit .env file and set your sender email
+# Change from: SENDER_EMAIL=your-email@example.com
+# To: SENDER_EMAIL=your-verified-email@yourdomain.com
+
+# You can use any text editor, or use sed:
+sed -i '' 's/your-email@example.com/your-verified-email@yourdomain.com/' .env
+
+# Or edit manually:
+# nano .env   (then change SENDER_EMAIL line)
 ```
 
-This will package your Lambda JARs and deploy them to AWS.
+**⚠️ Critical**:
+- The sender email MUST be an email address you own and can verify
+- This email MUST be verified in Amazon SES before sending emails (Step 4 below)
+- If you don't set `SENDER_EMAIL`, it will default to `CHANGE_ME@example.com` which won't work
+
+**📋 Your .env file should look like:**
+```bash
+# Smart Notification Routing Engine - CDK Configuration
+SENDER_EMAIL=notifications@yourdomain.com
+```
+
+#### 4. Deploy Lambda Functions
+
+After configuring `.env`, deploy the Compute stack:
+
+```bash
+cd infra/cdk
+
+# Deploy SR-Compute (reads SENDER_EMAIL from .env automatically)
+pnpm exec cdk deploy SR-Compute --region us-west-2
+```
+
+This will package your Lambda JARs and deploy them to AWS with your configured sender email.
 
 **✅ Verify Lambda Deployment:**
 
@@ -673,7 +707,33 @@ aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
    # Expected response: {"status":"healthy"}
    ```
 
-#### 4. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)
+**✅ Verify Sender Email Configuration:**
+
+Confirm that your sender email from `.env` is correctly deployed:
+
+```bash
+# Get Sender Lambda function name
+SENDER_FN=$(aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'SenderFn')].FunctionName" --output text)
+
+# Check all three levels match
+echo "Local .env file: $(grep SENDER_EMAIL infra/cdk/.env | cut -d'=' -f2)"
+echo "CloudFormation output: $(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 --query "Stacks[0].Outputs[?OutputKey=='SenderEmailAddress'].OutputValue" --output text)"
+echo "Lambda environment: $(aws lambda get-function-configuration --function-name ${SENDER_FN} --region us-west-2 --query 'Environment.Variables.DEFAULT_FROM_ADDRESS' --output text)"
+```
+
+**Expected output (all three should match):**
+```
+Local .env file: your-verified-email@yourdomain.com
+CloudFormation output: your-verified-email@yourdomain.com
+Lambda environment: your-verified-email@yourdomain.com
+```
+
+**If they don't match:**
+- If local `.env` differs from CloudFormation/Lambda → Redeploy: `pnpm exec cdk deploy SR-Compute --region us-west-2`
+- All three must match for emails to work correctly
+
+#### 5. Ingest Sample Events (IMPORTANT - Do this BEFORE ML Pipeline)
 
 **⚠️ Critical:** The ML pipeline needs event data to train on. You must ingest events first!
 
@@ -762,7 +822,7 @@ EVENTS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region
 aws s3 ls s3://${EVENTS_BUCKET}/raw/ --recursive
 ```
 
-#### 5. Initialize ML Pipeline
+#### 6. Initialize ML Pipeline
 
 **Now that you have event data, run the ML pipeline:**
 
@@ -832,7 +892,7 @@ aws sagemaker list-training-jobs --region us-west-2 \
 - **Endpoint deployment**: ~5-10 minutes (automatic, creates/updates endpoint)
 - **Total**: ~20-45 minutes for first run
 
-#### 6. SageMaker Endpoint (Automatically Deployed)
+#### 7. SageMaker Endpoint (Automatically Deployed)
 
 **🎉 The endpoint is now deployed automatically!**
 
@@ -949,7 +1009,7 @@ aws lambda invoke \
 cat /tmp/deploy-response.json | jq '.'
 ```
 
-#### 7. Test the API
+#### 8. Test the API
 
 ```bash
 # Authenticate (Cognito) - replace YOUR_CLIENT_ID with actual Cognito app client ID
@@ -1154,29 +1214,59 @@ aws dynamodb get-item \
     --query 'Item.email.S' --output text
 ```
 
-**Step 2: Verify Sender Email Address in Amazon Pinpoint/SES**
+**Step 2: Verify Sender Email Address in Amazon SES**
 
-Before sending emails, you must verify your sender email address:
+Before sending emails, you must verify your sender email address. This MUST match the email you set in `SENDER_EMAIL`:
 
 ```bash
-# Option 1: Verify email identity (recommended for testing)
+# Get the configured sender email from CloudFormation outputs
+SENDER_EMAIL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+    --query "Stacks[0].Outputs[?OutputKey=='SenderEmailAddress'].OutputValue" --output text)
+
+echo "Configured sender email: ${SENDER_EMAIL}"
+
+# Verify the sender email identity
 aws sesv2 create-email-identity \
-    --email-identity notifications@example.com \
+    --email-identity ${SENDER_EMAIL} \
     --region us-west-2
 
 # Check verification status (should be VERIFIED after clicking confirmation email)
 aws sesv2 get-email-identity \
-    --email-identity notifications@example.com \
+    --email-identity ${SENDER_EMAIL} \
     --region us-west-2 \
     --query 'VerifiedForSendingStatus' --output text
 
-# Option 2: For production, verify entire domain
-aws sesv2 create-email-identity \
-    --email-identity example.com \
-    --region us-west-2
+# For production, verify entire domain instead
+# aws sesv2 create-email-identity --email-identity yourdomain.com --region us-west-2
 ```
 
-**Important**: Check your inbox for a verification email from AWS and click the confirmation link. Without verification, emails will not send.
+**Important Steps:**
+1. ✅ Run the `create-email-identity` command above
+2. ✅ Check your inbox (the sender email you configured) for a verification email from AWS
+3. ✅ Click the verification link in the email
+4. ✅ Run `get-email-identity` to confirm status is "VERIFIED"
+5. ✅ Without verification, emails will be rejected by AWS
+
+**💡 If you need to change the sender email:**
+
+```bash
+# Option 1: Update .env file (RECOMMENDED)
+cd infra/cdk
+# Edit .env and change SENDER_EMAIL line
+nano .env
+
+# Redeploy SR-Compute
+pnpm exec cdk deploy SR-Compute --region us-west-2
+
+# Verify the new email in SES
+SENDER_EMAIL=$(grep SENDER_EMAIL .env | cut -d'=' -f2)
+aws sesv2 create-email-identity --email-identity ${SENDER_EMAIL} --region us-west-2
+
+# Option 2: Use environment variable (temporary, not persisted)
+export SENDER_EMAIL="new-email@yourdomain.com"
+pnpm exec cdk deploy SR-Compute --region us-west-2
+aws sesv2 create-email-identity --email-identity ${SENDER_EMAIL} --region us-west-2
+```
 
 **Step 3: Verify Sender Lambda Configuration**
 
@@ -1281,11 +1371,70 @@ aws logs tail /aws/lambda/${SENDER_FN} --region us-west-2 | grep -i "email sent 
 
 **🐛 Troubleshooting:**
 
-If email doesn't arrive:
+**If Lambda logs show "Email sent successfully" but you didn't receive the email:**
+
+This usually means the sender email is not verified in SES. Follow these steps:
+
+```bash
+# 1. Check what sender email is currently configured
+SENDER_FN=$(aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'SenderFn')].FunctionName" --output text)
+
+CONFIGURED_SENDER=$(aws lambda get-function-configuration \
+    --function-name ${SENDER_FN} \
+    --region us-west-2 \
+    --query 'Environment.Variables.DEFAULT_FROM_ADDRESS' --output text)
+
+echo "Sender email configured in Lambda: ${CONFIGURED_SENDER}"
+
+# 2. Check if this email is verified in SES
+aws sesv2 get-email-identity \
+    --email-identity ${CONFIGURED_SENDER} \
+    --region us-west-2 2>&1
+
+# If you get "NotFoundException: Email identity not found" → Email is NOT verified
+# If you see "VerifiedForSendingStatus: true" → Email IS verified
+
+# 3. If not verified, verify it now
+aws sesv2 create-email-identity \
+    --email-identity ${CONFIGURED_SENDER} \
+    --region us-west-2
+
+# 4. Check your inbox for verification email and click the link
+
+# 5. Confirm it's verified
+aws sesv2 get-email-identity \
+    --email-identity ${CONFIGURED_SENDER} \
+    --region us-west-2 \
+    --query 'VerifiedForSendingStatus' --output text
+# Should output: true
+
+# 6. Test sending again
+cat > /tmp/sender-test.json <<'EOF'
+{
+  "userId": "user_001"
+}
+EOF
+
+aws lambda invoke \
+    --function-name ${SENDER_FN} \
+    --region us-west-2 \
+    --cli-binary-format raw-in-base64-out \
+    --payload file:///tmp/sender-test.json \
+    /tmp/sender-response.json
+
+# 7. Check your inbox (and spam folder!)
+```
+
+**Other common issues:**
 
 1. **Check email verification status**: Email must be verified in SES/Pinpoint
    ```bash
-   aws sesv2 get-email-identity --email-identity notifications@example.com --region us-west-2
+   # Check verification status of your sender email
+   SENDER_EMAIL=$(aws cloudformation describe-stacks --stack-name SR-Compute --region us-west-2 \
+       --query "Stacks[0].Outputs[?OutputKey=='SenderEmailAddress'].OutputValue" --output text)
+
+   aws sesv2 get-email-identity --email-identity ${SENDER_EMAIL} --region us-west-2
    ```
 
 2. **Check Sender Lambda logs** for errors:
@@ -1537,15 +1686,60 @@ pnpm exec cdk destroy SR-Network
 
 ## Configuration
 
-### Environment Variables
+### CDK Configuration File
+
+The CDK deployment is configured using the `.env` file in `infra/cdk/.env`. This file is loaded automatically by CDK and controls deployment-time configuration.
+
+**Setup:**
+
+```bash
+cd infra/cdk
+
+# Copy the template (if not already done)
+cp .env.example .env
+
+# Edit .env with your values
+nano .env
+```
+
+**Required Configuration:**
+
+| Variable | Description | Required | Example Value |
+|----------|-------------|----------|---------------|
+| `SENDER_EMAIL` | Email address for sending notifications | **Yes** | `notifications@yourdomain.com` |
+
+**Optional Configuration:**
+
+| Variable | Description | Auto-detected | Example Value |
+|----------|-------------|---------------|---------------|
+| `CDK_DEFAULT_ACCOUNT` | AWS Account ID | ✅ Yes (from AWS CLI) | `123456789012` |
+| `CDK_DEFAULT_REGION` | AWS Region | ✅ Yes (from AWS CLI) | `us-west-2` |
+
+**Example `.env` file:**
+
+```bash
+# Smart Notification Routing Engine - CDK Configuration
+SENDER_EMAIL=notifications@yourdomain.com
+```
+
+**⚠️ Important Notes:**
+- `.env` is in `.gitignore` - never commit it to version control
+- Use `.env.example` as a template for team members
+- For CI/CD pipelines, set `SENDER_EMAIL` as a pipeline secret/environment variable
+- The sender email MUST be verified in Amazon SES (see Step 2 in Quick Start)
+
+### Lambda Runtime Environment Variables
+
+These environment variables are automatically configured by CDK during deployment (you don't need to set them):
 
 | Variable | Description | Example Value |
 |----------|-------------|---------|
 | `EVENTS_STREAM_NAME` | Kinesis stream for ingestion | `SR-UserEvents` |
 | `USER_PROFILES_TABLE` | DynamoDB table | `SR-UserProfiles` |
 | `SAGEMAKER_ENDPOINT` | ML inference endpoint | `send-time-v1` |
-| `PINPOINT_APP_ID` | Messaging application ID | `YOUR_PINPOINT_APP_ID` |
-| `TEMPLATES_BUCKET` | S3 bucket for templates | `sr-templates-prod-us-west-2` |
+| `PINPOINT_APP_ID` | Messaging application ID | `abc123def456...` |
+| `CURATED_BUCKET` | S3 bucket for templates | `sr-data-curatedbucket...` |
+| `DEFAULT_FROM_ADDRESS` | Sender email (from SENDER_EMAIL) | `notifications@yourdomain.com` |
 
 ### Model Hyperparameters
 

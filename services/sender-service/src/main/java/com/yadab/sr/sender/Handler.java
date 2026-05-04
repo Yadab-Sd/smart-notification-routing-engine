@@ -55,7 +55,10 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         this.pinpointAppId = System.getenv("PINPOINT_APP_ID");
         this.userProfilesTable = System.getenv("USER_PROFILES_TABLE");
         this.curatedBucket = System.getenv("CURATED_BUCKET");
-        this.defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "notifications@example.com");
+
+        // Get sender email from environment variable (set via CDK from SENDER_EMAIL in .env)
+        // Fallback to obvious placeholder if not configured
+        this.defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
     }
 
     @Override
