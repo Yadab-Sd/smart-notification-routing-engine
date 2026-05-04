@@ -137,7 +137,7 @@ Built entirely on AWS serverless architecture, the system processes millions of 
 - **Decision Service** (Java 21 Lambda): ML-powered send-time optimization engine
 - **EventBridge Scheduler**: Precise notification scheduling (second-level accuracy)
 - **Sender Service** (Java 21 Lambda): Template rendering and multi-channel delivery
-- **Amazon Pinpoint**: Omnichannel messaging hub with delivery analytics
+- **Amazon Pinpoint**: Transactional messaging API for email/SMS delivery (Note: Analytics features deprecated Oct 2026)
 
 #### 4. **Storage & State**
 - **S3 Data Lake**: Time-partitioned raw events, curated features, trained models
@@ -221,8 +221,8 @@ The system is decomposed into **8 modular CDK stacks** for independent deploymen
 | **Data** | Storage Layer | S3 (5 buckets), DynamoDB (UserProfiles), Kinesis Stream |
 | **Compute** | Application Logic | 4 Lambda functions, API Gateway V2, IAM roles |
 | **ML** | Training Pipeline | Glue Job, Step Functions, SageMaker Training Job |
-| **SageMaker** | Inference | SageMaker Endpoint (ml.m5.large) |
-| **Messaging** | Delivery Layer | Pinpoint App, Kinesis Firehose |
+| **SageMaker** | Inference | SageMaker Endpoint (ml.m5.large) - Auto-deployed by ML pipeline |
+| **Messaging** | Delivery Layer | Pinpoint App (transactional messaging only) |
 
 #### Data Flow
 
@@ -578,7 +578,9 @@ aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
 - **SR-Identity**: Cognito User Pool and App Client
 - **SR-Data**: S3 buckets, Kinesis stream, DynamoDB table
 - **SR-ML**: Glue job, Step Functions state machine
-- **SR-Messaging**: Pinpoint app, Kinesis Firehose
+- **SR-Messaging**: Pinpoint app (for transactional email sending)
+
+**⚠️ Note on SR-Messaging**: AWS is deprecating Pinpoint engagement features (campaigns, analytics, segments) on October 30, 2026. This stack creates only a Pinpoint App for transactional messaging (SendMessages API), which is still supported. For production systems, consider using Amazon SES directly for email delivery.
 ```
 
 #### 2. Build Lambda Services
@@ -1176,34 +1178,28 @@ aws sesv2 create-email-identity \
 
 **Important**: Check your inbox for a verification email from AWS and click the confirmation link. Without verification, emails will not send.
 
-**Step 3: Update Sender Lambda with Pinpoint App ID**
+**Step 3: Verify Sender Lambda Configuration**
+
+The Pinpoint App ID is automatically configured through CDK stack dependencies. Verify it's set correctly:
 
 ```bash
-# Get Pinpoint App ID from Messaging stack
-PINPOINT_APP_ID=$(aws cloudformation describe-stacks --stack-name SR-Messaging --region us-west-2 \
-    --query "Stacks[0].Outputs[?OutputKey=='PinpointAppId'].OutputValue" --output text)
-
-echo "Pinpoint App ID: ${PINPOINT_APP_ID}"
-
 # Get Sender Lambda function name
 SENDER_FN=$(aws lambda list-functions --region us-west-2 \
     --query "Functions[?contains(FunctionName, 'SenderFn')].FunctionName" --output text)
 
-# Get bucket names
-CURATED_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
-    --query "Stacks[0].Outputs[?OutputKey=='CuratedBucketName'].OutputValue" --output text)
-
-# Update Lambda environment variables
-aws lambda update-function-configuration \
-    --function-name ${SENDER_FN} \
-    --region us-west-2 \
-    --environment "Variables={USER_PROFILES_TABLE=${USER_TABLE},CURATED_BUCKET=${CURATED_BUCKET},PINPOINT_APP_ID=${PINPOINT_APP_ID},DEFAULT_FROM_ADDRESS=notifications@example.com}"
-
-# Verify configuration
+# Verify environment variables are configured
 aws lambda get-function-configuration \
     --function-name ${SENDER_FN} \
     --region us-west-2 \
     --query 'Environment.Variables' --output json
+
+# Expected output should include:
+# {
+#   "USER_PROFILES_TABLE": "SR-Data-UserProfiles...",
+#   "CURATED_BUCKET": "sr-data-curatedbucket...",
+#   "PINPOINT_APP_ID": "abc123def456...",
+#   "DEFAULT_FROM_ADDRESS": "notifications@example.com"
+# }
 ```
 
 **Step 4: Test Sender Lambda Manually**
@@ -1236,33 +1232,52 @@ aws logs tail /aws/lambda/${SENDER_FN} --follow --region us-west-2
 
 **Step 5: Verify Email Delivery**
 
+The primary way to verify email delivery is by checking your inbox and Lambda logs.
+
 ```bash
-# Check Pinpoint send events (may take a few minutes)
-aws pinpoint get-application-date-range-kpi \
-    --application-id ${PINPOINT_APP_ID} \
-    --kpi-name successful-email-message-deliveries \
-    --region us-west-2
+# Get Sender Lambda function name
+SENDER_FN=$(aws lambda list-functions --region us-west-2 \
+    --query "Functions[?contains(FunctionName, 'SenderFn')].FunctionName" --output text)
 
-# View delivery logs in S3 (written by Kinesis Firehose)
-DELIVERIES_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data --region us-west-2 \
-    --query "Stacks[0].Outputs[?OutputKey=='DeliveriesBucketName'].OutputValue" --output text)
+# Check Lambda logs for successful send
+aws logs tail /aws/lambda/${SENDER_FN} --region us-west-2 | grep -i "email sent successfully"
 
-aws s3 ls s3://${DELIVERIES_BUCKET}/pinpoint/ --recursive
+# Expected log output:
+# "Email sent successfully to: your-email@example.com"
 ```
 
 **🖥️ AWS Console Verification:**
 
-1. **Email Inbox**: Check your inbox for the notification email
+1. **Email Inbox**: ✅ **PRIMARY VERIFICATION** - Check your inbox for the notification email
    - Subject: "Notification from Smart Routing Engine"
    - Body: "Notification for user_001"
+   - **Note**: Check spam folder if not in inbox
 
-2. **Pinpoint Console**: [https://us-west-2.console.aws.amazon.com/pinpoint/home?region=us-west-2](https://us-west-2.console.aws.amazon.com/pinpoint/home?region=us-west-2)
-   - Click your Pinpoint app
-   - Go to **Analytics** → **Transactional messaging** to see send metrics
-
-3. **Lambda Logs**: [https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups)
+2. **Lambda Logs**: [https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups)
    - Find `/aws/lambda/SR-Compute-SenderFn`
    - Look for: "Email sent successfully to: your-email@example.com"
+   - If you see this log message → email was sent via Pinpoint
+
+3. **SES/Pinpoint Sending Statistics** (Optional):
+   ```bash
+   # View recent email send attempts
+   aws sesv2 get-account --region us-west-2
+
+   # Check sending quota and daily send count
+   aws sesv2 get-account --region us-west-2 \
+       --query '{DailySendingQuota:SendQuota.Max24HourSend,SentLast24Hours:SendQuota.SentLast24Hours}' \
+       --output table
+   ```
+
+**📊 Delivery Tracking Notes:**
+
+⚠️ **Important**: We've simplified the MessagingStack to use only Pinpoint's transactional messaging API. Analytics features (Kinesis EventStream, Firehose) have been removed due to AWS deprecation (Oct 2026).
+
+**For production delivery tracking, consider:**
+- **Amazon SES Configuration Sets**: Track bounces, complaints, and delivery events
+- **CloudWatch Logs**: Lambda logs show all send attempts
+- **SNS Topics**: Subscribe to SES bounce/complaint notifications
+- **Direct SES API**: Migrate from Pinpoint to SES for better tracking and lower cost
 
 **🐛 Troubleshooting:**
 
@@ -1302,8 +1317,27 @@ If email doesn't arrive:
 |-------|-------|----------|
 | `User email not found for userId: user_001` | User profile missing email field | Run Step 1 to add email to DynamoDB |
 | `MessageRejected: Email address is not verified` | Sender email not verified | Run Step 2 and click confirmation link |
-| `NotFoundException: Endpoint not found` | PINPOINT_APP_ID incorrect | Run Step 3 to update environment variable |
+| `NotFoundException: Endpoint not found` | PINPOINT_APP_ID incorrect | Redeploy SR-Compute after SR-Messaging is deployed |
 | `AccessDenied: mobiletargeting:SendMessages` | Missing IAM permissions | Check compute-stack.ts grants Pinpoint permissions |
+| `ForbiddenException: AWS will end support for Pinpoint engagement features` | Pinpoint analytics deprecated (Oct 2026) | Stack already fixed - only uses transactional messaging |
+| `ErrorOutputPrefix cannot be null or empty when Prefix contains expressions` | Firehose configuration error | Stack already fixed - analytics features removed |
+
+**⚠️ If SR-Messaging deployment fails with ROLLBACK_COMPLETE:**
+
+```bash
+# Delete the failed stack
+aws cloudformation delete-stack --stack-name SR-Messaging --region us-west-2
+
+# Wait for deletion (takes ~2 minutes)
+aws cloudformation wait stack-delete-complete --stack-name SR-Messaging --region us-west-2
+
+# Redeploy with fixed code
+cd infra/cdk
+pnpm exec cdk deploy SR-Messaging --region us-west-2
+
+# Then update SR-Compute to get Pinpoint App ID
+pnpm exec cdk deploy SR-Compute --region us-west-2
+```
 
 ---
 

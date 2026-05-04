@@ -1,62 +1,35 @@
 import * as cdk from 'aws-cdk-lib';
 import {
-    aws_pinpoint as pinpoint, aws_kinesis as kinesis,
-    aws_kinesisfirehose as firehose, type StackProps, aws_ec2 as ec2,
-    aws_apigatewayv2_integrations as apigwInt, aws_apigatewayv2 as apigwv2,
+    aws_pinpoint as pinpoint, type StackProps
 } from 'aws-cdk-lib';
 import {Construct} from "constructs";
-import {DataStack} from "./data-stack";
-
-import { aws_lambda as lambda, aws_iam as iam } from 'aws-cdk-lib';
-
-interface MessagingStackProps extends StackProps {
-    data: DataStack;
-    vpc: ec2.IVpc;
-}
 
 export class MessagingStack extends cdk.Stack {
-    constructor(scope: Construct, id: string, {data, vpc, ...props}: MessagingStackProps) {
+    public readonly pinpointAppId: string;
+
+    constructor(scope: Construct, id: string, props: StackProps) {
         super(scope, id, props);
 
-        // Stream for Pinpoint events
-        const ppStream = new kinesis.Stream(this, 'PinpointEvents', {shardCount: 1});
-
-        // Pinpoint app (project)
+        // Pinpoint app (project) - ONLY for transactional messaging (SendMessages API)
+        // NOTE: AWS is deprecating Pinpoint engagement features (campaigns, segments, analytics) on Oct 30, 2026
+        // We only use Pinpoint for transactional email sending, which should still be supported
         const ppApp = new pinpoint.CfnApp(this, 'PinpointApp', {name: 'SR-Pinpoint-app'});
 
-        // Role for Pinpoint → Kinesis
-        const ppToKinesisRole = new iam.Role(this, 'PinpointToKinesisRole', {
-            assumedBy: new iam.ServicePrincipal('pinpoint.amazonaws.com'),
-        });
-        ppToKinesisRole.addToPolicy(new iam.PolicyStatement({
-            actions: ['kinesis:PutRecord', 'kinesis:PutRecords', 'kinesis:DescribeStream'],
-            resources: [ppStream.streamArn]
-        }));
+        // Export Pinpoint App ID for use by other stacks
+        this.pinpointAppId = ppApp.ref;
 
-        new pinpoint.CfnEventStream(this, 'PinpointEventStream', {
-            applicationId: ppApp.ref,
-            destinationStreamArn: ppStream.streamArn,
-            roleArn: ppToKinesisRole.roleArn
-        });
-
-        // Firehose → S3 deliveries bucket
-        const fhRole = new iam.Role(this, 'FirehoseRole', {
-            assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),
-        });
-        ppStream.grantRead(fhRole);
-        data.deliveriesBucket.grantWrite(fhRole);
-
-        new firehose.CfnDeliveryStream(this, 'PinpointToS3', {
-            deliveryStreamType: 'KinesisStreamAsSource',
-            kinesisStreamSourceConfiguration: {kinesisStreamArn: ppStream.streamArn, roleArn: fhRole.roleArn},
-            s3DestinationConfiguration: {
-                bucketArn: data.deliveriesBucket.bucketArn,
-                roleArn: fhRole.roleArn,
-                prefix: 'pinpoint/dt=!{timestamp:yyyy-MM-dd}/',
-                bufferingHints: {intervalInSeconds: 60, sizeInMBs: 5},
-                compressionFormat: 'GZIP'
-            }
-        });
+        // NOTE: The following Pinpoint analytics features are being deprecated and have been removed:
+        // - Kinesis Stream for Pinpoint events (analytics)
+        // - PinpointEventStream (deprecated analytics feature)
+        // - Kinesis Firehose (was for streaming Pinpoint analytics to S3)
+        //
+        // We've simplified this stack to only include:
+        // - Pinpoint App (for transactional messaging via SendMessages API)
+        //
+        // If you need delivery/bounce tracking, consider:
+        // - Amazon SES Configuration Sets
+        // - CloudWatch Logs
+        // - SNS topics for bounce/complaint notifications
 
         // output for app id
         new cdk.CfnOutput(this, 'PinpointAppId', {value: ppApp.ref});

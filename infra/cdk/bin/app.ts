@@ -23,19 +23,17 @@ const identity = new IdentityStack(app, 'SR-Identity', {env});
 const security = new SecurityStack(app, 'SR-Security', {env});
 const data = new DataStack(app, 'SR-Data', {env, kmsKey: security.dataKey});
 
-new ComputeStack(app, 'SR-Compute', {env, vpc: network.vpc, kmsKey: security.dataKey, data, identity});
+// Create MessagingStack BEFORE ComputeStack so we can pass Pinpoint App ID
+const messaging = new MessagingStack(app, 'SR-Messaging', {env});
+
+// Now ComputeStack can reference the Pinpoint App ID from MessagingStack
+new ComputeStack(app, 'SR-Compute', {env, vpc: network.vpc, kmsKey: security.dataKey, data, identity, messaging});
 
 // after creating DataStack (named `data`) and IdentityStack...
 const ml = new MlStack(app, 'SR-ML', {
     env,
     data,
     kmsKey: security.dataKey
-});
-
-new MessagingStack(app, 'SR-Messaging', {
-    env,
-    data,
-    vpc: network.vpc
 });
 
 // NOTE: SR-SageMaker stack is deprecated and no longer used

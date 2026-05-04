@@ -4,14 +4,15 @@ import * as cdk from 'aws-cdk-lib';
 
 import { Construct } from 'constructs';
 import { DataStack } from './data-stack';
+import { MessagingStack } from './messaging-stack';
 import {HttpJwtAuthorizer} from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import {HttpLambdaIntegration} from "aws-cdk-lib/aws-apigatewayv2-integrations";
 
 
-interface Props extends StackProps { vpc: ec2.IVpc, kmsKey: kms.IKey, data: DataStack, identity: any }
+interface Props extends StackProps { vpc: ec2.IVpc, kmsKey: kms.IKey, data: DataStack, identity: any, messaging?: MessagingStack }
 
 export class ComputeStack extends Stack {
-    constructor(scope: Construct, id: string, { vpc, kmsKey, data, identity, ...props }: Props){
+    constructor(scope: Construct, id: string, { vpc, kmsKey, data, identity, messaging, ...props }: Props){
         super(scope,id,props);
 
         // Lambda: controlPlane (Java zip you will build at services/control-plane)
@@ -65,7 +66,7 @@ export class ComputeStack extends Stack {
             environment: {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
                 CURATED_BUCKET: data.curatedBucket.bucketName,
-                PINPOINT_APP_ID: 'PLACEHOLDER', // Will be set manually or via stack dependency
+                PINPOINT_APP_ID: messaging?.pinpointAppId || 'PLACEHOLDER', // Automatically from MessagingStack, or placeholder if not deployed yet
                 DEFAULT_FROM_ADDRESS: 'notifications@example.com'
             }
         });
