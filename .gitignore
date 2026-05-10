@@ -7,8 +7,9 @@ Info.txt
 # CDK
 cdk.out
 cdk.context.json
-*.d.ts
-*.js
+infra/cdk/**/*.d.ts
+infra/cdk/**/*.js
+infra/cdk/**/*.js.map
 .cdk.staging
 
 # Build artifacts
@@ -16,6 +17,12 @@ cdk.context.json
 *.zip
 dist/
 build/
+
+# Frontend
+frontend/dist
+frontend/.env.local
+frontend/.env.production
+frontend/node_modules
 
 # OS files
 .DS_Store
@@ -30,3 +37,5 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

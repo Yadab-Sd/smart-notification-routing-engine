@@ -126,8 +126,32 @@ export class ComputeStack extends Stack {
         // Common
         // (Optional) decisionFn wired later; for sprint 1 we only need health + events
 
-        // API HTTP API
-        const httpApi = new apigwv2.HttpApi(this,'HttpApi');
+        // API HTTP API with CORS configuration
+        const httpApi = new apigwv2.HttpApi(this,'HttpApi',{
+            corsPreflight: {
+                allowOrigins: [
+                    'http://localhost:5173', // Vite dev server
+                    'http://localhost:3000', // Alternative dev port
+                    // CloudFront URL will be added after deployment
+                ],
+                allowMethods: [
+                    apigwv2.CorsHttpMethod.GET,
+                    apigwv2.CorsHttpMethod.POST,
+                    apigwv2.CorsHttpMethod.PUT,
+                    apigwv2.CorsHttpMethod.DELETE,
+                    apigwv2.CorsHttpMethod.OPTIONS,
+                ],
+                allowHeaders: [
+                    'Content-Type',
+                    'Authorization',
+                    'X-Amz-Date',
+                    'X-Api-Key',
+                    'X-Amz-Security-Token',
+                ],
+                allowCredentials: true,
+                maxAge: cdk.Duration.days(1),
+            }
+        });
 
 
         // Cognito authorizer

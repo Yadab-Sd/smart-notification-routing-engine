@@ -5,6 +5,7 @@ import {SecurityStack} from '../lib/security-stack';
 import {DataStack} from '../lib/data-stack';
 import {IdentityStack} from '../lib/identity-stack';
 import {ComputeStack} from '../lib/compute-stack';
+import {FrontendStack} from '../lib/frontend-stack';
 
 import dotenv from "dotenv";
 import {MlStack} from "../lib/ml-stack";
@@ -35,6 +36,9 @@ const ml = new MlStack(app, 'SR-ML', {
     data,
     kmsKey: security.dataKey
 });
+
+// Frontend hosting (S3 + CloudFront)
+const frontend = new FrontendStack(app, 'SR-Frontend', {env});
 
 // NOTE: SR-SageMaker stack is deprecated and no longer used
 // The endpoint is now automatically deployed by the ML pipeline (SR-ML)
