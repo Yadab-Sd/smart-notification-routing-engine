@@ -1,54 +1,39 @@
 import Layout from '@/components/common/Layout'
+import MetricsOverview from '@/components/analytics-dashboard/MetricsOverview'
+import EngagementTrends from '@/components/analytics-dashboard/EngagementTrends'
+import MLModelPerformance from '@/components/analytics-dashboard/MLModelPerformance'
+import SendTimeHeatmap from '@/components/analytics-dashboard/SendTimeHeatmap'
+import SystemHealth from '@/components/analytics-dashboard/SystemHealth'
+import ImpactCalculator from '@/components/analytics-dashboard/ImpactCalculator'
 
 const Analytics = () => {
   return (
     <Layout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Admin Analytics Dashboard</h2>
           <p className="mt-2 text-gray-600">
-            ML model performance and engagement metrics
+            Monitor system performance, ML model metrics, and business impact across all customers
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Events', value: '2.4M' },
-            { label: 'Active Users', value: '15,234' },
-            { label: 'Avg Engagement', value: '5.8%' },
-            { label: 'ML Model AUC', value: '0.78' },
-          ].map((metric) => (
-            <div key={metric.label} className="card">
-              <div className="text-sm text-gray-600">{metric.label}</div>
-              <div className="text-3xl font-bold text-primary-600 mt-2">
-                {metric.value}
-              </div>
-            </div>
-          ))}
+        {/* KPI Metrics Overview */}
+        <MetricsOverview />
+
+        {/* Engagement Trends: Baseline vs ML */}
+        <EngagementTrends />
+
+        {/* ML Model Performance and Send-Time Heatmap */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MLModelPerformance />
+          <SendTimeHeatmap />
         </div>
 
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-4">Engagement Trends</h3>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded">
-            <p className="text-gray-500">Charts coming soon</p>
-          </div>
-        </div>
+        {/* System Health Monitoring */}
+        <SystemHealth />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">ML Model Performance</h3>
-            <div className="h-48 flex items-center justify-center bg-gray-50 rounded">
-              <p className="text-gray-500">Training curve coming soon</p>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Send-Time Heatmap</h3>
-            <div className="h-48 flex items-center justify-center bg-gray-50 rounded">
-              <p className="text-gray-500">Heatmap coming soon</p>
-            </div>
-          </div>
-        </div>
+        {/* Business Impact Calculator */}
+        <ImpactCalculator />
       </div>
     </Layout>
   )
