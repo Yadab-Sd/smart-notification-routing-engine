@@ -14,6 +14,7 @@ SERVICES=(
     "decision-service"
     "sender-service"
     "endpoint-deployer"
+    "analytics-service"
 )
 
 for service in "${SERVICES[@]}"; do
@@ -49,6 +50,7 @@ echo "  - services/events-consumer/target/events-consumer.jar"
 echo "  - services/decision-service/target/decision-service.jar"
 echo "  - services/sender-service/target/sender-service.jar"
 echo "  - services/endpoint-deployer/target/endpoint-deployer.jar"
+echo "  - services/analytics-service/target/analytics-service.jar"
 echo ""
 echo "Note: These JAR files are what the CDK deployment will use to create Lambda functions."
 echo ""

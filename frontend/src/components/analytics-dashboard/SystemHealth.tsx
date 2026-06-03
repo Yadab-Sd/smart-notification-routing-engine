@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Activity, AlertCircle, Zap, Database, Cpu, Send } from 'lucide-react'
+import { getSystemHealth } from '@/api/analytics'
 import { generateSystemHealth } from '@/utils/demo-data'
+import { ENV } from '@/config/env'
+import type { SystemHealth as SystemHealthType } from '@/api/analytics'
 
 interface HealthMetricProps {
   title: string
@@ -42,13 +45,31 @@ const HealthMetric = ({ title, icon, metrics }: HealthMetricProps) => {
 }
 
 const SystemHealth = () => {
-  const [health, setHealth] = useState(generateSystemHealth())
+  const [health, setHealth] = useState<SystemHealthType | null>(null)
 
   useEffect(() => {
-    // Update health metrics every 3 seconds to simulate live monitoring
-    const interval = setInterval(() => {
-      setHealth(generateSystemHealth())
-    }, 3000)
+    const fetchHealth = async () => {
+      try {
+        if (ENV.DEMO_MODE) {
+          // Use demo data in demo mode
+          setHealth(generateSystemHealth())
+        } else {
+          // Fetch real health metrics from API
+          const data = await getSystemHealth()
+          setHealth(data)
+        }
+      } catch (error) {
+        console.error('Error fetching system health:', error)
+        // Fallback to demo data on error
+        setHealth(generateSystemHealth())
+      }
+    }
+
+    // Fetch initial health metrics
+    fetchHealth()
+
+    // Update health metrics every 10 seconds
+    const interval = setInterval(fetchHealth, 10000)
 
     return () => clearInterval(interval)
   }, [])
@@ -63,6 +84,21 @@ const SystemHealth = () => {
     if (value < 0.1) return 'good'
     if (value < 0.5) return 'warning'
     return 'error'
+  }
+
+  if (!health) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

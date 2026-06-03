@@ -212,6 +212,61 @@ export class ComputeStack extends Stack {
             authorizer: jwtAuth
         });
 
+        // Analytics Lambda functions ================================================
+        const analyticsMetricsFn = new lambda.Function(this, 'AnalyticsMetricsFn', {
+            runtime: lambda.Runtime.JAVA_21,
+            handler: 'com.yadab.sr.analytics.MetricsHandler::handleRequest',
+            code: lambda.Code.fromAsset('../../services/analytics-service/target/analytics-service.jar'),
+            memorySize: 1024,
+            timeout: cdk.Duration.seconds(15),
+            vpc,
+            environment: {
+                USERS_TABLE_NAME: data.profilesTable.tableName,
+            }
+        });
+        data.profilesTable.grantReadData(analyticsMetricsFn);
+
+        const analyticsHealthFn = new lambda.Function(this, 'AnalyticsHealthFn', {
+            runtime: lambda.Runtime.JAVA_21,
+            handler: 'com.yadab.sr.analytics.SystemHealthHandler::handleRequest',
+            code: lambda.Code.fromAsset('../../services/analytics-service/target/analytics-service.jar'),
+            memorySize: 1024,
+            timeout: cdk.Duration.seconds(15),
+            vpc,
+            environment: {
+                API_ID: httpApi.apiId,
+                KINESIS_STREAM_NAME: data.userEvents.streamName,
+                SAGEMAKER_ENDPOINT_NAME: 'send-time-v1',
+                SENDER_FUNCTION_NAME: senderFn.functionName,
+            }
+        });
+        // Grant CloudWatch read permissions
+        analyticsHealthFn.addToRolePolicy(new iam.PolicyStatement({
+            actions: [
+                'cloudwatch:GetMetricStatistics',
+                'cloudwatch:ListMetrics',
+            ],
+            resources: ['*']
+        }));
+
+        // Analytics API routes
+        const analyticsMetricsInteg = new apigwInt.HttpLambdaIntegration('AnalyticsMetricsInteg', analyticsMetricsFn);
+        const analyticsHealthInteg = new apigwInt.HttpLambdaIntegration('AnalyticsHealthInteg', analyticsHealthFn);
+
+        new apigwv2.HttpRoute(this, 'AnalyticsMetricsRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/analytics/metrics', apigwv2.HttpMethod.GET),
+            integration: analyticsMetricsInteg,
+            authorizer: jwtAuth
+        });
+
+        new apigwv2.HttpRoute(this, 'AnalyticsHealthRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/analytics/system-health', apigwv2.HttpMethod.GET),
+            integration: analyticsHealthInteg,
+            authorizer: jwtAuth
+        });
+
         new cdk.CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
         new cdk.CfnOutput(this, 'SenderEmailAddress', { value: senderEmail, description: 'Email address used for sending notifications (must be verified in SES)' });
     }
