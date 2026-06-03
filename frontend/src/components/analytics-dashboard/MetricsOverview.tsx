@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Activity, Users, TrendingUp, Target } from 'lucide-react'
+import { getMetricsOverview } from '@/api/analytics'
 import { generateMetricsOverview } from '@/utils/demo-data'
+import { ENV } from '@/config/env'
 import type { MetricsOverview as MetricsOverviewType } from '@/types'
 
 interface MetricCardProps {
@@ -40,13 +42,28 @@ const MetricsOverview = () => {
   const [metrics, setMetrics] = useState<MetricsOverviewType | null>(null)
 
   useEffect(() => {
-    // Generate initial metrics
-    setMetrics(generateMetricsOverview())
+    const fetchMetrics = async () => {
+      try {
+        if (ENV.DEMO_MODE) {
+          // Use demo data in demo mode
+          setMetrics(generateMetricsOverview())
+        } else {
+          // Fetch real metrics from API
+          const data = await getMetricsOverview()
+          setMetrics(data)
+        }
+      } catch (error) {
+        console.error('Error fetching metrics:', error)
+        // Fallback to demo data on error
+        setMetrics(generateMetricsOverview())
+      }
+    }
 
-    // Update metrics every 5 seconds to simulate live data
-    const interval = setInterval(() => {
-      setMetrics(generateMetricsOverview())
-    }, 5000)
+    // Fetch initial metrics
+    fetchMetrics()
+
+    // Update metrics every 10 seconds
+    const interval = setInterval(fetchMetrics, 10000)
 
     return () => clearInterval(interval)
   }, [])
