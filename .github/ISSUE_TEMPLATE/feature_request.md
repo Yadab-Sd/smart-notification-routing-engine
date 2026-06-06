@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Which component does the feature request relate to?**
-Java Service, CDK Infrastructure, or ML Model.
+CDK Infrastructure, ML Model, Java Service, or Frontend UI
 
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
