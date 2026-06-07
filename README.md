@@ -8,6 +8,12 @@
 [![Python](https://img.shields.io/badge/Python-3.10-green?logo=python)](https://www.python.org/)
 [![SageMaker](https://img.shields.io/badge/ML-AWS%20SageMaker-brightgreen)](https://aws.amazon.com/sagemaker/)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-blue)](https://github.com/Yadab-Sd/smart-notification-routing-engine)
+[![DOI](https://zenodo.org/badge/1075035783.svg)](https://doi.org/10.5281/zenodo.20585591)
+![GitHub stars](https://img.shields.io/github/stars/Yadab-Sd/smart-notification-routing-engine?style=social)
+![GitHub forks](https://img.shields.io/github/forks/Yadab-Sd/smart-notification-routing-engine?style=social)
+![GitHub issues](https://img.shields.io/github/issues/Yadab-Sd/smart-notification-routing-engine)
+![License](https://img.shields.io/github/license/Yadab-Sd/smart-notification-routing-engine)
+
 
 > **Project Status**: 🚧 Active Development - Core infrastructure and ML pipeline implemented. Performance benchmarking and production validation in progress.
 
