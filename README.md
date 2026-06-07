@@ -2024,7 +2024,7 @@ SOFTWARE.
 If you use this work in research or production, please cite:
 
 ```bibtex
-@software{Sutradhar_Smart_Notification_Routing_2025,
+@software{Sutradhar_Smart_Notification_Routing_2026,
 author = {Sutradhar, Yadab},
 doi = {10.5281/zenodo.20585591},
 license = {MIT},
@@ -2032,7 +2032,7 @@ month = jun,
 title = {{Smart Notification Routing Engine}},
 url = {https://github.com/Yadab-Sd/smart-notification-routing-engine},
 version = {1.0.1},
-year = {2025}
+year = {2026}
 }
 ```
 
