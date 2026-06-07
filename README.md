@@ -2024,12 +2024,15 @@ SOFTWARE.
 If you use this work in research or production, please cite:
 
 ```bibtex
-@software{smart_notification_router_2025,
-  author = {Yadab Sutradhar},
-  title = {Smart Notification Routing Engine: ML-Powered Intelligent Delivery System},
-  year = {2025},
-  url = {https://github.com/Yadab-Sd/smart-notification-routing-engine},
-  note = {Production-grade notification optimization with AWS SageMaker}
+@software{Sutradhar_Smart_Notification_Routing_2025,
+author = {Sutradhar, Yadab},
+doi = {10.5281/zenodo.20585591},
+license = {MIT},
+month = jun,
+title = {{Smart Notification Routing Engine}},
+url = {https://github.com/Yadab-Sd/smart-notification-routing-engine},
+version = {1.0.1},
+year = {2025}
 }
 ```
 
