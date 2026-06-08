@@ -1,6 +1,24 @@
+import { useEffect, useState } from 'react'
+import { getMetricsOverview } from '@/api/analytics'
+import type { MetricsOverview } from '@/types'
 import Layout from '@/components/common/Layout'
 
 const Dashboard = () => {
+  const [metrics, setMetrics] = useState<MetricsOverview | null>(null)
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const data = await getMetricsOverview()
+        setMetrics(data)
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error)
+      }
+    }
+
+    fetchMetrics()
+  }, [])
+
   return (
     <Layout>
       <div className="space-y-6">
