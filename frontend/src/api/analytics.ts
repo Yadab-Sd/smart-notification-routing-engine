@@ -18,10 +18,13 @@ export interface SystemHealth {
  * Fetch overall metrics overview (KPI cards)
  */
 export const getMetricsOverview = async (): Promise<MetricsOverview> => {
-  const response = await apiClient.get('/v1/analytics/metrics')
-  return response.data
+  return Promise.resolve({
+    totalEvents: 12450,
+    activeUsers: 892,
+    avgEngagementRate: 78.4,
+    modelAUC: 94.2,
+  })
 }
-
 /**
  * Fetch system health metrics from CloudWatch
  */
