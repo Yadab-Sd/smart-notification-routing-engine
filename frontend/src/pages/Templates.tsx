@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
 import Layout from '@/components/common/Layout'
-import { useTranslation } from '@/contexts/LanguageContext'
-import type { TranslationKey } from '@/i18n/translations'
 import {
   Plus,
   Search,
@@ -21,8 +19,8 @@ type Tag = 'transactional' | 'marketing' | 'alert' | 'onboarding'
 
 interface Template {
   id: string
-  titleKey: TranslationKey
-  bodyKey: TranslationKey
+  title: string
+  body: string
   channel: Channel
   tag: Tag
   usedCount: number
@@ -50,24 +48,23 @@ const tagBadge = (tg: Tag) => {
   return 'badge badge-success'
 }
 
-const tagKey = (tg: Tag): TranslationKey => {
-  if (tg === 'transactional') return 'tpl.tag.transactional'
-  if (tg === 'marketing') return 'tpl.tag.marketing'
-  if (tg === 'alert') return 'tpl.tag.alert'
-  return 'tpl.tag.onboarding'
+const tagLabel = (tg: Tag) => {
+  if (tg === 'transactional') return 'Transactional'
+  if (tg === 'marketing') return 'Marketing'
+  if (tg === 'alert') return 'Alert'
+  return 'Onboarding'
 }
 
 const TEMPLATES: Template[] = [
-  { id: 'T-01', titleKey: 'tpl.demo1.title', bodyKey: 'tpl.demo1.body', channel: 'Email', tag: 'transactional', usedCount: 12_430, lastUsed: '2 h' },
-  { id: 'T-02', titleKey: 'tpl.demo2.title', bodyKey: 'tpl.demo2.body', channel: 'Email', tag: 'onboarding', usedCount: 8_902, lastUsed: '5 h' },
-  { id: 'T-03', titleKey: 'tpl.demo3.title', bodyKey: 'tpl.demo3.body', channel: 'Push', tag: 'marketing', usedCount: 4_817, lastUsed: '1 j' },
-  { id: 'T-04', titleKey: 'tpl.demo4.title', bodyKey: 'tpl.demo4.body', channel: 'Email', tag: 'marketing', usedCount: 65_201, lastUsed: '12 h' },
-  { id: 'T-05', titleKey: 'tpl.demo5.title', bodyKey: 'tpl.demo5.body', channel: 'SMS', tag: 'transactional', usedCount: 154_210, lastUsed: '3 min' },
-  { id: 'T-06', titleKey: 'tpl.demo6.title', bodyKey: 'tpl.demo6.body', channel: 'WhatsApp', tag: 'alert', usedCount: 1_204, lastUsed: '4 j' },
+  { id: 'T-01', title: 'Order confirmation', body: 'Hi {{name}}, your order #{{orderId}} is confirmed.', channel: 'Email', tag: 'transactional', usedCount: 12_430, lastUsed: '2 h' },
+  { id: 'T-02', title: 'Welcome!', body: 'Welcome {{name}}! Here is how to get started in 3 steps...', channel: 'Email', tag: 'onboarding', usedCount: 8_902, lastUsed: '5 h' },
+  { id: 'T-03', title: 'Weekend promo', body: '-20% all weekend. Code: WEEKEND20', channel: 'Push', tag: 'marketing', usedCount: 4_817, lastUsed: '1 d' },
+  { id: 'T-04', title: 'Abandoned cart', body: 'You left {{count}} item(s) in your cart.', channel: 'Email', tag: 'marketing', usedCount: 65_201, lastUsed: '12 h' },
+  { id: 'T-05', title: 'Verification code', body: 'Your code: {{code}}. Valid for 10 minutes.', channel: 'SMS', tag: 'transactional', usedCount: 154_210, lastUsed: '3 min' },
+  { id: 'T-06', title: 'Security alert', body: 'Sign-in from a new device detected.', channel: 'WhatsApp', tag: 'alert', usedCount: 1_204, lastUsed: '4 d' },
 ]
 
 const Templates = () => {
-  const { t, language } = useTranslation()
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all')
   const [selected, setSelected] = useState<Template | null>(null)
@@ -77,30 +74,29 @@ const Templates = () => {
       if (channelFilter !== 'all' && tp.channel !== channelFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        if (!t(tp.titleKey).toLowerCase().includes(q) && !t(tp.bodyKey).toLowerCase().includes(q)) {
+        if (!tp.title.toLowerCase().includes(q) && !tp.body.toLowerCase().includes(q)) {
           return false
         }
       }
       return true
     })
-  }, [search, channelFilter, t])
+  }, [search, channelFilter])
 
   return (
     <Layout
       actions={
         <button className="btn-primary">
-          <Plus size={16} /> {t('tpl.new')}
+          <Plus size={16} /> New template
         </button>
       }
     >
       <div className="space-y-6">
-        {/* Filters bar */}
         <div className="card-flush p-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder={t('tpl.searchPlaceholder')}
+              placeholder="Search a template..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -110,7 +106,7 @@ const Templates = () => {
             value={channelFilter}
             onChange={(e) => setChannelFilter(e.target.value as Channel | 'all')}
           >
-            <option value="all">{t('notifs.filterAll')} ({t('tpl.filterChannel').toLowerCase()})</option>
+            <option value="all">All channels</option>
             <option>Email</option>
             <option>SMS</option>
             <option>Push</option>
@@ -118,7 +114,6 @@ const Templates = () => {
           </select>
         </div>
 
-        {/* Grid of cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((tp) => {
             const Icon = channelIcon(tp.channel)
@@ -132,21 +127,21 @@ const Templates = () => {
                   <div className={`stat-icon-wrap ${color.bg}`}>
                     <Icon size={18} className={color.text} />
                   </div>
-                  <span className={tagBadge(tp.tag)}>{t(tagKey(tp.tag))}</span>
+                  <span className={tagBadge(tp.tag)}>{tagLabel(tp.tag)}</span>
                 </div>
 
                 <div>
-                  <div className="font-semibold text-slate-900">{t(tp.titleKey)}</div>
+                  <div className="font-semibold text-slate-900">{tp.title}</div>
                   <div className="text-xs text-slate-400 font-mono mt-0.5">{tp.id} · {tp.channel}</div>
                 </div>
 
                 <p className="text-sm text-slate-600 line-clamp-2 min-h-[40px]">
-                  {t(tp.bodyKey)}
+                  {tp.body}
                 </p>
 
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
-                  <span>{t('tpl.usedCount', { n: tp.usedCount.toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US') })}</span>
-                  <span>{t('tpl.lastUsed')}: {tp.lastUsed}</span>
+                  <span>{tp.usedCount.toLocaleString('en-US')} sends</span>
+                  <span>Last used: {tp.lastUsed}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -154,15 +149,15 @@ const Templates = () => {
                     onClick={() => setSelected(tp)}
                     className="flex-1 btn-secondary text-xs py-2"
                   >
-                    <Eye size={12} /> {t('tpl.preview')}
+                    <Eye size={12} /> Preview
                   </button>
-                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600" title={t('common.edit')}>
+                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600" title="Edit">
                     <Pencil size={14} />
                   </button>
-                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600" title={t('common.duplicate')}>
+                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600" title="Duplicate">
                     <Copy size={14} />
                   </button>
-                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-danger-50 hover:border-danger-200 text-danger-600" title={t('common.delete')}>
+                  <button className="p-2 rounded-lg border border-slate-200 hover:bg-danger-50 hover:border-danger-200 text-danger-600" title="Delete">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -174,12 +169,11 @@ const Templates = () => {
         {filtered.length === 0 && (
           <div className="card text-center py-16 text-slate-500">
             <FileText className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-            {t('common.noResults')}
+            No results
           </div>
         )}
       </div>
 
-      {/* Preview modal */}
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 animate-fade-in"
@@ -191,8 +185,8 @@ const Templates = () => {
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-900">{t('tpl.preview')}</span>
-                <span className={tagBadge(selected.tag)}>{t(tagKey(selected.tag))}</span>
+                <span className="font-semibold text-slate-900">Preview</span>
+                <span className={tagBadge(selected.tag)}>{tagLabel(selected.tag)}</span>
               </div>
               <button
                 onClick={() => setSelected(null)}
@@ -203,17 +197,17 @@ const Templates = () => {
             </div>
             <div className="p-5">
               <div className="text-xs text-slate-400 mb-2">{selected.channel} · {selected.id}</div>
-              <div className="font-semibold text-slate-900 mb-2">{t(selected.titleKey)}</div>
+              <div className="font-semibold text-slate-900 mb-2">{selected.title}</div>
               <div className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-100 whitespace-pre-wrap">
-                {t(selected.bodyKey)}
+                {selected.body}
               </div>
             </div>
             <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
               <button onClick={() => setSelected(null)} className="btn-secondary text-sm">
-                {t('common.close')}
+                Close
               </button>
               <button className="btn-primary text-sm">
-                <Pencil size={14} /> {t('common.edit')}
+                <Pencil size={14} /> Edit
               </button>
             </div>
           </div>

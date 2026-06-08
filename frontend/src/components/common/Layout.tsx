@@ -1,8 +1,6 @@
 import { ReactNode, useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTranslation } from '@/contexts/LanguageContext'
-import LanguageSwitcher from './LanguageSwitcher'
 import {
   BarChart3,
   LayoutDashboard,
@@ -21,7 +19,6 @@ import {
   Users,
   Key,
 } from 'lucide-react'
-import type { TranslationKey } from '@/i18n/translations'
 
 interface LayoutProps {
   children: ReactNode
@@ -30,9 +27,56 @@ interface LayoutProps {
   actions?: ReactNode
 }
 
+const navSections = [
+  {
+    title: 'Operations',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    ],
+  },
+  {
+    title: 'Messaging',
+    items: [
+      { name: 'Notifications', href: '/notifications', icon: Send },
+      { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
+      { name: 'Templates', href: '/templates', icon: FileText },
+      { name: 'Audience', href: '/audience', icon: Users },
+    ],
+  },
+  {
+    title: 'Developers',
+    items: [
+      { name: 'API keys', href: '/api-keys', icon: Key },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { name: 'Settings', href: '/settings', icon: SettingsIcon },
+    ],
+  },
+]
+
+const pageMeta: Record<string, { title: string; subtitle: string }> = {
+  '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your notifications and their performance' },
+  '/analytics': { title: 'Analytics', subtitle: 'ML performance, engagement and platform health' },
+  '/notifications': { title: 'Notifications', subtitle: 'All scheduled, in-progress and sent notifications' },
+  '/campaigns': { title: 'Campaigns', subtitle: 'Group your notifications by business goal' },
+  '/templates': { title: 'Templates', subtitle: 'Reusable templates for your notifications' },
+  '/audience': { title: 'Audience', subtitle: 'User profiles and target segments' },
+  '/api-keys': { title: 'API keys', subtitle: 'API keys and webhooks to integrate SNRE with your stack' },
+  '/settings': { title: 'Settings', subtitle: 'User preferences, channels and quiet hours' },
+}
+
+const notifItems = [
+  { title: 'XGBoost model retrained', desc: 'AUC-PR up to 0.78', ago: '12 min ago', color: 'success' },
+  { title: 'Ingestion spike detected', desc: '12k events/sec at 14:32 UTC', ago: '1 h ago', color: 'warning' },
+  { title: 'SageMaker endpoint stable', desc: 'p99 = 87 ms (target 100 ms)', ago: '3 h ago', color: 'info' },
+]
+
 const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
   const { user, logout } = useAuth()
-  const { t, language } = useTranslation()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -40,51 +84,9 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
   const menuRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
 
-  const navSections = [
-    {
-      titleKey: 'nav.section.pilotage' as TranslationKey,
-      items: [
-        { nameKey: 'nav.dashboard' as TranslationKey, href: '/dashboard', icon: LayoutDashboard },
-        { nameKey: 'nav.analytics' as TranslationKey, href: '/analytics', icon: BarChart3 },
-      ],
-    },
-    {
-      titleKey: 'nav.section.operations' as TranslationKey,
-      items: [
-        { nameKey: 'nav.notifications' as TranslationKey, href: '/notifications', icon: Send },
-        { nameKey: 'nav.campaigns' as TranslationKey, href: '/campaigns', icon: Megaphone },
-        { nameKey: 'nav.templates' as TranslationKey, href: '/templates', icon: FileText },
-        { nameKey: 'nav.audience' as TranslationKey, href: '/audience', icon: Users },
-      ],
-    },
-    {
-      titleKey: 'nav.section.developers' as TranslationKey,
-      items: [
-        { nameKey: 'nav.apiKeys' as TranslationKey, href: '/api-keys', icon: Key },
-      ],
-    },
-    {
-      titleKey: 'nav.section.account' as TranslationKey,
-      items: [
-        { nameKey: 'nav.settings' as TranslationKey, href: '/settings', icon: SettingsIcon },
-      ],
-    },
-  ]
-
-  const pageMeta: Record<string, { titleKey: TranslationKey; subtitleKey: TranslationKey }> = {
-    '/dashboard': { titleKey: 'nav.dashboard', subtitleKey: 'page.dashboard.subtitle' },
-    '/analytics': { titleKey: 'nav.analytics', subtitleKey: 'page.analytics.subtitle' },
-    '/notifications': { titleKey: 'nav.notifications', subtitleKey: 'page.notifications.subtitle' },
-    '/campaigns': { titleKey: 'nav.campaigns', subtitleKey: 'page.campaigns.subtitle' },
-    '/templates': { titleKey: 'nav.templates', subtitleKey: 'page.templates.subtitle' },
-    '/audience': { titleKey: 'nav.audience', subtitleKey: 'page.audience.subtitle' },
-    '/api-keys': { titleKey: 'nav.apiKeys', subtitleKey: 'page.apiKeys.subtitle' },
-    '/settings': { titleKey: 'nav.settings', subtitleKey: 'page.settings.subtitle' },
-  }
-
   const meta = pageMeta[location.pathname]
-  const resolvedTitle = title ?? (meta ? t(meta.titleKey) : 'SNRE')
-  const resolvedSubtitle = subtitle ?? (meta ? t(meta.subtitleKey) : '')
+  const resolvedTitle = title ?? (meta ? meta.title : 'SNRE')
+  const resolvedSubtitle = subtitle ?? (meta ? meta.subtitle : '')
 
   const isActive = (path: string) => location.pathname === path
   const initials = (user?.email || 'U').slice(0, 2).toUpperCase()
@@ -102,12 +104,6 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
     setSidebarOpen(false)
   }, [location.pathname])
 
-  const notifItems = [
-    { titleKey: 'notif.item1.title' as TranslationKey, descKey: 'notif.item1.desc' as TranslationKey, ago: t('notif.timeAgoMin', { n: 12 }), color: 'success' },
-    { titleKey: 'notif.item2.title' as TranslationKey, descKey: 'notif.item2.desc' as TranslationKey, ago: t('notif.timeAgoHour', { n: 1 }), color: 'warning' },
-    { titleKey: 'notif.item3.title' as TranslationKey, descKey: 'notif.item3.desc' as TranslationKey, ago: t('notif.timeAgoHour', { n: 3 }), color: 'info' },
-  ]
-
   const Sidebar = (
     <aside className="flex flex-col h-full w-64 bg-white border-r border-slate-200">
       <div className="px-5 py-5 border-b border-slate-100 flex items-center justify-between">
@@ -116,16 +112,14 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div className="leading-tight">
-            <div className="font-bold text-slate-900">{t('common.appShort')}</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              {t('common.tagline')}
-            </div>
+            <div className="font-bold text-slate-900">SNRE</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">Routing Engine</div>
           </div>
         </Link>
         <button
           onClick={() => setSidebarOpen(false)}
           className="lg:hidden text-slate-500 hover:text-slate-900"
-          aria-label={t('common.close')}
+          aria-label="Close"
         >
           <X size={20} />
         </button>
@@ -133,17 +127,17 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
 
       <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
         {navSections.map((section) => (
-          <div key={section.titleKey}>
-            <div className="sidebar-section-title">{t(section.titleKey)}</div>
+          <div key={section.title}>
+            <div className="sidebar-section-title">{section.title}</div>
             <div className="space-y-1">
               {section.items.map((item) => (
                 <Link
-                  key={item.nameKey}
+                  key={item.name}
                   to={item.href}
                   className={`sidebar-link ${isActive(item.href) ? 'sidebar-link-active' : ''}`}
                 >
                   <item.icon size={18} />
-                  <span>{t(item.nameKey)}</span>
+                  <span>{item.name}</span>
                 </Link>
               ))}
             </div>
@@ -159,7 +153,7 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
           className="sidebar-link"
         >
           <HelpCircle size={18} />
-          <span>{t('nav.help')}</span>
+          <span>Help &amp; Documentation</span>
         </a>
       </div>
 
@@ -170,9 +164,9 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium text-slate-900 truncate">
-              {user?.email || t('common.user')}
+              {user?.email || 'User'}
             </div>
-            <div className="text-xs text-slate-500">{t('common.admin')}</div>
+            <div className="text-xs text-slate-500">Admin</div>
           </div>
         </div>
       </div>
@@ -205,7 +199,7 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
               <Search size={16} className="text-slate-400" />
               <input
                 type="text"
-                placeholder={t('common.search')}
+                placeholder="Search user, notification..."
                 className="bg-transparent outline-none text-sm w-full placeholder:text-slate-400"
               />
               <kbd className="hidden md:inline text-[10px] font-medium text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white">
@@ -217,16 +211,14 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
 
             <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-success-50 text-success-700 text-xs font-medium">
               <span className="status-dot bg-success-500 animate-pulse-dot" />
-              <span>{t('common.allServicesOk')}</span>
+              <span>All services OK</span>
             </div>
-
-            <LanguageSwitcher />
 
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen((v) => !v)}
                 className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                aria-label={t('notif.title')}
+                aria-label="Notifications"
               >
                 <Bell size={18} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full ring-2 ring-white" />
@@ -234,8 +226,8 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
               {notifOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-elevated border border-slate-100 overflow-hidden animate-fade-in">
                   <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                    <span className="font-semibold text-slate-900">{t('notif.title')}</span>
-                    <span className="badge badge-info">{t('notif.newCount', { count: 3 })}</span>
+                    <span className="font-semibold text-slate-900">Notifications</span>
+                    <span className="badge badge-info">3 new</span>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {notifItems.map((n, i) => (
@@ -243,8 +235,8 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
                         <div className="flex items-start gap-3">
                           <span className={`status-dot mt-1.5 bg-${n.color === 'info' ? 'primary' : n.color}-500`} />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-900">{t(n.titleKey)}</div>
-                            <div className="text-xs text-slate-500">{t(n.descKey)}</div>
+                            <div className="text-sm font-medium text-slate-900">{n.title}</div>
+                            <div className="text-xs text-slate-500">{n.desc}</div>
                             <div className="text-xs text-slate-400 mt-0.5">{n.ago}</div>
                           </div>
                         </div>
@@ -253,7 +245,7 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
                   </div>
                   <div className="px-4 py-2 border-t border-slate-100 text-center">
                     <button className="text-xs text-primary-600 hover:underline font-medium">
-                      {t('notif.viewAll')}
+                      View all notifications
                     </button>
                   </div>
                 </div>
@@ -274,17 +266,17 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-elevated border border-slate-100 overflow-hidden animate-fade-in">
                   <div className="px-4 py-3 border-b border-slate-100">
                     <div className="text-sm font-medium text-slate-900 truncate">{user?.email}</div>
-                    <div className="text-xs text-slate-500">{t('common.administrator')}</div>
+                    <div className="text-xs text-slate-500">Administrator</div>
                   </div>
                   <div className="py-1">
                     <Link to="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                      <SettingsIcon size={16} /> {t('nav.settings')}
+                      <SettingsIcon size={16} /> Settings
                     </Link>
                     <button
                       onClick={logout}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger-600 hover:bg-danger-50"
                     >
-                      <LogOut size={16} /> {t('nav.logout')}
+                      <LogOut size={16} /> Sign out
                     </button>
                   </div>
                 </div>
@@ -295,7 +287,7 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
           <div className="px-4 sm:px-6 lg:px-8 pb-5 pt-1 flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-xs text-slate-400 mb-1">
-                {t('common.appShort')} / <span className="text-slate-600">{resolvedTitle}</span>
+                SNRE / <span className="text-slate-600">{resolvedTitle}</span>
               </div>
               <h1 className="text-2xl font-bold text-slate-900">{resolvedTitle}</h1>
               {resolvedSubtitle && (
@@ -309,9 +301,9 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">{children}</main>
 
         <footer className="px-4 sm:px-6 lg:px-8 py-4 text-xs text-slate-400 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <span>{t('footer.copyright', { year: new Date().getFullYear() })}</span>
+          <span>© {new Date().getFullYear()} Smart Notification Routing Engine — v1.0.0</span>
           <span>
-            {t('common.region')} : {import.meta.env.VITE_REGION || 'us-west-2'} · {t('common.statusOperational')} · {language.toUpperCase()}
+            Region: {import.meta.env.VITE_REGION || 'us-west-2'} · Status: operational
           </span>
         </footer>
       </div>

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import Layout from '@/components/common/Layout'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTranslation } from '@/contexts/LanguageContext'
-import type { TranslationKey } from '@/i18n/translations'
 import {
   User,
   Globe,
@@ -16,18 +14,23 @@ import {
   Shield,
   Key,
 } from 'lucide-react'
-import type { Language } from '@/i18n/translations'
 
 interface ChannelDef {
   key: 'email' | 'sms' | 'push' | 'whatsapp'
   label: string
   icon: any
-  descKey: TranslationKey
+  desc: string
 }
+
+const channels: ChannelDef[] = [
+  { key: 'email', label: 'Email', icon: Mail, desc: 'Transactional and marketing notifications' },
+  { key: 'sms', label: 'SMS', icon: MessageSquare, desc: 'Critical alerts and verification codes' },
+  { key: 'push', label: 'Push', icon: Bell, desc: 'Real-time mobile notifications' },
+  { key: 'whatsapp', label: 'WhatsApp', icon: Smartphone, desc: 'Rich messages and confirmations' },
+]
 
 const Settings = () => {
   const { user } = useAuth()
-  const { t, language, setLanguage } = useTranslation()
   const [tz, setTz] = useState('Europe/Paris')
   const [quietStart, setQuietStart] = useState('22:00')
   const [quietEnd, setQuietEnd] = useState('07:00')
@@ -39,13 +42,6 @@ const Settings = () => {
   })
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const channels: ChannelDef[] = [
-    { key: 'email', label: 'Email', icon: Mail, descKey: 'settings.channels.email.desc' },
-    { key: 'sms', label: 'SMS', icon: MessageSquare, descKey: 'settings.channels.sms.desc' },
-    { key: 'push', label: 'Push', icon: Bell, descKey: 'settings.channels.push.desc' },
-    { key: 'whatsapp', label: 'WhatsApp', icon: Smartphone, descKey: 'settings.channels.whatsapp.desc' },
-  ]
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,39 +58,38 @@ const Settings = () => {
       actions={
         saved && (
           <span className="badge badge-success">
-            <CheckCircle2 size={12} /> {t('settings.savedBadge')}
+            <CheckCircle2 size={12} /> Preferences saved
           </span>
         )
       }
     >
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Profil */}
           <section className="card">
             <header className="flex items-center gap-2 mb-5">
               <div className="stat-icon-wrap bg-primary-100">
                 <User size={16} className="text-primary-700" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-900">{t('settings.profile.title')}</h3>
-                <p className="text-xs text-slate-500">{t('settings.profile.subtitle')}</p>
+                <h3 className="text-base font-semibold text-slate-900">Profile</h3>
+                <p className="text-xs text-slate-500">Identity and location</p>
               </div>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label">{t('settings.profile.email')}</label>
+                <label className="label">Email</label>
                 <input className="input" defaultValue={user?.email} disabled />
               </div>
               <div>
-                <label className="label">{t('settings.profile.displayName')}</label>
+                <label className="label">Display name</label>
                 <input
                   className="input"
-                  placeholder={t('settings.profile.displayNamePlaceholder')}
+                  placeholder="Your name"
                   defaultValue={user?.email?.split('@')[0]}
                 />
               </div>
-              <div>
-                <label className="label">{t('settings.profile.timezone')}</label>
+              <div className="md:col-span-2">
+                <label className="label">Timezone</label>
                 <select className="select" value={tz} onChange={(e) => setTz(e.target.value)}>
                   <option>Europe/Paris</option>
                   <option>Europe/London</option>
@@ -103,29 +98,17 @@ const Settings = () => {
                   <option>Asia/Tokyo</option>
                 </select>
               </div>
-              <div>
-                <label className="label">{t('settings.profile.language')}</label>
-                <select
-                  className="select"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
-                >
-                  <option value="fr">{t('settings.lang.fr')}</option>
-                  <option value="en">{t('settings.lang.en')}</option>
-                </select>
-              </div>
             </div>
           </section>
 
-          {/* Canaux */}
           <section className="card">
             <header className="flex items-center gap-2 mb-5">
               <div className="stat-icon-wrap bg-accent-100">
                 <Bell size={16} className="text-accent-600" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-900">{t('settings.channels.title')}</h3>
-                <p className="text-xs text-slate-500">{t('settings.channels.subtitle')}</p>
+                <h3 className="text-base font-semibold text-slate-900">Notification channels</h3>
+                <p className="text-xs text-slate-500">Enable channels available for this user</p>
               </div>
             </header>
             <div className="space-y-3">
@@ -139,7 +122,7 @@ const Settings = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-900">{c.label}</div>
-                    <div className="text-xs text-slate-500">{t(c.descKey)}</div>
+                    <div className="text-xs text-slate-500">{c.desc}</div>
                   </div>
                   <button
                     type="button"
@@ -161,20 +144,21 @@ const Settings = () => {
             </div>
           </section>
 
-          {/* Quiet hours */}
           <section className="card">
             <header className="flex items-center gap-2 mb-5">
               <div className="stat-icon-wrap bg-warning-100">
                 <Moon size={16} className="text-warning-700" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-900">{t('settings.quiet.title')}</h3>
-                <p className="text-xs text-slate-500">{t('settings.quiet.subtitle')}</p>
+                <h3 className="text-base font-semibold text-slate-900">Quiet hours</h3>
+                <p className="text-xs text-slate-500">
+                  No notification will be sent during this window
+                </p>
               </div>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label">{t('settings.quiet.start')}</label>
+                <label className="label">Start</label>
                 <input
                   type="time"
                   className="input"
@@ -183,7 +167,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <label className="label">{t('settings.quiet.end')}</label>
+                <label className="label">End</label>
                 <input
                   type="time"
                   className="input"
@@ -192,13 +176,15 @@ const Settings = () => {
                 />
               </div>
             </div>
-            <p className="text-xs text-slate-500 mt-3">{t('settings.quiet.note')}</p>
+            <p className="text-xs text-slate-500 mt-3">
+              The ML model will automatically defer sends scheduled within this window to the next optimal slot.
+            </p>
           </section>
 
           <div className="flex justify-end">
             <button type="submit" className="btn-primary" disabled={saving}>
               <Save size={16} />
-              {saving ? t('settings.savingBtn') : t('settings.saveBtn')}
+              {saving ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </div>
@@ -207,53 +193,55 @@ const Settings = () => {
           <section className="card">
             <header className="flex items-center gap-2 mb-4">
               <Shield size={16} className="text-success-600" />
-              <h3 className="text-sm font-semibold text-slate-900">{t('settings.security.title')}</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Security</h3>
             </header>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center justify-between">
-                <span className="text-slate-600">{t('settings.security.auth')}</span>
+                <span className="text-slate-600">Authentication</span>
                 <span className="badge badge-success">Cognito · JWT</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-slate-600">{t('settings.security.tokenExp')}</span>
-                <span className="text-slate-900 font-medium">{t('settings.security.tokenValue')}</span>
+                <span className="text-slate-600">Token expiration</span>
+                <span className="text-slate-900 font-medium">1 h</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-slate-600">{t('settings.security.encryption')}</span>
-                <span className="badge badge-info">{t('settings.security.encryptionValue')}</span>
+                <span className="text-slate-600">Encryption</span>
+                <span className="badge badge-info">KMS auto-rotation</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-slate-600">{t('settings.security.transport')}</span>
+                <span className="text-slate-600">Transport</span>
                 <span className="badge badge-info">TLS 1.3</span>
               </li>
             </ul>
             <button type="button" className="btn-secondary w-full mt-4">
-              <Key size={14} /> {t('settings.security.changePassword')}
+              <Key size={14} /> Change password
             </button>
           </section>
 
           <section className="card">
             <header className="flex items-center gap-2 mb-4">
               <Globe size={16} className="text-primary-600" />
-              <h3 className="text-sm font-semibold text-slate-900">{t('settings.platform.title')}</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Platform</h3>
             </header>
             <ul className="space-y-2 text-sm text-slate-600">
               <li className="flex justify-between">
-                <span>{t('settings.platform.region')}</span>
-                <span className="font-medium text-slate-900">{import.meta.env.VITE_REGION || 'us-west-2'}</span>
+                <span>Region</span>
+                <span className="font-medium text-slate-900">
+                  {import.meta.env.VITE_REGION || 'us-west-2'}
+                </span>
               </li>
               <li className="flex justify-between">
-                <span>{t('settings.platform.version')}</span>
+                <span>Version</span>
                 <span className="font-medium text-slate-900">v1.0.0</span>
               </li>
               <li className="flex justify-between">
-                <span>{t('settings.platform.mlModel')}</span>
+                <span>ML model</span>
                 <span className="font-medium text-slate-900">XGBoost v2.4</span>
               </li>
               <li className="flex justify-between">
-                <span>{t('settings.platform.mode')}</span>
+                <span>Mode</span>
                 <span className="badge badge-info">
-                  {import.meta.env.VITE_DEMO_MODE === 'true' ? t('common.demoMode') : t('common.production')}
+                  {import.meta.env.VITE_DEMO_MODE === 'true' ? 'Demo mode' : 'Production'}
                 </span>
               </li>
             </ul>

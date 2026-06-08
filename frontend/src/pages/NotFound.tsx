@@ -1,17 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useTranslation } from '@/contexts/LanguageContext'
-import LanguageSwitcher from '@/components/common/LanguageSwitcher'
 import { ArrowLeft, Compass, LayoutDashboard, BarChart3, Sparkles } from 'lucide-react'
 
 const NotFound = () => {
-  const { t } = useTranslation()
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-primary-50 flex items-center justify-center p-6 relative">
-      <div className="absolute top-4 right-4 z-50">
-        <LanguageSwitcher variant="floating" />
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-primary-50 flex items-center justify-center p-6">
       <div className="card max-w-2xl w-full text-center relative overflow-hidden">
         <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary-100/60 blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-accent-100/60 blur-3xl" />
@@ -25,23 +17,27 @@ const NotFound = () => {
             404
           </div>
 
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">{t('notfound.title')}</h1>
-          <p className="mt-2 text-slate-500 max-w-md mx-auto">{t('notfound.desc')}</p>
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">
+            This route was not optimized.
+          </h1>
+          <p className="mt-2 text-slate-500 max-w-md mx-auto">
+            The page you're looking for doesn't exist or has been moved. Let's get you back to your notification flow.
+          </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/dashboard" className="btn-primary">
-              <LayoutDashboard size={16} /> {t('notfound.goDashboard')}
+              <LayoutDashboard size={16} /> Go to Dashboard
             </Link>
             <Link to="/analytics" className="btn-secondary">
-              <BarChart3 size={16} /> {t('notfound.goAnalytics')}
+              <BarChart3 size={16} /> View Analytics
             </Link>
             <button onClick={() => window.history.back()} className="btn-ghost">
-              <ArrowLeft size={16} /> {t('common.back')}
+              <ArrowLeft size={16} /> Back
             </button>
           </div>
 
           <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
-            <Sparkles size={12} /> {t('common.appName')} · v1.0.0
+            <Sparkles size={12} /> Smart Notification Routing Engine · v1.0.0
           </div>
         </div>
       </div>

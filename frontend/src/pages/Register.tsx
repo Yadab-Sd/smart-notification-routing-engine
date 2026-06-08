@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTranslation } from '@/contexts/LanguageContext'
-import LanguageSwitcher from '@/components/common/LanguageSwitcher'
 import {
   Sparkles,
   Mail,
@@ -28,9 +26,18 @@ const evaluateStrength = (pw: string): Strength => {
   return Math.min(score, 4) as Strength
 }
 
+const STRENGTH_LABELS = ['Weak', 'Weak', 'Medium', 'Strong', 'Very strong']
+const STRENGTH_COLORS = ['bg-slate-200', 'bg-danger-500', 'bg-warning-500', 'bg-success-500', 'bg-success-600']
+
+const BULLETS = [
+  'Sign up in 60 seconds',
+  '14-day free trial, all channels',
+  'No credit card required',
+  'SOC 2 & GDPR compliant',
+]
+
 const Register = () => {
   const { signup } = useAuth()
-  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [company, setCompany] = useState('')
@@ -45,29 +52,21 @@ const Register = () => {
   const [success, setSuccess] = useState(false)
 
   const strength = useMemo(() => evaluateStrength(password), [password])
-  const strengthLabels = [
-    t('register.strength.weak'),
-    t('register.strength.weak'),
-    t('register.strength.medium'),
-    t('register.strength.strong'),
-    t('register.strength.veryStrong'),
-  ]
-  const strengthColors = ['bg-slate-200', 'bg-danger-500', 'bg-warning-500', 'bg-success-500', 'bg-success-600']
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
     if (!acceptTerms) {
-      setError(t('register.errorTerms'))
+      setError('You must accept the terms of service.')
       return
     }
     if (password !== confirm) {
-      setError(t('register.errorMismatch'))
+      setError("Passwords don't match.")
       return
     }
     if (strength < 2) {
-      setError(t('register.errorWeak'))
+      setError('Password too weak.')
       return
     }
 
@@ -77,18 +76,14 @@ const Register = () => {
       setSuccess(true)
       setTimeout(() => navigate('/login'), 2200)
     } catch (err: any) {
-      setError(err.message || 'Erreur')
+      setError(err.message || 'Error')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 relative">
-      <div className="absolute top-4 right-4 z-50">
-        <LanguageSwitcher variant="floating" />
-      </div>
-
+    <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left — branding */}
       <div className="hidden lg:flex relative flex-col justify-between p-12 bg-gradient-to-br from-primary-700 via-primary-600 to-primary-900 text-white overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary-400/30 blur-3xl" />
@@ -100,9 +95,9 @@ const Register = () => {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <div className="font-bold text-lg">{t('common.appShort')}</div>
+              <div className="font-bold text-lg">SNRE</div>
               <div className="text-xs text-white/70 uppercase tracking-wider">
-                {t('common.appName')}
+                Smart Notification Routing Engine
               </div>
             </div>
           </div>
@@ -111,18 +106,15 @@ const Register = () => {
         <div className="relative space-y-8">
           <div>
             <h2 className="text-3xl xl:text-4xl font-bold leading-tight">
-              {t('register.heroTitle')}
+              Join the teams cutting notification fatigue.
             </h2>
-            <p className="mt-4 text-white/80 max-w-md">{t('register.heroDesc')}</p>
+            <p className="mt-4 text-white/80 max-w-md">
+              A production-ready ML platform, built to scale to 10M+ events/day.
+            </p>
           </div>
 
           <ul className="space-y-3 max-w-md">
-            {[
-              t('register.bullet1'),
-              t('register.bullet2'),
-              t('register.bullet3'),
-              t('register.bullet4'),
-            ].map((b) => (
+            {BULLETS.map((b) => (
               <li key={b} className="flex items-center gap-2.5 text-white/90">
                 <span className="w-5 h-5 rounded-full bg-white/15 backdrop-blur flex items-center justify-center">
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -146,18 +138,22 @@ const Register = () => {
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <div className="font-bold text-slate-900">{t('common.appShort')}</div>
+            <div className="font-bold text-slate-900">SNRE</div>
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900">{t('register.title')}</h1>
-            <p className="text-sm text-slate-500 mt-1">{t('register.subtitle')}</p>
+            <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Start optimizing your sends in minutes — no credit card required.
+            </p>
           </div>
 
           {success && (
             <div className="mb-5 p-3 rounded-lg bg-success-50 border border-success-100 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-success-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-success-800">{t('register.success')}</div>
+              <div className="text-sm text-success-800">
+                Account created! Check your email to activate your account.
+              </div>
             </div>
           )}
 
@@ -171,12 +167,12 @@ const Register = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">{t('register.companyLabel')}</label>
+                <label className="label">Company</label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     className="input pl-10"
-                    placeholder={t('register.companyPlaceholder')}
+                    placeholder="Your company name"
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
                     required
@@ -185,12 +181,12 @@ const Register = () => {
                 </div>
               </div>
               <div>
-                <label className="label">{t('register.fullNameLabel')}</label>
+                <label className="label">Full name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     className="input pl-10"
-                    placeholder={t('register.fullNamePlaceholder')}
+                    placeholder="First Last"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -201,13 +197,13 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="label">{t('register.emailLabel')}</label>
+              <label className="label">Work email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
                   className="input pl-10"
-                  placeholder={t('register.emailPlaceholder')}
+                  placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -218,7 +214,7 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="label">{t('register.passwordLabel')}</label>
+              <label className="label">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -246,19 +242,21 @@ const Register = () => {
                       <div
                         key={i}
                         className={`h-1.5 rounded-full transition-colors ${
-                          i < strength ? strengthColors[strength] : 'bg-slate-200'
+                          i < strength ? STRENGTH_COLORS[strength] : 'bg-slate-200'
                         }`}
                       />
                     ))}
                   </div>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-xs text-slate-500">{t('register.passwordHint')}</span>
+                    <span className="text-xs text-slate-500">
+                      Minimum 8 characters, 1 uppercase, 1 number, 1 special character.
+                    </span>
                     <span className={`text-xs font-medium ${
                       strength <= 1 ? 'text-danger-600' :
                       strength === 2 ? 'text-warning-600' :
                       'text-success-600'
                     }`}>
-                      {strengthLabels[strength]}
+                      {STRENGTH_LABELS[strength]}
                     </span>
                   </div>
                 </div>
@@ -266,7 +264,7 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="label">{t('register.confirmLabel')}</label>
+              <label className="label">Confirm password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -290,7 +288,7 @@ const Register = () => {
                 className="mt-0.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                 disabled={isLoading || success}
               />
-              <span>{t('register.terms')}</span>
+              <span>I accept the terms of service and privacy policy</span>
             </label>
 
             <button
@@ -301,18 +299,18 @@ const Register = () => {
               {isLoading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  {t('register.submitting')}
+                  Creating...
                 </>
               ) : (
-                t('register.submit')
+                'Create my account'
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-slate-600">
-            {t('register.hasAccount')}{' '}
+            Already have an account?{' '}
             <Link to="/login" className="text-primary-600 hover:underline font-medium">
-              {t('register.loginLink')}
+              Sign in
             </Link>
           </div>
         </div>

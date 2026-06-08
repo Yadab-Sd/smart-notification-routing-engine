@@ -1,11 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useTranslation } from '@/contexts/LanguageContext'
-import LanguageSwitcher from '@/components/common/LanguageSwitcher'
 import { Sparkles, Mail, ArrowLeft, CheckCircle2, Loader2, KeyRound } from 'lucide-react'
 
 const ForgotPassword = () => {
-  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -20,18 +17,14 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center p-6 relative">
-      <div className="absolute top-4 right-4 z-50">
-        <LanguageSwitcher variant="floating" />
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <Link
           to="/login"
           className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-6"
         >
           <ArrowLeft size={14} />
-          {t('forgot.backToLogin')}
+          Back to sign in
         </Link>
 
         <div className="card relative overflow-hidden">
@@ -42,23 +35,25 @@ const ForgotPassword = () => {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-soft">
                 {sent ? <CheckCircle2 className="w-5 h-5 text-white" /> : <KeyRound className="w-5 h-5 text-white" />}
               </div>
-              <div className="font-bold text-slate-900">{t('common.appShort')}</div>
+              <div className="font-bold text-slate-900">SNRE</div>
             </div>
 
             {!sent ? (
               <>
-                <h1 className="text-2xl font-bold text-slate-900">{t('forgot.title')}</h1>
-                <p className="text-sm text-slate-500 mt-1 mb-6">{t('forgot.subtitle')}</p>
+                <h1 className="text-2xl font-bold text-slate-900">Forgot password?</h1>
+                <p className="text-sm text-slate-500 mt-1 mb-6">
+                  Enter your email and we'll send you a reset link.
+                </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="label">{t('forgot.emailLabel')}</label>
+                    <label className="label">Work email</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="email"
                         className="input pl-10"
-                        placeholder="vous@entreprise.com"
+                        placeholder="you@company.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -72,10 +67,10 @@ const ForgotPassword = () => {
                     {isLoading ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        {t('forgot.submitting')}
+                        Sending...
                       </>
                     ) : (
-                      t('forgot.submit')
+                      'Send link'
                     )}
                   </button>
                 </form>
@@ -85,17 +80,19 @@ const ForgotPassword = () => {
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success-100 mb-4">
                   <CheckCircle2 className="w-7 h-7 text-success-600" />
                 </div>
-                <h1 className="text-xl font-bold text-slate-900">{t('forgot.success.title')}</h1>
-                <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">{t('forgot.success.desc')}</p>
+                <h1 className="text-xl font-bold text-slate-900">Link sent ✉️</h1>
+                <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
+                  If an account exists for this email, you'll receive a reset link in a few minutes.
+                </p>
                 <div className="mt-6 flex items-center justify-center gap-2">
                   <button
                     onClick={() => setSent(false)}
                     className="btn-secondary text-sm"
                   >
-                    {t('forgot.resend')}
+                    Resend
                   </button>
                   <Link to="/login" className="btn-primary text-sm">
-                    {t('forgot.backToLogin')}
+                    Back to sign in
                   </Link>
                 </div>
               </div>
@@ -105,7 +102,7 @@ const ForgotPassword = () => {
 
         <p className="mt-6 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
           <Sparkles className="w-3 h-3" />
-          {t('common.appName')}
+          Smart Notification Routing Engine
         </p>
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Layout from '@/components/common/Layout'
-import { useTranslation } from '@/contexts/LanguageContext'
 import MetricsOverview from '@/components/analytics-dashboard/MetricsOverview'
 import EngagementTrends from '@/components/analytics-dashboard/EngagementTrends'
 import MLModelPerformance from '@/components/analytics-dashboard/MLModelPerformance'
@@ -9,11 +8,10 @@ import SystemHealth from '@/components/analytics-dashboard/SystemHealth'
 import ImpactCalculator from '@/components/analytics-dashboard/ImpactCalculator'
 import { Calendar, Download, RefreshCw, Filter } from 'lucide-react'
 
-const ranges = ['24 h', '7 j', '30 j', '90 j']
+const ranges = ['24 h', '7 d', '30 d', '90 d']
 
 const Analytics = () => {
-  const { t } = useTranslation()
-  const [range, setRange] = useState('7 j')
+  const [range, setRange] = useState('7 d')
   const [refreshing, setRefreshing] = useState(false)
 
   const handleRefresh = () => {
@@ -39,14 +37,14 @@ const Analytics = () => {
             ))}
           </div>
           <button className="btn-secondary">
-            <Filter size={16} /> {t('common.filters')}
+            <Filter size={16} /> Filters
           </button>
           <button onClick={handleRefresh} className="btn-secondary" disabled={refreshing}>
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            {t('common.refresh')}
+            Refresh
           </button>
           <button className="btn-primary">
-            <Download size={16} /> {t('common.export')}
+            <Download size={16} /> Export
           </button>
         </>
       }
@@ -54,7 +52,7 @@ const Analytics = () => {
       <div className="space-y-6">
         <div className="md:hidden flex items-center justify-between gap-2 card py-3">
           <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Calendar size={14} /> {t('analytics.period')}
+            <Calendar size={14} /> Period
           </div>
           <select className="select w-32" value={range} onChange={(e) => setRange(e.target.value)}>
             {ranges.map((r) => (

@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import Layout from '@/components/common/Layout'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTranslation } from '@/contexts/LanguageContext'
-import type { TranslationKey } from '@/i18n/translations'
 import {
   Send,
   MousePointerClick,
@@ -24,12 +22,11 @@ type StatusKey = 'sent' | 'scheduled' | 'failed' | 'inProgress'
 
 interface Notification {
   id: string
-  titleKey: TranslationKey
+  title: string
   channel: Channel
   recipients: number
   statusKey: StatusKey
   optimalTime: string
-  optimalTimeKey?: TranslationKey
   ctr: number
 }
 
@@ -47,13 +44,36 @@ const statusBadge = (s: StatusKey) => {
   return 'badge badge-danger'
 }
 
+const statusLabel = (s: StatusKey) => {
+  if (s === 'sent') return 'Sent'
+  if (s === 'scheduled') return 'Scheduled'
+  if (s === 'inProgress') return 'In progress'
+  return 'Failed'
+}
+
 const demoNotifications: Notification[] = [
-  { id: 'N-9412', titleKey: 'dash.notif1.title', channel: 'Email', recipients: 12_430, statusKey: 'sent', optimalTime: '19:30', ctr: 6.2 },
-  { id: 'N-9411', titleKey: 'dash.notif2.title', channel: 'SMS', recipients: 1_204, statusKey: 'sent', optimalTime: '10:15', ctr: 14.8 },
-  { id: 'N-9410', titleKey: 'dash.notif3.title', channel: 'Push', recipients: 48_902, statusKey: 'inProgress', optimalTime: '20:00', ctr: 5.4 },
-  { id: 'N-9409', titleKey: 'dash.notif4.title', channel: 'Email', recipients: 3_817, statusKey: 'scheduled', optimalTime: '', optimalTimeKey: 'dash.notif4.time', ctr: 0 },
-  { id: 'N-9408', titleKey: 'dash.notif5.title', channel: 'SMS', recipients: 842, statusKey: 'failed', optimalTime: '14:02', ctr: 0 },
-  { id: 'N-9407', titleKey: 'dash.notif6.title', channel: 'Email', recipients: 65_201, statusKey: 'sent', optimalTime: '18:45', ctr: 4.1 },
+  { id: 'N-9412', title: 'Weekend promo -20%', channel: 'Email', recipients: 12_430, statusKey: 'sent', optimalTime: '7:30 PM', ctr: 6.2 },
+  { id: 'N-9411', title: 'Order confirmation', channel: 'SMS', recipients: 1_204, statusKey: 'sent', optimalTime: '10:15 AM', ctr: 14.8 },
+  { id: 'N-9410', title: 'New feature available', channel: 'Push', recipients: 48_902, statusKey: 'inProgress', optimalTime: '8:00 PM', ctr: 5.4 },
+  { id: 'N-9409', title: 'Abandoned cart reminder', channel: 'Email', recipients: 3_817, statusKey: 'scheduled', optimalTime: 'Tomorrow 9:45 AM', ctr: 0 },
+  { id: 'N-9408', title: 'Verification code', channel: 'SMS', recipients: 842, statusKey: 'failed', optimalTime: '2:02 PM', ctr: 0 },
+  { id: 'N-9407', title: 'Monthly newsletter', channel: 'Email', recipients: 65_201, statusKey: 'sent', optimalTime: '6:45 PM', ctr: 4.1 },
+]
+
+const SUGGESTIONS = ['Today 7:30 PM', 'Tomorrow 9:45 AM', 'Today 8:15 PM', 'Tomorrow 6:00 PM']
+
+const AUDIENCES = [
+  'All active users',
+  'Power users (top 10%)',
+  'Inactive 7+ days',
+  'New cohort (30 d)',
+]
+
+const kpis = [
+  { title: 'Notifications sent (7d)', value: '186,432', icon: Send, trend: '+12.4%', up: true, color: 'primary' },
+  { title: 'Average click rate', value: '5.8 %', icon: MousePointerClick, trend: '+1.9 pts vs baseline', up: true, color: 'success' },
+  { title: 'p99 inference latency', value: '87 ms', icon: Clock, trend: '-13 ms', up: true, color: 'accent' },
+  { title: 'Deliverability', value: '99.4 %', icon: CheckCircle2, trend: '+0.2 pts', up: true, color: 'success' },
 ]
 
 const colorMap: Record<string, { bg: string; text: string }> = {
@@ -65,38 +85,31 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 
 const Dashboard = () => {
   const { user } = useAuth()
-  const { t, language } = useTranslation()
   const [channel, setChannel] = useState<Channel>('Email')
-  const [audience, setAudience] = useState<TranslationKey>('dash.audience.all')
+  const [audience, setAudience] = useState(AUDIENCES[0])
   const [message, setMessage] = useState('')
-  const [optimalSuggestion, setOptimalSuggestion] = useState<TranslationKey | null>(null)
+  const [optimalSuggestion, setOptimalSuggestion] = useState<string | null>(null)
   const [scheduling, setScheduling] = useState(false)
   const [scheduled, setScheduled] = useState<{ at: string; channel: Channel } | null>(null)
 
   const greeting = useMemo(() => {
     const h = new Date().getHours()
-    if (h < 12) return t('dash.greetingMorning')
-    if (h < 18) return t('dash.greetingAfternoon')
-    return t('dash.greetingEvening')
-  }, [t])
+    if (h < 12) return 'Good morning'
+    if (h < 18) return 'Good afternoon'
+    return 'Good evening'
+  }, [])
 
   const today = useMemo(
-    () => new Date().toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
+    () => new Date().toLocaleDateString('en-US', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     }),
-    [language]
+    []
   )
 
   const computeOptimal = () => {
-    const suggestions: TranslationKey[] = [
-      'dash.suggestion.todayEvening',
-      'dash.suggestion.tomorrowMorning',
-      'dash.suggestion.todayLate',
-      'dash.suggestion.tomorrowEvening',
-    ]
-    setOptimalSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)])
+    setOptimalSuggestion(SUGGESTIONS[Math.floor(Math.random() * SUGGESTIONS.length)])
   }
 
   const handleSchedule = (e: React.FormEvent) => {
@@ -104,26 +117,11 @@ const Dashboard = () => {
     setScheduling(true)
     setTimeout(() => {
       setScheduling(false)
-      const timeText = optimalSuggestion ? t(optimalSuggestion) : t('dash.suggestion.todayEvening')
-      setScheduled({ at: timeText, channel })
+      setScheduled({ at: optimalSuggestion || SUGGESTIONS[0], channel })
       setMessage('')
       setOptimalSuggestion(null)
     }, 800)
   }
-
-  const audiences: { key: TranslationKey }[] = [
-    { key: 'dash.audience.all' },
-    { key: 'dash.audience.power' },
-    { key: 'dash.audience.inactive' },
-    { key: 'dash.audience.new' },
-  ]
-
-  const kpis = [
-    { titleKey: 'dash.kpi.sent' as TranslationKey, value: '186 432', icon: Send, trend: '+12.4%', up: true, color: 'primary' },
-    { titleKey: 'dash.kpi.ctr' as TranslationKey, value: '5.8 %', icon: MousePointerClick, trendKey: 'dash.kpi.ctrTrend' as TranslationKey, up: true, color: 'success' },
-    { titleKey: 'dash.kpi.latency' as TranslationKey, value: '87 ms', icon: Clock, trend: '-13 ms', up: true, color: 'accent' },
-    { titleKey: 'dash.kpi.deliverability' as TranslationKey, value: '99.4 %', icon: CheckCircle2, trend: '+0.2 pts', up: true, color: 'success' },
-  ]
 
   const channelRows = [
     { ch: 'Email' as Channel, pct: 52, count: '97 k', color: 'bg-primary-500' },
@@ -132,31 +130,15 @@ const Dashboard = () => {
     { ch: 'WhatsApp' as Channel, pct: 6, count: '11 k', color: 'bg-warning-500' },
   ]
 
-  const renderBannerDesc = () => {
-    const txt = t('dash.banner.desc')
-    const parts = txt.split(/\*\*(.*?)\*\*/g)
-    return parts.map((p, i) => (i % 2 === 1 ? <strong key={i} className="font-semibold">{p}</strong> : <span key={i}>{p}</span>))
-  }
-
-  const statusText = (s: StatusKey) => {
-    const map: Record<StatusKey, TranslationKey> = {
-      sent: 'dash.status.sent',
-      scheduled: 'dash.status.scheduled',
-      failed: 'dash.status.failed',
-      inProgress: 'dash.status.inProgress',
-    }
-    return t(map[s])
-  }
-
   return (
     <Layout
       actions={
         <>
           <button className="btn-secondary">
-            <Calendar size={16} /> {t('dash.last7days')}
+            <Calendar size={16} /> Last 7 days
           </button>
           <button className="btn-primary">
-            <Plus size={16} /> {t('dash.newNotification')}
+            <Plus size={16} /> New notification
           </button>
         </>
       }
@@ -166,13 +148,15 @@ const Dashboard = () => {
           <div>
             <div className="text-xs text-white/70 uppercase tracking-wider">{today}</div>
             <h2 className="text-2xl font-bold mt-1">
-              {greeting}, {user?.email?.split('@')[0] || t('common.user')} 👋
+              {greeting}, {user?.email?.split('@')[0] || 'User'} 👋
             </h2>
-            <p className="text-sm text-white/80 mt-1 max-w-xl">{renderBannerDesc()}</p>
+            <p className="text-sm text-white/80 mt-1 max-w-xl">
+              Your ML-optimized campaigns are outperforming baseline by <strong className="font-semibold">+66%</strong> this week.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="px-4 py-2.5 rounded-lg bg-white/15 backdrop-blur border border-white/20">
-              <div className="text-xs text-white/70">{t('dash.banner.modelActive')}</div>
+              <div className="text-xs text-white/70">ML model active</div>
               <div className="font-semibold flex items-center gap-1.5">
                 <Sparkles size={14} /> XGBoost v2.4 · AUC 0.78
               </div>
@@ -184,20 +168,19 @@ const Dashboard = () => {
           {kpis.map((k) => {
             const c = colorMap[k.color] || colorMap.primary
             const Trend = k.up ? ArrowUpRight : ArrowDownRight
-            const trendText = 'trendKey' in k && k.trendKey ? t(k.trendKey) : (k as any).trend
             return (
-              <div key={k.titleKey} className="stat-card">
+              <div key={k.title} className="stat-card">
                 <div className="flex items-start justify-between">
                   <div className={`stat-icon-wrap ${c.bg}`}>
                     <k.icon size={18} className={c.text} />
                   </div>
                   <div className={`flex items-center gap-0.5 text-xs font-medium ${k.up ? 'text-success-700' : 'text-danger-700'}`}>
                     <Trend size={14} />
-                    {trendText}
+                    {k.trend}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">{t(k.titleKey)}</div>
+                  <div className="text-xs text-slate-500">{k.title}</div>
                   <div className="text-2xl font-bold text-slate-900 mt-1">{k.value}</div>
                 </div>
               </div>
@@ -209,30 +192,32 @@ const Dashboard = () => {
           <div className="card lg:col-span-2">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{t('dash.schedule.title')}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{t('dash.schedule.subtitle')}</p>
+                <h3 className="text-lg font-semibold text-slate-900">Schedule a notification</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  The ML model picks the optimal moment for each user.
+                </p>
               </div>
-              <span className="badge badge-info">{t('common.demoMode')}</span>
+              <span className="badge badge-info">Demo mode</span>
             </div>
 
             {scheduled && (
               <div className="mb-4 p-3 rounded-lg bg-success-50 border border-success-100 flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-success-600 mt-0.5" />
                 <div className="text-sm text-success-800 flex-1">
-                  {t('dash.schedule.success', { channel: scheduled.channel, time: scheduled.at })}
+                  Notification scheduled on <strong>{scheduled.channel}</strong> for <strong>{scheduled.at}</strong>.
                 </div>
                 <button
                   onClick={() => setScheduled(null)}
                   className="text-xs text-success-700 hover:underline"
                 >
-                  {t('common.close')}
+                  Close
                 </button>
               </div>
             )}
 
             <form onSubmit={handleSchedule} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label">{t('dash.schedule.channel')}</label>
+                <label className="label">Channel</label>
                 <select
                   className="select"
                   value={channel}
@@ -245,24 +230,18 @@ const Dashboard = () => {
                 </select>
               </div>
               <div>
-                <label className="label">{t('dash.schedule.audience')}</label>
-                <select
-                  className="select"
-                  value={audience}
-                  onChange={(e) => setAudience(e.target.value as TranslationKey)}
-                >
-                  {audiences.map((a) => (
-                    <option key={a.key} value={a.key}>
-                      {t(a.key)}
-                    </option>
+                <label className="label">Audience</label>
+                <select className="select" value={audience} onChange={(e) => setAudience(e.target.value)}>
+                  {AUDIENCES.map((a) => (
+                    <option key={a}>{a}</option>
                   ))}
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="label">{t('dash.schedule.message')}</label>
+                <label className="label">Message</label>
                 <textarea
                   className="input min-h-[88px]"
-                  placeholder={t('dash.schedule.messagePlaceholder')}
+                  placeholder="E.g. Your discount code expires soon..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   maxLength={160}
@@ -271,24 +250,24 @@ const Dashboard = () => {
               </div>
               <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={computeOptimal} className="btn-secondary">
-                  <Sparkles size={16} /> {t('dash.schedule.computeOptimal')}
+                  <Sparkles size={16} /> Compute optimal time
                 </button>
                 {optimalSuggestion && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-50 border border-primary-100 text-sm text-primary-800">
                     <Clock size={14} className="text-primary-600" />
-                    {t('dash.schedule.mlSuggestion')} <strong>{t(optimalSuggestion)}</strong>
+                    ML suggestion: <strong>{optimalSuggestion}</strong>
                   </div>
                 )}
                 <button type="submit" className="btn-primary" disabled={scheduling || !message}>
-                  {scheduling ? t('dash.schedule.submitting') : t('dash.schedule.submit')}
+                  {scheduling ? 'Scheduling...' : 'Schedule'}
                 </button>
               </div>
             </form>
           </div>
 
           <div className="card">
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">{t('dash.channels.title')}</h3>
-            <p className="text-xs text-slate-500 mb-5">{t('dash.channels.subtitle')}</p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Channel breakdown</h3>
+            <p className="text-xs text-slate-500 mb-5">Last 7 days</p>
             <div className="space-y-4">
               {channelRows.map((row) => {
                 const Icon = channelIcon(row.ch)
@@ -316,40 +295,39 @@ const Dashboard = () => {
         <div className="card-flush">
           <div className="flex items-center justify-between px-6 pt-5 pb-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">{t('dash.recent.title')}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{t('dash.recent.subtitle')}</p>
+              <h3 className="text-lg font-semibold text-slate-900">Recent notifications</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Last 24 hours</p>
             </div>
-            <button className="btn-ghost text-sm">{t('common.viewAll')}</button>
+            <button className="btn-ghost text-sm">View all</button>
           </div>
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
-                  <th>{t('dash.table.id')}</th>
-                  <th>{t('dash.table.title')}</th>
-                  <th>{t('dash.table.channel')}</th>
-                  <th>{t('dash.table.recipients')}</th>
-                  <th>{t('dash.table.optimalTime')}</th>
-                  <th>{t('dash.table.ctr')}</th>
-                  <th>{t('dash.table.status')}</th>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Channel</th>
+                  <th>Recipients</th>
+                  <th>Optimal time</th>
+                  <th>CTR</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {demoNotifications.map((n) => {
                   const Icon = channelIcon(n.channel)
-                  const timeDisplay = n.optimalTimeKey ? t(n.optimalTimeKey) : n.optimalTime
                   return (
                     <tr key={n.id}>
                       <td className="font-mono text-xs text-slate-500">{n.id}</td>
-                      <td className="font-medium text-slate-900">{t(n.titleKey)}</td>
+                      <td className="font-medium text-slate-900">{n.title}</td>
                       <td>
                         <span className="inline-flex items-center gap-1.5 text-slate-700">
                           <Icon size={14} className="text-slate-400" />
                           {n.channel}
                         </span>
                       </td>
-                      <td>{n.recipients.toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US')}</td>
-                      <td className="text-slate-500">{timeDisplay}</td>
+                      <td>{n.recipients.toLocaleString('en-US')}</td>
+                      <td className="text-slate-500">{n.optimalTime}</td>
                       <td>
                         {n.ctr > 0 ? (
                           <span className="font-medium text-slate-900">{n.ctr} %</span>
@@ -358,7 +336,7 @@ const Dashboard = () => {
                         )}
                       </td>
                       <td>
-                        <span className={statusBadge(n.statusKey)}>{statusText(n.statusKey)}</span>
+                        <span className={statusBadge(n.statusKey)}>{statusLabel(n.statusKey)}</span>
                       </td>
                     </tr>
                   )
