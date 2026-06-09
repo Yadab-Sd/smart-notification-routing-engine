@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software in your research or production engineering, please cite it using these metadata."
+title: "Smart Notification Routing Engine"
+abstract: "A high-performance, tiered routing engine for Large Language Model (LLM) notifications. Built with AWS CDK and TypeScript to optimize latency, manage model costs, and reduce alert fatigue through intelligent classification."
+type: software
+authors:
+  - given-names: "Yadab"
+    family-names: "Sutradhar"
+    email: "yadab.sutradhar@miu.edu"
+    orcid: "https://orcid.org/0009-0008-8319-2410"
+version: "1.0.1"
+date-released: "2026-06-07"
+doi: 10.5281/zenodo.20585591
+repository-code: "https://github.com/Yadab-Sd/smart-notification-routing-engine"
+url: "https://github.com/Yadab-Sd/smart-notification-routing-engine"
+keywords:
+  - "aws-cdk"
+  - "typescript"
+  - "sagemaker"
+  - "xgboost"
+  - "notification-engine"
+  - "machine-learning"
+license: "MIT"

@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getMetricsOverview } from '@/api/analytics'
+import type { MetricsOverview } from '@/types'
 import Layout from '@/components/common/Layout'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -69,9 +71,23 @@ const AUDIENCES = [
   'New cohort (30 d)',
 ]
 
-const kpis = [
-  { title: 'Notifications sent (7d)', value: '186,432', icon: Send, trend: '+12.4%', up: true, color: 'primary' },
-  { title: 'Average click rate', value: '5.8 %', icon: MousePointerClick, trend: '+1.9 pts vs baseline', up: true, color: 'success' },
+const buildKpis = (metrics: MetricsOverview | null) => [
+  {
+    title: 'Notifications sent (7d)',
+    value: metrics ? metrics.totalEvents.toLocaleString('en-US') : '186,432',
+    icon: Send,
+    trend: '+12.4%',
+    up: true,
+    color: 'primary',
+  },
+  {
+    title: 'Average click rate',
+    value: metrics ? `${metrics.avgEngagementRate.toFixed(1)} %` : '5.8 %',
+    icon: MousePointerClick,
+    trend: '+1.9 pts vs baseline',
+    up: true,
+    color: 'success',
+  },
   { title: 'p99 inference latency', value: '87 ms', icon: Clock, trend: '-13 ms', up: true, color: 'accent' },
   { title: 'Deliverability', value: '99.4 %', icon: CheckCircle2, trend: '+0.2 pts', up: true, color: 'success' },
 ]
@@ -85,12 +101,25 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 
 const Dashboard = () => {
   const { user } = useAuth()
+  const [metrics, setMetrics] = useState<MetricsOverview | null>(null)
   const [channel, setChannel] = useState<Channel>('Email')
   const [audience, setAudience] = useState(AUDIENCES[0])
   const [message, setMessage] = useState('')
   const [optimalSuggestion, setOptimalSuggestion] = useState<string | null>(null)
   const [scheduling, setScheduling] = useState(false)
   const [scheduled, setScheduled] = useState<{ at: string; channel: Channel } | null>(null)
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const data = await getMetricsOverview()
+        setMetrics(data)
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error)
+      }
+    }
+    fetchMetrics()
+  }, [])
 
   const greeting = useMemo(() => {
     const h = new Date().getHours()
@@ -130,6 +159,9 @@ const Dashboard = () => {
     { ch: 'WhatsApp' as Channel, pct: 6, count: '11 k', color: 'bg-warning-500' },
   ]
 
+  const kpis = buildKpis(metrics)
+  const modelAUC = metrics ? metrics.modelAUC.toFixed(2) : '0.78'
+
   return (
     <Layout
       actions={
@@ -158,7 +190,7 @@ const Dashboard = () => {
             <div className="px-4 py-2.5 rounded-lg bg-white/15 backdrop-blur border border-white/20">
               <div className="text-xs text-white/70">ML model active</div>
               <div className="font-semibold flex items-center gap-1.5">
-                <Sparkles size={14} /> XGBoost v2.4 · AUC 0.78
+                <Sparkles size={14} /> XGBoost v2.4 · AUC {modelAUC}
               </div>
             </div>
           </div>
