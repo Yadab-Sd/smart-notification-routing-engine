@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
   <defs>
     <style>
       .box { fill: #ffffff; stroke: #2563eb; stroke-width: 2; }
@@ -39,10 +39,10 @@
   <text x="620" y="105" class="label" text-anchor="middle">Lambda</text>
 
   <!-- Row 2: Storage -->
-  <path d="M 620 120 L 620 150 L 280 150 L 280 180" class="arrow"/>
-  <rect x="220" y="180" width="120" height="60" class="box" rx="5"/>
-  <text x="280" y="205" class="text" text-anchor="middle">S3 Data Lake</text>
-  <text x="280" y="225" class="label" text-anchor="middle">JSONL partitioned</text>
+  <path d="M 620 120 L 620 150 L 110 150 L 110 180" class="arrow"/>
+  <rect x="50" y="180" width="120" height="60" class="box" rx="5"/>
+  <text x="110" y="205" class="text" text-anchor="middle">S3 Data Lake</text>
+  <text x="110" y="225" class="label" text-anchor="middle">JSONL partitioned</text>
 
   <path d="M 620 120 L 620 150 L 710 150 L 710 180" class="arrow"/>
   <rect x="650" y="180" width="120" height="60" class="box" rx="5"/>
@@ -50,17 +50,17 @@
   <text x="710" y="225" class="label" text-anchor="middle">User profiles</text>
 
   <!-- Row 3: ML Pipeline -->
-  <path d="M 280 240 L 280 280 L 450 280 L 450 300" class="arrow"/>
-  <rect x="390" y="300" width="120" height="70" class="box" rx="5"/>
-  <text x="450" y="325" class="text" text-anchor="middle">Glue ETL</text>
-  <text x="450" y="345" class="label" text-anchor="middle">Feature eng.</text>
-  <text x="450" y="360" class="label" text-anchor="middle">(nightly)</text>
+  <path d="M 110 240 L 110 280 L 280 280 L 280 300" class="arrow"/>
+  <rect x="220" y="300" width="120" height="70" class="box" rx="5"/>
+  <text x="280" y="325" class="text" text-anchor="middle">Glue ETL</text>
+  <text x="280" y="345" class="label" text-anchor="middle">Feature eng.</text>
+  <text x="280" y="360" class="label" text-anchor="middle">(nightly)</text>
 
-  <path d="M 390 335 L 280 335 L 280 370" class="arrow"/>
-  <rect x="220" y="370" width="120" height="70" class="box" rx="5"/>
-  <text x="280" y="395" class="text" text-anchor="middle">SageMaker</text>
-  <text x="280" y="415" class="label" text-anchor="middle">Train XGBoost</text>
-  <text x="280" y="430" class="label" text-anchor="middle">(nightly)</text>
+  <path d="M 280 370 L 280 400 L 450 400 L 450 420" class="arrow"/>
+  <rect x="390" y="420" width="120" height="70" class="box" rx="5"/>
+  <text x="450" y="445" class="text" text-anchor="middle">SageMaker</text>
+  <text x="450" y="465" class="label" text-anchor="middle">Train XGBoost</text>
+  <text x="450" y="480" class="label" text-anchor="middle">(nightly)</text>
 
   <!-- Row 4: Inference & Delivery -->
   <path d="M 710 240 L 710 270 L 620 270 L 620 300" class="arrow"/>
@@ -70,18 +70,18 @@
   <text x="620" y="350" class="label" text-anchor="middle">send time</text>
 
   <path d="M 560 330 L 510 330" class="arrow"/>
-  <rect x="390" y="200" width="120" height="60" class="box" rx="5"/>
-  <text x="450" y="220" class="text" text-anchor="middle">EventBridge</text>
-  <text x="450" y="235" class="label" text-anchor="middle">Schedule</text>
-  <text x="450" y="250" class="label" text-anchor="middle">delivery</text>
+  <rect x="390" y="300" width="120" height="60" class="box" rx="5"/>
+  <text x="450" y="320" class="text" text-anchor="middle">EventBridge</text>
+  <text x="450" y="335" class="label" text-anchor="middle">Schedule</text>
+  <text x="450" y="350" class="label" text-anchor="middle">delivery</text>
 
-  <path d="M 390 230 L 340 230" class="arrow"/>
-  <rect x="220" y="200" width="120" height="60" class="box" rx="5"/>
-  <text x="280" y="220" class="text" text-anchor="middle">Sender Service</text>
-  <text x="280" y="235" class="label" text-anchor="middle">Send email/</text>
-  <text x="280" y="250" class="label" text-anchor="middle">SMS/push</text>
+  <path d="M 450 360 L 450 390 L 620 390 L 620 420" class="arrow"/>
+  <rect x="560" y="420" width="120" height="60" class="box" rx="5"/>
+  <text x="620" y="440" class="text" text-anchor="middle">Sender Service</text>
+  <text x="620" y="455" class="label" text-anchor="middle">Send email/</text>
+  <text x="620" y="470" class="label" text-anchor="middle">SMS/push</text>
 
   <!-- Legend -->
-  <text x="50" y="420" class="label">Blue boxes: AWS Services</text>
-  <text x="50" y="438" class="label">Arrows: Data flow direction</text>
+  <text x="50" y="560" class="label">Blue boxes: AWS Services</text>
+  <text x="50" y="578" class="label">Arrows: Data flow direction</text>
 </svg>
