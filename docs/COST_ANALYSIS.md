@@ -1,6 +1,10 @@
 # Cost Analysis
 
-Monthly AWS costs at different scales (us-west-2 pricing):
+Monthly AWS costs at different scales (us-west-2 pricing).
+
+💡 **Interactive Calculator**: [AWS Pricing Calculator](https://calculator.aws/#/) - Build custom estimates based on your expected traffic.
+
+---
 
 ## Cost Breakdown by Component
 
