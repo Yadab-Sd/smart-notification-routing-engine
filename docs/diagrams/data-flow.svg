@@ -50,36 +50,36 @@
   <text x="710" y="225" class="label" text-anchor="middle">User profiles</text>
 
   <!-- Row 3: ML Pipeline -->
-  <path d="M 110 240 L 110 280 L 280 280 L 280 300" class="arrow"/>
-  <rect x="220" y="300" width="120" height="70" class="box" rx="5"/>
-  <text x="280" y="325" class="text" text-anchor="middle">Glue ETL</text>
-  <text x="280" y="345" class="label" text-anchor="middle">Feature eng.</text>
-  <text x="280" y="360" class="label" text-anchor="middle">(nightly)</text>
+  <path d="M 110 240 L 110 270 L 280 270 L 280 290" class="arrow"/>
+  <rect x="220" y="290" width="120" height="70" class="box" rx="5"/>
+  <text x="280" y="315" class="text" text-anchor="middle">Glue ETL</text>
+  <text x="280" y="335" class="label" text-anchor="middle">Feature eng.</text>
+  <text x="280" y="350" class="label" text-anchor="middle">(nightly)</text>
 
-  <path d="M 280 370 L 280 400 L 450 400 L 450 420" class="arrow"/>
-  <rect x="390" y="420" width="120" height="70" class="box" rx="5"/>
-  <text x="450" y="445" class="text" text-anchor="middle">SageMaker</text>
-  <text x="450" y="465" class="label" text-anchor="middle">Train XGBoost</text>
-  <text x="450" y="480" class="label" text-anchor="middle">(nightly)</text>
+  <path d="M 280 360 L 280 390 L 110 390 L 110 420" class="arrow"/>
+  <rect x="50" y="420" width="120" height="70" class="box" rx="5"/>
+  <text x="110" y="445" class="text" text-anchor="middle">SageMaker</text>
+  <text x="110" y="465" class="label" text-anchor="middle">Train XGBoost</text>
+  <text x="110" y="480" class="label" text-anchor="middle">(nightly)</text>
 
   <!-- Row 4: Inference & Delivery -->
-  <path d="M 710 240 L 710 270 L 620 270 L 620 300" class="arrow"/>
-  <rect x="560" y="300" width="120" height="60" class="box" rx="5"/>
-  <text x="620" y="320" class="text" text-anchor="middle">Decision Service</text>
-  <text x="620" y="335" class="label" text-anchor="middle">Find optimal</text>
-  <text x="620" y="350" class="label" text-anchor="middle">send time</text>
+  <path d="M 710 240 L 710 260 L 620 260 L 620 290" class="arrow"/>
+  <rect x="560" y="290" width="120" height="60" class="box" rx="5"/>
+  <text x="620" y="310" class="text" text-anchor="middle">Decision Service</text>
+  <text x="620" y="325" class="label" text-anchor="middle">Find optimal</text>
+  <text x="620" y="340" class="label" text-anchor="middle">send time</text>
 
-  <path d="M 560 330 L 510 330" class="arrow"/>
-  <rect x="390" y="300" width="120" height="60" class="box" rx="5"/>
-  <text x="450" y="320" class="text" text-anchor="middle">EventBridge</text>
-  <text x="450" y="335" class="label" text-anchor="middle">Schedule</text>
-  <text x="450" y="350" class="label" text-anchor="middle">delivery</text>
+  <path d="M 560 320 L 510 320" class="arrow"/>
+  <rect x="390" y="290" width="120" height="60" class="box" rx="5"/>
+  <text x="450" y="310" class="text" text-anchor="middle">EventBridge</text>
+  <text x="450" y="325" class="label" text-anchor="middle">Schedule</text>
+  <text x="450" y="340" class="label" text-anchor="middle">delivery</text>
 
-  <path d="M 450 360 L 450 390 L 620 390 L 620 420" class="arrow"/>
-  <rect x="560" y="420" width="120" height="60" class="box" rx="5"/>
-  <text x="620" y="440" class="text" text-anchor="middle">Sender Service</text>
-  <text x="620" y="455" class="label" text-anchor="middle">Send email/</text>
-  <text x="620" y="470" class="label" text-anchor="middle">SMS/push</text>
+  <path d="M 450 350 L 450 380 L 280 380 L 280 420" class="arrow"/>
+  <rect x="220" y="420" width="120" height="60" class="box" rx="5"/>
+  <text x="280" y="440" class="text" text-anchor="middle">Sender Service</text>
+  <text x="280" y="455" class="label" text-anchor="middle">Send email/</text>
+  <text x="280" y="470" class="label" text-anchor="middle">SMS/push</text>
 
   <!-- Legend -->
   <text x="50" y="560" class="label">Blue boxes: AWS Services</text>
