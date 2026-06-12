@@ -254,6 +254,8 @@ Report bugs • Request features • Ask questions
 
 ---
 
+</div>
+
 ### 📖 Citation
 
 ```bibtex
@@ -270,5 +272,3 @@ Report bugs • Request features • Ask questions
 <sub>Built with ❤️ using AWS Serverless • XGBoost • Apache Spark</sub>
 
 <sub>Last updated: June 2026</sub>
-
-</div>
