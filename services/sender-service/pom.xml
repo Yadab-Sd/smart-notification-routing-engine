@@ -51,6 +51,16 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>dynamodb</artifactId>
     </dependency>
+    <!-- SES v2 for email delivery -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sesv2</artifactId>
+    </dependency>
+    <!-- SNS for SMS delivery -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sns</artifactId>
+    </dependency>
 
     <!-- JSON binding -->
     <dependency>

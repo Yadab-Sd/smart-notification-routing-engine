@@ -13,16 +13,22 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.pinpoint.PinpointClient;
-import software.amazon.awssdk.services.pinpoint.model.AddressConfiguration;
-import software.amazon.awssdk.services.pinpoint.model.ChannelType;
-import software.amazon.awssdk.services.pinpoint.model.SimpleEmailPart;
-import software.amazon.awssdk.services.pinpoint.model.SimpleEmail;
-import software.amazon.awssdk.services.pinpoint.model.EmailMessage;
-import software.amazon.awssdk.services.pinpoint.model.DirectMessageConfiguration;
-import software.amazon.awssdk.services.pinpoint.model.MessageRequest;
-import software.amazon.awssdk.services.pinpoint.model.SendMessagesRequest;
-import software.amazon.awssdk.services.pinpoint.model.PinpointException;
+
+// SES v2 for email
+import software.amazon.awssdk.services.sesv2.SesV2Client;
+import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
+import software.amazon.awssdk.services.sesv2.model.EmailContent;
+import software.amazon.awssdk.services.sesv2.model.Body;
+import software.amazon.awssdk.services.sesv2.model.Content;
+import software.amazon.awssdk.services.sesv2.model.Message;
+import software.amazon.awssdk.services.sesv2.model.Destination;
+import software.amazon.awssdk.services.sesv2.model.SesV2Exception;
+
+// SNS for SMS
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.sns.model.PublishResponse;
+import software.amazon.awssdk.services.sns.model.SnsException;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
@@ -32,32 +38,38 @@ import java.util.Map;
 import java.util.HashMap;
 
 /**
- * Sender Lambda Handler - Supports two invocation modes:
- * 1. EventBridge Scheduler: Simple payload with just userId
- * 2. API Gateway: Full payload with template and recipient details
+ * Multi-Channel Sender Lambda Handler
+ * Supports: Email (Amazon SES v2) and SMS (Amazon SNS)
+ *
+ * Invocation modes:
+ * 1. EventBridge Scheduler: Simple payload with userId, looks up user preferences
+ * 2. API Gateway: Full payload with channel, template, and recipient details
  */
 public class Handler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
     private final S3Client s3;
     private final DynamoDbClient dynamodb;
-    private final PinpointClient pinpoint;
+    private final SesV2Client ses;
+    private final SnsClient sns;
     private final Handlebars handlebars;
-    private final String pinpointAppId;
     private final String userProfilesTable;
     private final String curatedBucket;
     private final String defaultFromAddress;
+
+    // Channel types
+    private static final String CHANNEL_EMAIL = "EMAIL";
+    private static final String CHANNEL_SMS = "SMS";
 
     public Handler() {
         Region region = Region.of(System.getenv("AWS_REGION"));
         this.s3 = S3Client.builder().region(region).build();
         this.dynamodb = DynamoDbClient.builder().region(region).build();
-        this.pinpoint = PinpointClient.builder().region(region).build();
+        this.ses = SesV2Client.builder().region(region).build();
+        this.sns = SnsClient.builder().region(region).build();
         this.handlebars = new Handlebars();
-        this.pinpointAppId = System.getenv("PINPOINT_APP_ID");
         this.userProfilesTable = System.getenv("USER_PROFILES_TABLE");
         this.curatedBucket = System.getenv("CURATED_BUCKET");
 
-        // Get sender email from environment variable (set via CDK from SENDER_EMAIL in .env)
-        // Fallback to obvious placeholder if not configured
+        // Sender email from environment (set via CDK from SENDER_EMAIL in .env)
         this.defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
     }
 
@@ -66,12 +78,12 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         context.getLogger().log("Event received: " + event);
 
         try {
-            // Detect invocation type: EventBridge (has userId) or API Gateway (has full payload)
+            // Detect invocation type
             if (event.containsKey("userId") && event.size() <= 2) {
-                // EventBridge Scheduler invocation - simple payload
+                // EventBridge Scheduler invocation
                 return handleScheduledSend(event, context);
             } else {
-                // API Gateway or full invocation - complete payload
+                // API Gateway or full invocation
                 return handleDirectSend(event, context);
             }
         } catch (Exception e) {
@@ -86,7 +98,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     }
 
     /**
-     * Handle scheduled send from EventBridge - look up user and use default template
+     * Handle scheduled send from EventBridge - look up user and send via preferred channel
      */
     private Map<String, Object> handleScheduledSend(Map<String, Object> event, Context context) {
         String userId = (String) event.get("userId");
@@ -108,36 +120,33 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             throw new RuntimeException("User profile not found for userId: " + userId);
         }
 
-        // Extract user email (required for notification)
-        String userEmail = null;
-        if (item.containsKey("email")) {
-            userEmail = item.get("email").s();
+        // Extract user contact details
+        String userEmail = item.containsKey("email") ? item.get("email").s() : null;
+        String userPhone = item.containsKey("phone") ? item.get("phone").s() : null;
+
+        // Determine preferred channel (default to EMAIL if not specified)
+        String preferredChannel = CHANNEL_EMAIL;
+        if (item.containsKey("prefs")) {
+            Map<String, AttributeValue> prefs = item.get("prefs").m();
+            if (prefs.containsKey("channel")) {
+                preferredChannel = prefs.get("channel").s();
+            }
         }
 
-        if (userEmail == null || userEmail.isEmpty()) {
-            throw new RuntimeException("User email not found for userId: " + userId);
-        }
+        context.getLogger().log("User email: " + userEmail + ", phone: " + userPhone + ", preferred channel: " + preferredChannel);
 
-        context.getLogger().log("User email: " + userEmail);
+        // Validate contact info for chosen channel
+        if (CHANNEL_EMAIL.equals(preferredChannel) && (userEmail == null || userEmail.isEmpty())) {
+            throw new RuntimeException("User email not found but EMAIL channel selected for userId: " + userId);
+        }
+        if (CHANNEL_SMS.equals(preferredChannel) && (userPhone == null || userPhone.isEmpty())) {
+            throw new RuntimeException("User phone not found but SMS channel selected for userId: " + userId);
+        }
 
         // Fetch default notification template from S3
-        String templateContent;
-        try {
-            GetObjectRequest s3Req = GetObjectRequest.builder()
-                    .bucket(curatedBucket)
-                    .key("templates/default-notification.html")
-                    .build();
-            ResponseBytes<GetObjectResponse> s3Object = s3.getObjectAsBytes(s3Req);
-            templateContent = s3Object.asUtf8String();
-        } catch (NoSuchKeyException e) {
-            context.getLogger().log("Default template not found, using inline template");
-            // Use a simple inline template if S3 template doesn't exist
-            templateContent = "<html><body><h1>Notification for {{userId}}</h1>" +
-                    "<p>You have a new notification!</p>" +
-                    "<p>This is an automated message from Smart Notification Routing Engine.</p></body></html>";
-        }
+        String templateContent = fetchTemplate(context);
 
-        // Compile Handlebars template with user variables
+        // Compile Handlebars template
         Template template;
         try {
             template = handlebars.compileInline(templateContent);
@@ -148,6 +157,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         Map<String, String> variables = new HashMap<>();
         variables.put("userId", userId);
         variables.put("email", userEmail);
+        variables.put("phone", userPhone);
 
         String mergedBody;
         try {
@@ -156,14 +166,24 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
         }
 
-        // Send email via Pinpoint
-        sendEmail(userEmail, defaultFromAddress, "Notification from Smart Routing Engine", mergedBody, context);
-
+        // Send via preferred channel
         Map<String, Object> response = new HashMap<>();
         response.put("statusCode", 200);
         response.put("userId", userId);
-        response.put("email", userEmail);
-        response.put("message", "Notification sent successfully");
+        response.put("channel", preferredChannel);
+
+        if (CHANNEL_EMAIL.equals(preferredChannel)) {
+            sendEmailViaSES(userEmail, defaultFromAddress, "Notification from Smart Routing Engine", mergedBody, context);
+            response.put("email", userEmail);
+            response.put("message", "Email sent successfully");
+        } else if (CHANNEL_SMS.equals(preferredChannel)) {
+            // Strip HTML for SMS (plain text only)
+            String smsBody = mergedBody.replaceAll("<[^>]+>", "").trim();
+            sendSMSViaSNS(userPhone, smsBody, context);
+            response.put("phone", userPhone);
+            response.put("message", "SMS sent successfully");
+        }
+
         return response;
     }
 
@@ -202,76 +222,121 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
         }
 
-        // Send email
-        sendEmail(req.getToAddress(), req.getFromAddress(), req.getSubject(), mergedBody, context);
+        // Send via specified channel
+        String channel = req.getChannel() != null ? req.getChannel() : CHANNEL_EMAIL;
+
+        if (CHANNEL_EMAIL.equals(channel)) {
+            sendEmailViaSES(req.getToAddress(), req.getFromAddress(), req.getSubject(), mergedBody, context);
+        } else if (CHANNEL_SMS.equals(channel)) {
+            String smsBody = mergedBody.replaceAll("<[^>]+>", "").trim();
+            sendSMSViaSNS(req.getToAddress(), smsBody, context);
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("statusCode", 200);
-        response.put("message", "Message sent successfully");
+        response.put("channel", channel);
+        response.put("message", "Message sent successfully via " + channel);
         return response;
     }
 
     /**
-     * Send email via Amazon Pinpoint
+     * Fetch default template from S3 or use inline fallback
      */
-    private void sendEmail(String toAddress, String fromAddress, String subject, String htmlBody, Context context) {
-        context.getLogger().log("Sending email to: " + toAddress);
-
-        // Create email parts
-        SimpleEmailPart htmlPart = SimpleEmailPart.builder()
-                .data(htmlBody)
-                .charset("UTF-8")
-                .build();
-
-        // Strip HTML for text version
-        String textBody = htmlBody.replaceAll("<[^>]+>", "");
-        SimpleEmailPart textPart = SimpleEmailPart.builder()
-                .data(textBody)
-                .charset("UTF-8")
-                .build();
-
-        SimpleEmailPart subjectPart = SimpleEmailPart.builder()
-                .data(subject)
-                .charset("UTF-8")
-                .build();
-
-        SimpleEmail simpleEmail = SimpleEmail.builder()
-                .htmlPart(htmlPart)
-                .textPart(textPart)
-                .subject(subjectPart)
-                .build();
-
-        EmailMessage emailMessage = EmailMessage.builder()
-                .fromAddress(fromAddress)
-                .simpleEmail(simpleEmail)
-                .build();
-
-        // Configure recipient
-        AddressConfiguration destConfig = AddressConfiguration.builder()
-                .channelType(ChannelType.EMAIL)
-                .build();
-        Map<String, AddressConfiguration> addressMap = Map.of(toAddress, destConfig);
-
-        // Build message request
-        DirectMessageConfiguration directConfig = DirectMessageConfiguration.builder()
-                .emailMessage(emailMessage)
-                .build();
-        MessageRequest msgRequest = MessageRequest.builder()
-                .addresses(addressMap)
-                .messageConfiguration(directConfig)
-                .build();
-        SendMessagesRequest sendReq = SendMessagesRequest.builder()
-                .applicationId(pinpointAppId)
-                .messageRequest(msgRequest)
-                .build();
-
-        // Send via Pinpoint
+    private String fetchTemplate(Context context) {
         try {
-            pinpoint.sendMessages(sendReq);
+            GetObjectRequest s3Req = GetObjectRequest.builder()
+                    .bucket(curatedBucket)
+                    .key("templates/default-notification.html")
+                    .build();
+            ResponseBytes<GetObjectResponse> s3Object = s3.getObjectAsBytes(s3Req);
+            return s3Object.asUtf8String();
+        } catch (NoSuchKeyException e) {
+            context.getLogger().log("Default template not found, using inline template");
+            return "<html><body><h1>Notification for {{userId}}</h1>" +
+                    "<p>You have a new notification!</p>" +
+                    "<p>This is an automated message from Smart Notification Routing Engine.</p></body></html>";
+        }
+    }
+
+    /**
+     * Send email via Amazon SES v2
+     */
+    private void sendEmailViaSES(String toAddress, String fromAddress, String subject, String htmlBody, Context context) {
+        context.getLogger().log("Sending email to: " + toAddress + " via SES");
+
+        try {
+            // Strip HTML for text version
+            String textBody = htmlBody.replaceAll("<[^>]+>", "");
+
+            Content subjectContent = Content.builder()
+                    .data(subject)
+                    .charset("UTF-8")
+                    .build();
+
+            Content htmlContent = Content.builder()
+                    .data(htmlBody)
+                    .charset("UTF-8")
+                    .build();
+
+            Content textContent = Content.builder()
+                    .data(textBody)
+                    .charset("UTF-8")
+                    .build();
+
+            Body body = Body.builder()
+                    .html(htmlContent)
+                    .text(textContent)
+                    .build();
+
+            Message message = Message.builder()
+                    .subject(subjectContent)
+                    .body(body)
+                    .build();
+
+            Destination destination = Destination.builder()
+                    .toAddresses(toAddress)
+                    .build();
+
+            EmailContent emailContent = EmailContent.builder()
+                    .simple(message)
+                    .build();
+
+            SendEmailRequest emailRequest = SendEmailRequest.builder()
+                    .fromEmailAddress(fromAddress)
+                    .destination(destination)
+                    .content(emailContent)
+                    .build();
+
+            ses.sendEmail(emailRequest);
             context.getLogger().log("Email sent successfully to: " + toAddress);
-        } catch (PinpointException e) {
-            context.getLogger().log("Pinpoint error: " + e.awsErrorDetails().errorMessage());
-            throw new RuntimeException("Failed to send email: " + e.awsErrorDetails().errorMessage(), e);
+
+        } catch (SesV2Exception e) {
+            context.getLogger().log("SES error: " + e.awsErrorDetails().errorMessage());
+            throw new RuntimeException("Failed to send email via SES: " + e.awsErrorDetails().errorMessage(), e);
+        }
+    }
+
+    /**
+     * Send SMS via Amazon SNS
+     */
+    private void sendSMSViaSNS(String phoneNumber, String message, Context context) {
+        context.getLogger().log("Sending SMS to: " + phoneNumber + " via SNS");
+
+        try {
+            // Truncate message if too long (SNS limit: 160 chars for single SMS)
+            String smsMessage = message.length() > 160 ? message.substring(0, 157) + "..." : message;
+
+            PublishRequest request = PublishRequest.builder()
+                    .message(smsMessage)
+                    .phoneNumber(phoneNumber)
+                    .build();
+
+            PublishResponse result = sns.publish(request);
+            context.getLogger().log("SMS sent successfully. MessageId: " + result.messageId());
+
+        } catch (SnsException e) {
+            context.getLogger().log("SNS error: " + e.awsErrorDetails().errorMessage());
+            throw new RuntimeException("Failed to send SMS via SNS: " + e.awsErrorDetails().errorMessage(), e);
         }
     }
 
@@ -283,6 +348,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         private String toAddress;
         private String subject;
         private String fromAddress;
+        private String channel; // "EMAIL" or "SMS"
 
         public String getTemplateBucket() { return templateBucket; }
         public void setTemplateBucket(String templateBucket) { this.templateBucket = templateBucket; }
@@ -296,5 +362,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         public void setSubject(String subject) { this.subject = subject; }
         public String getFromAddress() { return fromAddress; }
         public void setFromAddress(String fromAddress) { this.fromAddress = fromAddress; }
+        public String getChannel() { return channel; }
+        public void setChannel(String channel) { this.channel = channel; }
     }
 }

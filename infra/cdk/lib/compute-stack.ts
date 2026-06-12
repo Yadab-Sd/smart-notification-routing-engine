@@ -75,9 +75,16 @@ export class ComputeStack extends Stack {
         });
         data.curatedBucket.grantRead(senderFn); // templates
         data.profilesTable.grantReadData(senderFn); // read user profiles
+
+        // Multi-channel permissions: SES + SNS + Pinpoint (legacy)
         senderFn.addToRolePolicy(new iam.PolicyStatement({
-            actions:['mobiletargeting:SendMessages'],
-            resources:['*'] // or restrict to your Pinpoint app ARN
+            actions:[
+                'ses:SendEmail',           // SES v2 email sending
+                'ses:SendRawEmail',
+                'sns:Publish',             // SNS SMS sending
+                'mobiletargeting:SendMessages'  // Pinpoint (legacy, optional)
+            ],
+            resources:['*'] // Can be narrowed to specific SES identities and SNS topics
         }));
 
         // Role that EventBridge Scheduler assumes to invoke senderFn
