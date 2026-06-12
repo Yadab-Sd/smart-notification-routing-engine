@@ -42,7 +42,7 @@ Learns when each user is most likely to engage with notifications, then automati
 
 Built entirely on AWS serverless (Lambda, SageMaker, Glue, S3, DynamoDB).
 
-📖 [Detailed Architecture](docs/ARCHITECTURE.md) • 💰 [Cost Analysis](docs/COST_ANALYSIS.md) • ⚠️ [Limitations](docs/LIMITATIONS.md)
+[Detailed Architecture](docs/ARCHITECTURE.md) • [Cost Analysis](docs/COST_ANALYSIS.md) • [Limitations](docs/LIMITATIONS.md)
 
 ---
 
@@ -82,7 +82,7 @@ API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute \
 curl $API_URL/v1/health
 ```
 
-📖 [Complete Setup Guide](docs/SETUP.md)
+[Complete Setup Guide](docs/SETUP.md)
 
 ---
 
@@ -156,7 +156,7 @@ Monthly AWS costs:
 | Medium | 10M | $500 |
 | Large | 50M | $1,665 |
 
-📖 [Detailed Cost Breakdown](docs/COST_ANALYSIS.md)
+[Detailed Cost Breakdown](docs/COST_ANALYSIS.md)
 
 ---
 
@@ -207,7 +207,7 @@ cd infra/cdk && pnpm exec cdk destroy --all
 - Fixed nightly training schedule
 - Single region deployment
 
-📖 [Complete Limitations List](docs/LIMITATIONS.md)
+[Complete Limitations List](docs/LIMITATIONS.md)
 
 ---
 
