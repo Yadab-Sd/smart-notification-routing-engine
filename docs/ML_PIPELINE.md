@@ -46,9 +46,9 @@ The ML pipeline trains an XGBoost model nightly to predict optimal notification 
 }
 ```
 
-**Instance**: ml.m5.xlarge (4 vCPU, 16GB RAM)
+**Instance**: ml.m5.large (2 vCPU, 8GB RAM)
 
-**Training Time**: 10-15 minutes
+**Training Time**: 15-20 minutes
 
 **Output**: Model artifact (`s3://models-bucket/model.tar.gz`)
 
@@ -245,9 +245,10 @@ aws logs tail /aws/sagemaker/TrainingJobs --follow
    - Check event count before starting
    - Only train if >1000 new events
 
-2. **Use smaller instance**:
-   - ml.m5.large for <10M events
-   - ml.m5.xlarge for >10M events
+2. **Scale instance based on data size**:
+   - ml.m5.large for <10M events (default)
+   - ml.m5.xlarge for 10-50M events (requires quota increase)
+   - ml.m5.2xlarge for >50M events (requires quota increase)
 
 3. **Serverless inference**:
    - For <10K predictions/day

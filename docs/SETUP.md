@@ -624,6 +624,29 @@ aws stepfunctions start-execution --state-machine-arn $STATE_MACHINE_ARN --name 
 
 ---
 
+### Error: "ResourceLimitExceeded: ml.m5.xlarge for training job usage"
+
+**Problem**: AWS account has 0 quota for ml.m5.xlarge instances (common for new accounts).
+
+**Fix**: The default configuration uses ml.m5.large which has higher quota. If you manually changed to xlarge, either:
+
+1. **Revert to ml.m5.large** (recommended for pilot):
+   - Edit `infra/cdk/lib/ml-stack.ts` line 172
+   - Change `ec2.InstanceSize.XLARGE` to `ec2.InstanceSize.LARGE`
+   - Redeploy: `pnpm exec cdk deploy SR-ML`
+
+2. **Request quota increase**:
+   ```bash
+   aws service-quotas request-service-quota-increase \
+     --service-code sagemaker \
+     --quota-code L-12345678 \
+     --desired-value 1
+   ```
+   - Approval time: 1-3 business days
+   - ml.m5.large handles <10M training events efficiently
+
+---
+
 ## Production Checklist
 
 Before going to production:
