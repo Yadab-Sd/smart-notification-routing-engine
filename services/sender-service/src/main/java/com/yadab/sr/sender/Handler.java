@@ -345,6 +345,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         private String toAddress;
         private String subject;
         private String channel;
+        private String message;  // Custom message from event (for immediate/optimized notifications)
+        private String metadata; // Event metadata (stored as JSON string)
 
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
@@ -360,5 +362,9 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         public void setSubject(String subject) { this.subject = subject; }
         public String getChannel() { return channel; }
         public void setChannel(String channel) { this.channel = channel; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getMetadata() { return metadata; }
+        public void setMetadata(String metadata) { this.metadata = metadata; }
     }
 }
