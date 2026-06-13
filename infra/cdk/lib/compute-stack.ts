@@ -192,17 +192,33 @@ export class ComputeStack extends Stack {
         });
 
 
-        new apigwv2.HttpRoute(this,'GetUserRoute',{
+        // User Management Routes
+        new apigwv2.HttpRoute(this, 'CreateUserRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'GetUserRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}', apigwv2.HttpMethod.GET),
             integration: integ,
-            authorizer: jwtAuth, // ✅ L2 authorizer (has .bind)
+            authorizer: jwtAuth,
         });
-        new apigwv2.HttpRoute(this,'PutPrefsRoute',{
+
+        new apigwv2.HttpRoute(this, 'UpdateUserRoute', {
             httpApi,
-            routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}/preferences', apigwv2.HttpMethod.PUT),
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}', apigwv2.HttpMethod.PUT),
             integration: integ,
-            authorizer: jwtAuth, // ✅ L2 authorizer (has .bind)
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'DeleteUserRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
         });
 
         // Add API routes (JWT auth same authorizer as before) -
