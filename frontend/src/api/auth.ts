@@ -109,7 +109,7 @@ export const signUp = (data: SignUpData): Promise<void> => {
       data.password,
       attributeList,
       [],
-      (err, result) => {
+      (err, _) => {
         if (err) {
           reject(err)
           return
