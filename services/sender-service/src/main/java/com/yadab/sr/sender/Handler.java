@@ -13,64 +13,62 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-
-// SES v2 for email
 import software.amazon.awssdk.services.sesv2.SesV2Client;
-import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
-import software.amazon.awssdk.services.sesv2.model.EmailContent;
-import software.amazon.awssdk.services.sesv2.model.Body;
-import software.amazon.awssdk.services.sesv2.model.Content;
-import software.amazon.awssdk.services.sesv2.model.Message;
-import software.amazon.awssdk.services.sesv2.model.Destination;
-import software.amazon.awssdk.services.sesv2.model.SesV2Exception;
-
-// SNS for SMS
 import software.amazon.awssdk.services.sns.SnsClient;
-import software.amazon.awssdk.services.sns.model.PublishRequest;
-import software.amazon.awssdk.services.sns.model.PublishResponse;
-import software.amazon.awssdk.services.sns.model.SnsException;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.yadab.sr.sender.channels.*;
+import com.yadab.sr.sender.model.UserProfile;
+
 import java.util.Map;
 import java.util.HashMap;
 
 /**
- * Multi-Channel Sender Lambda Handler
- * Supports: Email (Amazon SES v2) and SMS (Amazon SNS)
+ * Multi-Channel Sender Lambda Handler (Strategy Pattern Implementation)
+ *
+ * Supports extensible notification channels:
+ * - Email (Amazon SES v2)
+ * - SMS (Amazon SNS)
+ * - Future: Push, WhatsApp, etc. (add without modifying this class)
  *
  * Invocation modes:
- * 1. EventBridge Scheduler: Simple payload with userId, looks up user preferences
- * 2. API Gateway: Full payload with channel, template, and recipient details
+ * 1. EventBridge Scheduler: { "userId": "...", "channel": "SMS" (optional) }
+ * 2. API Gateway: Full payload with channel, template, recipient
+ *
+ * Channel Selection Priority:
+ * 1. Explicit channel in request (highest)
+ * 2. User preference from DynamoDB
+ * 3. Smart fallback (EMAIL > SMS > PUSH)
+ * 4. Fail if no channel available
  */
 public class Handler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
     private final S3Client s3;
     private final DynamoDbClient dynamodb;
-    private final SesV2Client ses;
-    private final SnsClient sns;
     private final Handlebars handlebars;
+    private final ChannelFactory channelFactory;
+    private final ChannelSelector channelSelector;
     private final String userProfilesTable;
     private final String curatedBucket;
-    private final String defaultFromAddress;
-
-    // Channel types
-    private static final String CHANNEL_EMAIL = "EMAIL";
-    private static final String CHANNEL_SMS = "SMS";
 
     public Handler() {
         Region region = Region.of(System.getenv("AWS_REGION"));
         this.s3 = S3Client.builder().region(region).build();
         this.dynamodb = DynamoDbClient.builder().region(region).build();
-        this.ses = SesV2Client.builder().region(region).build();
-        this.sns = SnsClient.builder().region(region).build();
         this.handlebars = new Handlebars();
         this.userProfilesTable = System.getenv("USER_PROFILES_TABLE");
         this.curatedBucket = System.getenv("CURATED_BUCKET");
 
-        // Sender email from environment (set via CDK from SENDER_EMAIL in .env)
-        this.defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
+        String defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
+
+        // Initialize channel factory and selector
+        SesV2Client ses = SesV2Client.builder().region(region).build();
+        SnsClient sns = SnsClient.builder().region(region).build();
+
+        this.channelFactory = new ChannelFactory(ses, sns, defaultFromAddress);
+        this.channelSelector = new ChannelSelector(channelFactory);
     }
 
     @Override
@@ -79,11 +77,9 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
 
         try {
             // Detect invocation type
-            if (event.containsKey("userId") && event.size() <= 2) {
-                // EventBridge Scheduler invocation
+            if (event.containsKey("userId") && event.size() <= 3) { // userId + optional channel/timestamp
                 return handleScheduledSend(event, context);
             } else {
-                // API Gateway or full invocation
                 return handleDirectSend(event, context);
             }
         } catch (Exception e) {
@@ -98,13 +94,128 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     }
 
     /**
-     * Handle scheduled send from EventBridge - look up user and send via preferred channel
+     * Handle scheduled send from EventBridge.
+     * Looks up user profile and sends via optimal channel.
      */
     private Map<String, Object> handleScheduledSend(Map<String, Object> event, Context context) {
         String userId = (String) event.get("userId");
-        context.getLogger().log("Handling scheduled send for userId: " + userId);
+        String requestedChannel = (String) event.get("channel"); // Optional: explicit channel override
 
-        // Look up user profile from DynamoDB
+        context.getLogger().log("Handling scheduled send for userId: " + userId +
+                (requestedChannel != null ? ", requested channel: " + requestedChannel : ""));
+
+        // Fetch user profile from DynamoDB
+        UserProfile user = fetchUserProfile(userId, context);
+
+        // Select optimal channel with fallback logic
+        ChannelSelector.ChannelSelectionResult selection = channelSelector.selectChannel(
+                user, requestedChannel, context);
+
+        NotificationChannel channel = selection.getChannel();
+        String recipient = getRecipient(user, channel);
+
+        // Fetch and render template
+        String templateContent = fetchTemplate(context);
+        String renderedBody = renderTemplate(templateContent, user, context);
+        String subject = "Notification from Smart Routing Engine";
+
+        // Send via selected channel
+        try {
+            channel.send(recipient, subject, renderedBody, context);
+        } catch (Exception e) {
+            context.getLogger().log("Failed to send via " + channel.getChannelType() + ": " + e.getMessage());
+            throw new RuntimeException("Notification delivery failed", e);
+        }
+
+        // Build response with metadata
+        Map<String, Object> response = new HashMap<>();
+        response.put("statusCode", 200);
+        response.put("userId", userId);
+        response.put("channelUsed", selection.getChannelType());
+        response.put("fallback", selection.isFallback());
+        response.put("recipient", maskContactInfo(recipient));
+        response.put("message", "Notification sent successfully");
+
+        if (selection.getRequestedChannel() != null) {
+            response.put("channelRequested", selection.getRequestedChannel());
+        }
+        if (selection.isFallback() && selection.getReason() != null) {
+            response.put("fallbackReason", selection.getReason());
+        }
+
+        return response;
+    }
+
+    /**
+     * Handle direct send with full payload (API Gateway).
+     */
+    private Map<String, Object> handleDirectSend(Map<String, Object> event, Context context) {
+        ObjectMapper json = new ObjectMapper();
+        SendRequest req;
+        try {
+            req = json.convertValue(event, SendRequest.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid request format: " + e.getMessage(), e);
+        }
+
+        // Fetch user profile if userId provided (for channel selection)
+        UserProfile user = null;
+        if (req.getUserId() != null) {
+            user = fetchUserProfile(req.getUserId(), context);
+        } else {
+            // Create minimal profile with provided contact info
+            user = new UserProfile();
+            user.setUserId("direct_send");
+            if (req.getToAddress().contains("@")) {
+                user.setEmail(req.getToAddress());
+            } else if (req.getToAddress().startsWith("+")) {
+                user.setPhone(req.getToAddress());
+            }
+        }
+
+        // Select channel
+        ChannelSelector.ChannelSelectionResult selection = channelSelector.selectChannel(
+                user, req.getChannel(), context);
+
+        NotificationChannel channel = selection.getChannel();
+        String recipient = req.getToAddress() != null ? req.getToAddress() : getRecipient(user, channel);
+
+        // Fetch and render template
+        GetObjectRequest getReq = GetObjectRequest.builder()
+                .bucket(req.getTemplateBucket())
+                .key(req.getTemplateKey())
+                .build();
+        ResponseBytes<GetObjectResponse> s3Object = s3.getObjectAsBytes(getReq);
+        String templateContent = s3Object.asUtf8String();
+
+        String renderedBody = renderTemplate(templateContent, req.getVariables(), context);
+
+        // Send via selected channel
+        try {
+            channel.send(recipient, req.getSubject(), renderedBody, context);
+        } catch (Exception e) {
+            context.getLogger().log("Failed to send via " + channel.getChannelType() + ": " + e.getMessage());
+            throw new RuntimeException("Notification delivery failed", e);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("statusCode", 200);
+        response.put("channelUsed", selection.getChannelType());
+        response.put("fallback", selection.isFallback());
+        response.put("message", "Message sent successfully");
+
+        if (selection.isFallback()) {
+            response.put("channelRequested", selection.getRequestedChannel());
+            response.put("fallbackReason", selection.getReason());
+        }
+
+        return response;
+    }
+
+    /**
+     * Fetch user profile from DynamoDB.
+     */
+    private UserProfile fetchUserProfile(String userId, Context context) {
         GetItemRequest getReq = GetItemRequest.builder()
                 .tableName(userProfilesTable)
                 .key(Map.of(
@@ -120,127 +231,31 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             throw new RuntimeException("User profile not found for userId: " + userId);
         }
 
-        // Extract user contact details
-        String userEmail = item.containsKey("email") ? item.get("email").s() : null;
-        String userPhone = item.containsKey("phone") ? item.get("phone").s() : null;
+        // Parse DynamoDB item to UserProfile
+        UserProfile user = new UserProfile();
+        user.setUserId(userId);
 
-        // Determine preferred channel (default to EMAIL if not specified)
-        String preferredChannel = CHANNEL_EMAIL;
-        if (item.containsKey("prefs")) {
-            Map<String, AttributeValue> prefs = item.get("prefs").m();
-            if (prefs.containsKey("channel")) {
-                preferredChannel = prefs.get("channel").s();
+        if (item.containsKey("email")) {
+            user.setEmail(item.get("email").s());
+        }
+        if (item.containsKey("phone")) {
+            user.setPhone(item.get("phone").s());
+        }
+        if (item.containsKey("prefs") && item.get("prefs").hasM()) {
+            Map<String, AttributeValue> prefsMap = item.get("prefs").m();
+            UserProfile.UserPreferences prefs = new UserProfile.UserPreferences();
+            if (prefsMap.containsKey("channel")) {
+                prefs.setChannel(prefsMap.get("channel").s());
             }
+            user.setPrefs(prefs);
         }
 
-        context.getLogger().log("User email: " + userEmail + ", phone: " + userPhone + ", preferred channel: " + preferredChannel);
-
-        // Validate contact info for chosen channel
-        if (CHANNEL_EMAIL.equals(preferredChannel) && (userEmail == null || userEmail.isEmpty())) {
-            throw new RuntimeException("User email not found but EMAIL channel selected for userId: " + userId);
-        }
-        if (CHANNEL_SMS.equals(preferredChannel) && (userPhone == null || userPhone.isEmpty())) {
-            throw new RuntimeException("User phone not found but SMS channel selected for userId: " + userId);
-        }
-
-        // Fetch default notification template from S3
-        String templateContent = fetchTemplate(context);
-
-        // Compile Handlebars template
-        Template template;
-        try {
-            template = handlebars.compileInline(templateContent);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to compile template: " + e.getMessage(), e);
-        }
-
-        Map<String, String> variables = new HashMap<>();
-        variables.put("userId", userId);
-        variables.put("email", userEmail);
-        variables.put("phone", userPhone);
-
-        String mergedBody;
-        try {
-            mergedBody = template.apply(variables);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
-        }
-
-        // Send via preferred channel
-        Map<String, Object> response = new HashMap<>();
-        response.put("statusCode", 200);
-        response.put("userId", userId);
-        response.put("channel", preferredChannel);
-
-        if (CHANNEL_EMAIL.equals(preferredChannel)) {
-            sendEmailViaSES(userEmail, defaultFromAddress, "Notification from Smart Routing Engine", mergedBody, context);
-            response.put("email", userEmail);
-            response.put("message", "Email sent successfully");
-        } else if (CHANNEL_SMS.equals(preferredChannel)) {
-            // Strip HTML for SMS (plain text only)
-            String smsBody = mergedBody.replaceAll("<[^>]+>", "").trim();
-            sendSMSViaSNS(userPhone, smsBody, context);
-            response.put("phone", userPhone);
-            response.put("message", "SMS sent successfully");
-        }
-
-        return response;
+        context.getLogger().log("Fetched user profile: " + user);
+        return user;
     }
 
     /**
-     * Handle direct send with full payload (API Gateway or manual invocation)
-     */
-    private Map<String, Object> handleDirectSend(Map<String, Object> event, Context context) {
-        ObjectMapper json = new ObjectMapper();
-        SendRequest req;
-        try {
-            req = json.convertValue(event, SendRequest.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid request format: " + e.getMessage(), e);
-        }
-
-        // Fetch template from S3
-        GetObjectRequest getReq = GetObjectRequest.builder()
-                .bucket(req.getTemplateBucket())
-                .key(req.getTemplateKey())
-                .build();
-        ResponseBytes<GetObjectResponse> s3Object = s3.getObjectAsBytes(getReq);
-        String templateContent = s3Object.asUtf8String();
-
-        // Compile and apply template
-        Template template;
-        try {
-            template = handlebars.compileInline(templateContent);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to compile template: " + e.getMessage(), e);
-        }
-
-        String mergedBody;
-        try {
-            mergedBody = template.apply(req.getVariables());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
-        }
-
-        // Send via specified channel
-        String channel = req.getChannel() != null ? req.getChannel() : CHANNEL_EMAIL;
-
-        if (CHANNEL_EMAIL.equals(channel)) {
-            sendEmailViaSES(req.getToAddress(), req.getFromAddress(), req.getSubject(), mergedBody, context);
-        } else if (CHANNEL_SMS.equals(channel)) {
-            String smsBody = mergedBody.replaceAll("<[^>]+>", "").trim();
-            sendSMSViaSNS(req.getToAddress(), smsBody, context);
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("statusCode", 200);
-        response.put("channel", channel);
-        response.put("message", "Message sent successfully via " + channel);
-        return response;
-    }
-
-    /**
-     * Fetch default template from S3 or use inline fallback
+     * Fetch default template from S3 or use inline fallback.
      */
     private String fetchTemplate(Context context) {
         try {
@@ -259,97 +274,71 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     }
 
     /**
-     * Send email via Amazon SES v2
+     * Render Handlebars template with user data.
      */
-    private void sendEmailViaSES(String toAddress, String fromAddress, String subject, String htmlBody, Context context) {
-        context.getLogger().log("Sending email to: " + toAddress + " via SES");
+    private String renderTemplate(String templateContent, UserProfile user, Context context) {
+        Map<String, String> variables = new HashMap<>();
+        variables.put("userId", user.getUserId());
+        variables.put("email", user.getEmail());
+        variables.put("phone", user.getPhone());
+        return renderTemplate(templateContent, variables, context);
+    }
 
+    /**
+     * Render Handlebars template with provided variables.
+     */
+    private String renderTemplate(String templateContent, Map<String, String> variables, Context context) {
         try {
-            // Strip HTML for text version
-            String textBody = htmlBody.replaceAll("<[^>]+>", "");
-
-            Content subjectContent = Content.builder()
-                    .data(subject)
-                    .charset("UTF-8")
-                    .build();
-
-            Content htmlContent = Content.builder()
-                    .data(htmlBody)
-                    .charset("UTF-8")
-                    .build();
-
-            Content textContent = Content.builder()
-                    .data(textBody)
-                    .charset("UTF-8")
-                    .build();
-
-            Body body = Body.builder()
-                    .html(htmlContent)
-                    .text(textContent)
-                    .build();
-
-            Message message = Message.builder()
-                    .subject(subjectContent)
-                    .body(body)
-                    .build();
-
-            Destination destination = Destination.builder()
-                    .toAddresses(toAddress)
-                    .build();
-
-            EmailContent emailContent = EmailContent.builder()
-                    .simple(message)
-                    .build();
-
-            SendEmailRequest emailRequest = SendEmailRequest.builder()
-                    .fromEmailAddress(fromAddress)
-                    .destination(destination)
-                    .content(emailContent)
-                    .build();
-
-            ses.sendEmail(emailRequest);
-            context.getLogger().log("Email sent successfully to: " + toAddress);
-
-        } catch (SesV2Exception e) {
-            context.getLogger().log("SES error: " + e.awsErrorDetails().errorMessage());
-            throw new RuntimeException("Failed to send email via SES: " + e.awsErrorDetails().errorMessage(), e);
+            Template template = handlebars.compileInline(templateContent);
+            return template.apply(variables);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Send SMS via Amazon SNS
+     * Get recipient address based on channel type.
      */
-    private void sendSMSViaSNS(String phoneNumber, String message, Context context) {
-        context.getLogger().log("Sending SMS to: " + phoneNumber + " via SNS");
-
-        try {
-            // Truncate message if too long (SNS limit: 160 chars for single SMS)
-            String smsMessage = message.length() > 160 ? message.substring(0, 157) + "..." : message;
-
-            PublishRequest request = PublishRequest.builder()
-                    .message(smsMessage)
-                    .phoneNumber(phoneNumber)
-                    .build();
-
-            PublishResponse result = sns.publish(request);
-            context.getLogger().log("SMS sent successfully. MessageId: " + result.messageId());
-
-        } catch (SnsException e) {
-            context.getLogger().log("SNS error: " + e.awsErrorDetails().errorMessage());
-            throw new RuntimeException("Failed to send SMS via SNS: " + e.awsErrorDetails().errorMessage(), e);
+    private String getRecipient(UserProfile user, NotificationChannel channel) {
+        String requiredField = channel.getRequiredField();
+        if ("email".equals(requiredField)) {
+            return user.getEmail();
+        } else if ("phone".equals(requiredField)) {
+            return user.getPhone();
         }
+        throw new IllegalStateException("Unknown channel type: " + channel.getChannelType());
     }
 
-    // Helper class for direct send requests
+    /**
+     * Mask contact info for logging (privacy).
+     */
+    private String maskContactInfo(String contact) {
+        if (contact == null) return null;
+        if (contact.contains("@")) {
+            // Email: show first 2 chars + domain
+            String[] parts = contact.split("@");
+            return parts[0].substring(0, Math.min(2, parts[0].length())) + "***@" + parts[1];
+        } else if (contact.startsWith("+")) {
+            // Phone: show country code + last 4 digits
+            return contact.substring(0, 2) + "***" + contact.substring(contact.length() - 4);
+        }
+        return contact;
+    }
+
+    /**
+     * Request model for direct send API.
+     */
     public static class SendRequest {
+        private String userId;
         private String templateBucket;
         private String templateKey;
         private Map<String, String> variables;
         private String toAddress;
         private String subject;
-        private String fromAddress;
-        private String channel; // "EMAIL" or "SMS"
+        private String channel;
 
+        public String getUserId() { return userId; }
+        public void setUserId(String userId) { this.userId = userId; }
         public String getTemplateBucket() { return templateBucket; }
         public void setTemplateBucket(String templateBucket) { this.templateBucket = templateBucket; }
         public String getTemplateKey() { return templateKey; }
@@ -360,8 +349,6 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         public void setToAddress(String toAddress) { this.toAddress = toAddress; }
         public String getSubject() { return subject; }
         public void setSubject(String subject) { this.subject = subject; }
-        public String getFromAddress() { return fromAddress; }
-        public void setFromAddress(String fromAddress) { this.fromAddress = fromAddress; }
         public String getChannel() { return channel; }
         public void setChannel(String channel) { this.channel = channel; }
     }
