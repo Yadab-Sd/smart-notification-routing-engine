@@ -223,7 +223,7 @@ This compiles all 6 Java Lambda services:
 
 ### Step 9: Verify SES Email
 
-Your sender email must be verified in Amazon SES:
+The user emails which we will target to send email, must be verified in Amazon SES. In real life, what we do after user sign-up, we send an confirmation email with a link to the email/phone and upon click we confirm registration.
 
 ```bash
 aws sesv2 create-email-identity --email-identity notifications@yourdomain.com
@@ -375,7 +375,7 @@ curl $API_URL/v1/health
 
 ---
 
-### 4. Create Test User
+### 4. Create Test Admin User
 
 ```bash
 # Get User Pool ID
