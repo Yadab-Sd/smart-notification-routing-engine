@@ -18,11 +18,9 @@ export class FrontendStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
 
-    // S3 bucket for static website hosting
+    // S3 bucket for CloudFront origin (SPA routing handled by CloudFront error responses)
     const websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
       bucketName: `sr-frontend-${this.account}-${this.region}`,
-      websiteIndexDocument: 'index.html',
-      websiteErrorDocument: 'index.html', // SPA routing fallback
       publicReadAccess: false, // CloudFront only
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: RemovalPolicy.DESTROY, // Dev only - use RETAIN for prod
