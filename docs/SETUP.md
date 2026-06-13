@@ -448,7 +448,9 @@ TOKEN=$(aws cognito-idp respond-to-auth-challenge \
 # Verify token
 echo "${TOKEN: -4}"
 
-# [Next Time if token expires] Get auth token 
+ADMIN_PASSWORD=$ADMIN_NEW_PASSWORD
+
+# [Next Time if token expires] Get auth token
 TOKEN=$(aws cognito-idp initiate-auth \
     --auth-flow USER_PASSWORD_AUTH \
     --client-id $APP_CLIENT_ID \
@@ -647,35 +649,26 @@ aws stepfunctions start-execution --state-machine-arn $STATE_MACHINE_ARN --name 
 
 ---
 
-### Error: "ResourceLimitExceeded: ml.m5.large/xlarge for training job usage"
+### Error: "ResourceLimitExceeded: ml.m5.xlarge for training job usage"
 
-**Problem**: AWS account has 0 quota for ml.m5 instances (common for new accounts).
+**Problem**: AWS account has 0 quota for ml.m5.xlarge instances (common for new accounts).
 
-**Fix**: The default configuration uses ml.c5.xlarge which typically has default quota. If you still see quota errors:
+**Fix**: The default configuration uses ml.m5.large which has higher quota. If you manually changed to xlarge, either:
 
-1. **Check current quotas**:
+1. **Revert to ml.m5.large** (recommended for pilot):
+   - Edit `infra/cdk/lib/ml-stack.ts` line 172
+   - Change `ec2.InstanceSize.XLARGE` to `ec2.InstanceSize.LARGE`
+   - Redeploy: `pnpm exec cdk deploy SR-ML`
+
+2. **Request quota increase**:
    ```bash
-   aws service-quotas list-service-quotas --service-code sagemaker | grep -i "ml.c5.xlarge for training"
-   ```
-
-2. **Request quota increase for ml.c5.xlarge**:
-   ```bash
-   # Get quota code
-   aws service-quotas list-service-quotas --service-code sagemaker \
-     --query "Quotas[?contains(QuotaName, 'ml.c5.xlarge')].QuotaCode" --output text
-   
-   # Request increase to 1 instance
    aws service-quotas request-service-quota-increase \
      --service-code sagemaker \
-     --quota-code L-XXXXXX \
+     --quota-code L-12345678 \
      --desired-value 1
    ```
    - Approval time: 1-3 business days
-
-3. **Alternative: Use ml.t3.medium** (slowest but often has quota):
-   - Edit `infra/cdk/lib/ml-stack.ts` line 172
-   - Change to `ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM)`
-   - Training time: 30-40 minutes vs 10-15 minutes
+   - ml.m5.large handles <10M training events efficiently
 
 ---
 
