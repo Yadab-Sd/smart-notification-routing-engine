@@ -46,9 +46,9 @@ The ML pipeline trains an XGBoost model nightly to predict optimal notification 
 }
 ```
 
-**Instance**: ml.m5.large (2 vCPU, 8GB RAM)
+**Instance**: ml.c5.xlarge (4 vCPU, 8GB RAM)
 
-**Training Time**: 15-20 minutes
+**Training Time**: 10-15 minutes
 
 **Output**: Model artifact (`s3://models-bucket/model.tar.gz`)
 

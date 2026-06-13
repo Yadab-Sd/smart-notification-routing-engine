@@ -169,7 +169,7 @@ export class MlStack extends cdk.Stack {
             },
             resourceConfig: {
                 instanceCount: 1,
-                instanceType: ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.LARGE),  // ml.m5.large has higher default quota
+                instanceType: ec2.InstanceType.of(ec2.InstanceClass.C5, ec2.InstanceSize.XLARGE),  // ml.c5.xlarge often has default quota for new accounts
                 volumeSize: cdk.Size.gibibytes(30),
             },
             stoppingCondition: {maxRuntime: cdk.Duration.hours(3)},
