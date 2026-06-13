@@ -106,7 +106,16 @@ curl $API_URL/v1/health
 ### API
 
 ```bash
-# Ingest event
+# 1. Create user (required first)
+POST /v1/users
+{
+  "userId": "user_123",
+  "email": "user@example.com",
+  "phone": "+14155551234",
+  "prefs": { "channel": "EMAIL" }
+}
+
+# 2. Track events
 POST /v1/events
 {
   "userId": "user_123",
@@ -114,7 +123,7 @@ POST /v1/events
   "ts": "2026-06-12T10:30:00Z"
 }
 
-# Get optimal send time
+# 3. Get optimal send time
 POST /v1/decisions/preview
 {
   "userId": "user_123",
@@ -125,9 +134,12 @@ POST /v1/decisions/preview
 # Response
 {
   "hour": 14,
-  "probability": 0.73
+  "probability": 0.73,
+  "channel": "EMAIL"
 }
 ```
+
+[User Management API](docs/USER_MANAGEMENT.md) • [Multi-Channel Guide](docs/MULTI_CHANNEL.md)
 
 ---
 
@@ -184,11 +196,12 @@ cd infra/cdk && pnpm exec cdk destroy --all
 
 ### Getting Started
 - [Complete Setup Guide](docs/SETUP.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Testing](docs/TESTING.md)
+- [User Management API](docs/USER_MANAGEMENT.md)
+- [Multi-Channel Guide](docs/MULTI_CHANNEL.md)
 
 ### Technical
 - [Architecture Deep Dive](docs/ARCHITECTURE.md)
+- [Channel Architecture (Strategy Pattern)](docs/CHANNEL_ARCHITECTURE.md)
 - [ML Pipeline](docs/ML_PIPELINE.md)
 - [API Reference](docs/API.md)
 
@@ -196,6 +209,7 @@ cd infra/cdk && pnpm exec cdk destroy --all
 - [Cost Analysis](docs/COST_ANALYSIS.md)
 - [Monitoring](docs/MONITORING.md)
 - [Known Limitations](docs/LIMITATIONS.md)
+- [US Impact & Government Alignment](docs/US_IMPACT.md)
 
 ---
 
