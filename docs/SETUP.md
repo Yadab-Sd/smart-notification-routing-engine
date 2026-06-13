@@ -411,13 +411,14 @@ curl $API_URL/v1/health
 # Get User Pool ID
 USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name SR-Identity \
     --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
-
+ADMIN_USERNAME=test@example.com
+ADMIN_PASSWORD=TempPass123!
 # Create user
 aws cognito-idp admin-create-user \
     --user-pool-id $USER_POOL_ID \
-    --username testuser \
-    --user-attributes Name=email,Value=test@example.com \
-    --temporary-password "TempPass123!"
+    --username $ADMIN_USERNAME \
+    --user-attributes Name=email,Value=$ADMIN_USERNAME \
+    --temporary-password $ADMIN_PASSWORD
 ```
 
 ---
@@ -425,11 +426,33 @@ aws cognito-idp admin-create-user \
 ### 5. Test Event Ingestion
 
 ```bash
-# Get auth token (replace with your created user credentials)
+# Get Client Id - a specific user property in the users pool
+APP_CLIENT_ID=$(aws cognito-idp list-user-pool-clients --user-pool-id $USER_POOL_ID --query "UserPoolClients[0].ClientId" --output text)
+
+# Set permanent password-
+SESSION_STRING=$(aws cognito-idp initiate-auth \
+    --auth-flow USER_PASSWORD_AUTH \
+    --client-id $APP_CLIENT_ID \
+    --auth-parameters USERNAME=$ADMIN_USERNAME,PASSWORD=$ADMIN_PASSWORD \
+    --query 'Session' --output text)
+ADMIN_NEW_PASSWORD=NewPass123!
+
+# [First time] Get auth token (replace with your created user credentials)
+TOKEN=$(aws cognito-idp respond-to-auth-challenge \
+    --client-id $APP_CLIENT_ID \
+    --challenge-name NEW_PASSWORD_REQUIRED \
+    --session $SESSION_STRING \
+    --challenge-responses USERNAME=$ADMIN_USERNAME,NEW_PASSWORD=$ADMIN_NEW_PASSWORD \
+    --query 'AuthenticationResult.IdToken' --output text)
+
+# Verify token
+echo "${TOKEN: -4}"
+
+# [Next Time if token expires] Get auth token 
 TOKEN=$(aws cognito-idp initiate-auth \
     --auth-flow USER_PASSWORD_AUTH \
-    --client-id YOUR_APP_CLIENT_ID \
-    --auth-parameters USERNAME=testuser,PASSWORD=YourPassword \
+    --client-id $APP_CLIENT_ID \
+    --auth-parameters USERNAME=$ADMIN_USERNAME,PASSWORD=$ADMIN_PASSWORD \
     --query 'AuthenticationResult.IdToken' --output text)
 
 # Send test event
