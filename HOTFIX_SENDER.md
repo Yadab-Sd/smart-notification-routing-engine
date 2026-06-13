@@ -1,6 +1,6 @@
-# HOTFIX: Sender Lambda Parsing Error
+# HOTFIX: Sender Lambda Event Routing Issues
 
-## Problem
+## Problem 1: Parsing Error
 
 Sender Lambda fails with:
 ```
@@ -8,14 +8,33 @@ Unrecognized field "metadata" (class SendRequest)
 Unrecognized field "message" (class SendRequest)
 ```
 
-## Root Cause
+**Root Cause**: Events Consumer sends `message` and `metadata` fields, but Sender's `SendRequest` class doesn't have these fields.
 
-Events Consumer sends `message` and `metadata` fields, but Sender's `SendRequest` class doesn't have these fields.
+**Fix**: Added `message` and `metadata` fields to `SendRequest` class
 
-## Fix Applied
+---
 
-Added `message` and `metadata` fields to `SendRequest` class in:
-`services/sender-service/src/main/java/com/yadab/sr/sender/Handler.java`
+## Problem 2: Wrong Route (S3 Template Error)
+
+After fix #1, Lambda fails with:
+```
+Parameter 'Bucket' must not be null
+```
+
+**Root Cause**: Event routing logic uses `event.size() <= 3` to detect scheduled sends, but events with `message`/`metadata`/`channel` have 4+ fields, so they route to `handleDirectSend()` which expects S3 template.
+
+**Fix**: Changed routing logic to check for `templateBucket`/`templateKey` fields instead of event size.
+
+---
+
+## Fixes Applied
+
+1. Added `message` and `metadata` fields to `SendRequest` class
+2. Updated event routing in `handleRequest()` method:
+   - `templateBucket` + `templateKey` → API Gateway call (S3 template)
+   - `userId` only → EventBridge/Events Consumer call (inline message)
+
+Both fixes in: `services/sender-service/src/main/java/com/yadab/sr/sender/Handler.java`
 
 ## Deploy on Personal PC
 

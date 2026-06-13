@@ -76,11 +76,17 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         context.getLogger().log("Event received: " + event);
 
         try {
-            // Detect invocation type
-            if (event.containsKey("userId") && event.size() <= 3) { // userId + optional channel/timestamp
+            // Detect invocation type:
+            // - handleScheduledSend: EventBridge or Events Consumer (has userId, may have message/channel/metadata)
+            // - handleDirectSend: API Gateway (has templateBucket/templateKey for S3 templates)
+            if (event.containsKey("templateBucket") && event.containsKey("templateKey")) {
+                // API Gateway call with S3 template
+                return handleDirectSend(event, context);
+            } else if (event.containsKey("userId")) {
+                // EventBridge or Events Consumer (scheduled or immediate notification)
                 return handleScheduledSend(event, context);
             } else {
-                return handleDirectSend(event, context);
+                throw new RuntimeException("Invalid event format: missing userId or template info");
             }
         } catch (Exception e) {
             context.getLogger().log("ERROR: " + e.getMessage());
