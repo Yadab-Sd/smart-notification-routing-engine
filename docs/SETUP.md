@@ -286,6 +286,36 @@ You should see CloudFormation templates for 8 stacks printed to terminal.
 
 ## Deployment
 
+### Pre-Deployment: Upload Glue Script
+
+Before deploying, upload the feature engineering script to S3:
+
+```bash
+# Get the models bucket name (will be created by CDK)
+# First, deploy just the data stack to create buckets
+cd infra/cdk
+pnpm exec cdk deploy SR-Data --require-approval never
+
+# Get the models bucket name
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+# Upload Glue script
+aws s3 cp ../../glue-jobs/build_hourly_features.py s3://$MODELS_BUCKET/scripts/build_hourly_features.py
+
+# Verify upload
+aws s3 ls s3://$MODELS_BUCKET/scripts/
+```
+
+**Expected output**:
+```
+2026-06-12 10:30:00      12345 build_hourly_features.py
+```
+
+**Note**: The ML stack (SR-ML) depends on this script being in S3. If you skip this step, the Glue job will fail with "The specified key does not exist" error.
+
+---
+
 ### Deploy All Stacks
 
 ```bash
