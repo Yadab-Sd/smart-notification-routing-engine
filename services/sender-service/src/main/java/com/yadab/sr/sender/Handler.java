@@ -94,12 +94,13 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     }
 
     /**
-     * Handle scheduled send from EventBridge.
+     * Handle scheduled send from EventBridge or direct Lambda invocation.
      * Looks up user profile and sends via optimal channel.
      */
     private Map<String, Object> handleScheduledSend(Map<String, Object> event, Context context) {
         String userId = (String) event.get("userId");
         String requestedChannel = (String) event.get("channel"); // Optional: explicit channel override
+        String customMessage = (String) event.get("message"); // Optional: custom message from event
 
         context.getLogger().log("Handling scheduled send for userId: " + userId +
                 (requestedChannel != null ? ", requested channel: " + requestedChannel : ""));
@@ -114,10 +115,18 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         NotificationChannel channel = selection.getChannel();
         String recipient = getRecipient(user, channel);
 
-        // Fetch and render template
-        String templateContent = fetchTemplate(context);
-        String renderedBody = renderTemplate(templateContent, user, context);
+        // Use custom message if provided, otherwise fetch template
+        String renderedBody;
         String subject = "Notification from Smart Routing Engine";
+
+        if (customMessage != null && !customMessage.isEmpty()) {
+            renderedBody = customMessage;
+            context.getLogger().log("Using custom message from event");
+        } else {
+            String templateContent = fetchTemplate(context);
+            renderedBody = renderTemplate(templateContent, user, context);
+            context.getLogger().log("Using template-based message");
+        }
 
         // Send via selected channel
         try {

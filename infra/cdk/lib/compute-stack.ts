@@ -129,6 +129,12 @@ export class ComputeStack extends Stack {
             resources:[schedulerRole.roleArn]
         }));
 
+        // Update Events Consumer with Lambda ARNs for auto-triggering notifications
+        eventsConsumer.addEnvironment('SENDER_FUNCTION_ARN', senderFn.functionArn);
+        eventsConsumer.addEnvironment('DECISION_FUNCTION_ARN', decisionFn.functionArn);
+        senderFn.grantInvoke(eventsConsumer);
+        decisionFn.grantInvoke(eventsConsumer);
+
 
         // Common
         // (Optional) decisionFn wired later; for sprint 1 we only need health + events

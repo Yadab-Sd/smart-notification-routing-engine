@@ -16,6 +16,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.lambda.LambdaClient;
+import software.amazon.awssdk.services.lambda.model.InvokeRequest;
+import software.amazon.awssdk.services.lambda.model.InvokeResponse;
+import software.amazon.awssdk.core.SdkBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -30,9 +34,12 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
 
     private static final String S3_BUCKET = System.getenv("EVENTS_BUCKET");
     private static final String USER_TABLE = System.getenv("USER_TABLE");
+    private static final String SENDER_FUNCTION_ARN = System.getenv("SENDER_FUNCTION_ARN");
+    private static final String DECISION_FUNCTION_ARN = System.getenv("DECISION_FUNCTION_ARN");
 
     private static final S3Client S3 = S3Client.create();
     private static final DynamoDbClient DDB = DynamoDbClient.create();
+    private static final LambdaClient LAMBDA = LambdaClient.create();
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("HH");
@@ -68,6 +75,12 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                 String uid = node.path("userId").asText("unknown");
                 String eventType = node.path("type").asText("UNKNOWN");
                 ddbUpdateUser(uid, ts, eventType);
+
+                // Auto-trigger notifications based on event metadata
+                String notificationType = node.path("notificationType").asText(null);
+                if (notificationType != null && !notificationType.isEmpty()) {
+                    triggerNotification(uid, notificationType, node, log);
+                }
             }
 
             // flush per key as JSONL
@@ -179,5 +192,66 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         String dt = DATE.format(odt);
         String h  = HOUR.format(odt);
         return "raw/dt=%s/h=%s/events-%s.jsonl".formatted(dt, h, UUID.randomUUID());
+    }
+
+    /**
+     * Auto-trigger notifications based on event metadata.
+     *
+     * notificationType values:
+     * - "immediate": Send notification right now (transactional)
+     * - "optimized": Use ML to schedule at best time (marketing)
+     * - null/empty: No notification, analytics only
+     */
+    private static void triggerNotification(String userId, String notificationType, JsonNode event, LambdaLogger log) {
+        try {
+            if ("immediate".equalsIgnoreCase(notificationType)) {
+                // Send notification immediately via Sender Lambda
+                log.log(String.format("Triggering immediate notification for user: %s", userId));
+
+                String payload = MAPPER.writeValueAsString(Map.of(
+                    "userId", userId,
+                    "message", event.path("message").asText(""),
+                    "channel", event.path("channel").asText(""),
+                    "metadata", event.path("metadata").toString()
+                ));
+
+                InvokeRequest invokeReq = InvokeRequest.builder()
+                    .functionName(SENDER_FUNCTION_ARN)
+                    .payload(SdkBytes.fromUtf8String(payload))
+                    .build();
+
+                InvokeResponse response = LAMBDA.invoke(invokeReq);
+                log.log("Sender invoked. Status: " + response.statusCode());
+
+            } else if ("optimized".equalsIgnoreCase(notificationType)) {
+                // Schedule notification via Decision Service (ML-optimized time)
+                log.log(String.format("Triggering optimized notification for user: %s", userId));
+
+                // Calculate 24-hour window (now to now+24h)
+                long nowEpoch = Instant.now().getEpochSecond();
+                long endEpoch = nowEpoch + (24 * 3600);
+
+                String payload = MAPPER.writeValueAsString(Map.of(
+                    "userId", userId,
+                    "windowStart", nowEpoch,
+                    "windowEnd", endEpoch,
+                    "schedule", true,
+                    "message", event.path("message").asText(""),
+                    "channel", event.path("channel").asText(""),
+                    "metadata", event.path("metadata").toString()
+                ));
+
+                InvokeRequest invokeReq = InvokeRequest.builder()
+                    .functionName(DECISION_FUNCTION_ARN)
+                    .payload(SdkBytes.fromUtf8String(payload))
+                    .build();
+
+                InvokeResponse response = LAMBDA.invoke(invokeReq);
+                log.log("Decision service invoked. Status: " + response.statusCode());
+            }
+        } catch (Exception e) {
+            log.log("ERROR triggering notification: " + e.getMessage());
+            // Don't fail the entire batch if notification trigger fails
+        }
     }
 }

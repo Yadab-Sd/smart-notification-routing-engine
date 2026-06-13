@@ -40,6 +40,11 @@
             <artifactId>dynamodb</artifactId>
             <version>${aws.sdk.v2}</version>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>lambda</artifactId>
+            <version>${aws.sdk.v2}</version>
+        </dependency>
 
         <!-- JSON -->
         <dependency>
