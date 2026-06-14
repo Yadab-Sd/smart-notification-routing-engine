@@ -22,7 +22,7 @@ export default function PilotProgramBanner() {
               </span>
               <span className="hidden sm:inline text-blue-100">•</span>
               <a
-                href="mailto:contact@intelligent-routing.com?subject=Pilot%20Deployment%20Interest"
+                href="mailto:contact@intelligent-routing.com?subject=Pilot%20Program%20Interest"
                 className="hidden sm:inline-flex items-center gap-1.5 hover:text-blue-100 transition-colors underline underline-offset-2"
               >
                 <Mail className="w-3.5 h-3.5" />
