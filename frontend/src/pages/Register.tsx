@@ -32,8 +32,6 @@ const STRENGTH_COLORS = ['bg-slate-200', 'bg-danger-500', 'bg-warning-500', 'bg-
 
 const BULLETS = [
   'Sign up in 60 seconds',
-  '14-day free trial, all channels',
-  'No credit card required',
   'SOC 2 & GDPR compliant',
 ]
 
