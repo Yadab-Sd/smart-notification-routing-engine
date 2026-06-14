@@ -39,14 +39,15 @@ export class FrontendStack extends Stack {
     // SSL Certificate for custom domain (optional, must be in us-east-1)
     // To use custom domain:
     // 1. Request ACM certificate: aws acm request-certificate --domain-name yourdomain.com --validation-method DNS --region us-east-1
-    // 2. Set environment variables before deployment:
-    //    export CERTIFICATE_ARN=arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT_ID
-    //    export CUSTOM_DOMAIN=yourdomain.com
+    // 2. Add to .env file:
+    //    CERTIFICATE_ARN=arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT_ID
+    //    CUSTOM_DOMAIN=yourdomain.com
     // 3. Deploy: pnpm exec cdk deploy SR-Frontend
     // If not set, CloudFront will use default *.cloudfront.net domain
     const certificateArn = process.env.CERTIFICATE_ARN
     const customDomain = process.env.CUSTOM_DOMAIN
 
+    // Build distribution config conditionally based on custom domain
     const distributionConfig: cloudfront.DistributionProps = {
       defaultBehavior: {
         origin: new origins.S3Origin(websiteBucket, {
@@ -79,18 +80,17 @@ export class FrontendStack extends Stack {
           ttl: Duration.minutes(5),
         },
       ],
-      comment: 'Smart Routing Engine Frontend',
+      comment: 'Intelligent Routing Engine Frontend',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // Use only North America and Europe
-    }
-
-    // Add custom domain if certificate is provided
-    if (certificateArn) {
-      distributionConfig.domainNames = [customDomain]
-      distributionConfig.certificate = acm.Certificate.fromCertificateArn(
-        this,
-        'Certificate',
-        certificateArn
-      )
+      // Conditionally add custom domain properties
+      ...(certificateArn && customDomain ? {
+        domainNames: [customDomain],
+        certificate: acm.Certificate.fromCertificateArn(
+          this,
+          'Certificate',
+          certificateArn
+        )
+      } : {})
     }
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', distributionConfig)
