@@ -243,79 +243,60 @@ AWS requires:
 5. **24-48 hour activation period** (for security review)
 6. **Email confirmation** and MFA setup
 
-### What IS Possible
+### The Reality: Manual Process Required
 
-#### Option 1: AWS Organizations (Master Account Model)
+**For Production/Self-Deploy**: Business creates their own AWS account (they pay their own costs).
 
-You create ONE master AWS account, then:
-```bash
-aws organizations create-account \
-  --email "customer-acme@intelligent-routing.com" \
-  --account-name "Acme Corp Routing"
-```
+**For Pilot Program**: You have two options:
 
-**Limitations**:
-- ❌ All accounts under YOUR billing (you pay everything)
-- ❌ You're liable for all usage/abuse
-- ❌ Customer doesn't own the account (you do)
-- ❌ Doesn't give customer data sovereignty
-- ❌ HIPAA/compliance issues (you're hosting their data)
+#### Option A: They Create Account, You Reimburse Costs
 
-**When to use**:
-- ✅ Pilot program where YOU bear all costs
-- ✅ SaaS model where customers pay you monthly
-- ❌ NOT for "deploy to their account" model
-
----
-
-#### Option 2: CloudFormation StackSets (Deploy to Their Account)
-
-Customer creates their own AWS account manually, then:
-
-**Step 1**: Customer runs this ONE command:
-```bash
-aws cloudformation create-stack \
-  --stack-name intelligent-routing-engine \
-  --template-url https://intelligent-routing-cloudformation-templates.s3.amazonaws.com/full-stack.yaml \
-  --parameters ParameterKey=SenderEmail,ParameterValue=contact@customer.com \
-  --capabilities CAPABILITY_IAM
-```
-
-This deploys EVERYTHING in their account automatically.
+1. Business creates AWS account manually (10 minutes)
+2. You deploy infrastructure to their account
+3. You track their AWS costs monthly
+4. You reimburse them after pilot ends
 
 **Pros**:
-- ✅ Customer owns their AWS account
-- ✅ Customer pays their own AWS costs
-- ✅ Full data sovereignty (HIPAA/GDPR compliant)
-- ✅ Simple deployment (one command)
+- ✅ Full data sovereignty (they own account)
+- ✅ HIPAA/GDPR compliant
+- ✅ Easy transition to production after pilot
 
 **Cons**:
-- ⚠️ Customer must create AWS account manually (5-10 minutes)
-- ⚠️ Requires basic AWS knowledge (or follow step-by-step guide)
+- ⚠️ They must provide credit card (barrier to entry)
+- ⚠️ Reimbursement overhead (tracking, payment processing)
 
 ---
 
-### Recommendation for Pilot Program
+#### Option B: Deploy to Your Account, Give Them Access
 
-Since you want to **bear ALL costs** for pilot participants:
+1. You create separate AWS account for each pilot
+2. You deploy infrastructure to account YOU own
+3. You give them API credentials only (not AWS console)
+4. You pay all costs
 
-**Use AWS Organizations approach**:
+**Pros**:
+- ✅ No barrier to entry (they don't need AWS account)
+- ✅ You control costs directly (no reimbursement needed)
+- ✅ Simple for pilot participants
 
-1. Create ONE master AWS account for pilot program
-2. For each pilot participant, create sub-account:
-   ```bash
-   aws organizations create-account \
-     --email "pilot-acmecorp@intelligent-routing.com" \
-     --account-name "Pilot - Acme Corp"
-   ```
-3. Deploy infrastructure to their sub-account
-4. Give them API credentials (not AWS console access)
-5. You pay all AWS costs (goes to your master account billing)
+**Cons**:
+- ⚠️ Data in YOUR account (not true data sovereignty)
+- ⚠️ You're data controller (HIPAA compliance issues)
+- ⚠️ Must migrate to their account after pilot
 
-**After pilot ends**:
-- Option A: Migrate their setup to their own AWS account (export data, redeploy)
-- Option B: Convert to paid SaaS model (they keep using your infra, pay you monthly)
-- Option C: They create own account, redeploy from scratch
+---
+
+### Recommendation
+
+**For Pilot Program**: Use **Option B** (your account, your costs)
+- Lowest friction for pilot participants
+- You directly control and pay costs
+- After pilot: help them migrate to their own account
+
+**For Production/Self-Deploy**: **Always their account**
+- Business creates AWS account
+- Full data sovereignty
+- They pay their own costs
 
 ---
 
@@ -683,57 +664,50 @@ You want to:
 - ✅ Validate system performance
 - ✅ Generate case studies for NIW
 
-But "deploy to their account" means THEY pay AWS costs.
-
 ---
 
-### Solution: AWS Organizations with Cost Allocation
+### Solution: Separate AWS Account Per Pilot (You Own, You Pay)
 
 #### Architecture
 
 ```
-YOUR Master Account (billing)
-├── Pilot Sub-Account: Acme Healthcare
-├── Pilot Sub-Account: Springfield Schools  
-├── Pilot Sub-Account: Downtown Pharmacy
-└── Pilot Sub-Account: Tech Startup XYZ
+YOUR Pilot Accounts (separate, not sub-accounts)
+- AWS Account 1: Pilot - Acme Healthcare (you own, you pay)
+- AWS Account 2: Pilot - Springfield Schools (you own, you pay)
+- AWS Account 3: Pilot - Downtown Pharmacy (you own, you pay)
 ```
+
+**Key Point**: Each pilot gets SEPARATE AWS account that YOU create and own.
 
 #### Setup Process
 
-**1. Create Master Account (One Time)**:
+**1. Create Separate AWS Account Per Pilot**:
 ```bash
-# You create ONE AWS account at aws.amazon.com
-# This becomes your "Organizations Master Account"
-# All pilot costs go to YOUR credit card
+# Go to aws.amazon.com
+# Click "Create a new AWS account"
+# Email: pilot-acme@yourdomain.com
+# Account name: Pilot - Acme Healthcare
+# Credit card: YOUR card
+# Complete verification
 ```
 
-**2. Enable AWS Organizations**:
-```bash
-aws organizations create-organization
-```
+Repeat for each pilot participant.
 
-**3. Create Sub-Account Per Pilot**:
+**2. Deploy Infrastructure to Pilot Account**:
 ```bash
-# For each pilot participant
-aws organizations create-account \
-  --email "pilot-acme@intelligent-routing.com" \
-  --account-name "Pilot - Acme Healthcare"
-```
+# Configure AWS CLI with pilot account credentials
+aws configure --profile pilot-acme
+# Enter access key, secret key, region
 
-**4. Deploy Infrastructure to Sub-Account**:
-```bash
-# Assume role in sub-account
-aws sts assume-role \
-  --role-arn "arn:aws:iam::PILOT_ACCT_ID:role/OrganizationAccountAccessRole" \
-  --role-session-name "deployment"
-
-# Deploy CDK stacks
+# Deploy infrastructure
 cd infra/cdk
+export AWS_PROFILE=pilot-acme
+export SENDER_EMAIL=contact@acmehealthcare.com
+cdk bootstrap
 cdk deploy --all
 ```
 
-**5. Give Customer API Access Only**:
+**3. Give Customer API Access Only**:
 - ✅ They get API endpoint
 - ✅ They get Cognito credentials
 - ❌ They DON'T get AWS console access
@@ -743,31 +717,32 @@ cdk deploy --all
 
 #### Cost Tracking
 
-**Per-Pilot Cost Allocation**:
-```bash
-# Tag all resources with pilot name
-aws organizations tag-resource \
-  --resource-id PILOT_ACCT_ID \
-  --tags Key=Pilot,Value=AcmeHealthcare
+**Manual Tracking (Simple)**:
+- Each pilot account has separate AWS bill
+- Check AWS Billing Dashboard for each account monthly
+- Track in spreadsheet:
 
-# View costs per pilot
-aws ce get-cost-and-usage \
-  --time-period Start=2026-06-01,End=2026-06-30 \
-  --granularity MONTHLY \
-  --filter file://filter.json \
-  --metrics BlendedCost
-```
-
-**Monthly Cost Report**:
 ```
 Pilot Program Costs - June 2026
 
-Acme Healthcare: $127.42
-Springfield Schools: $89.15
-Downtown Pharmacy: $156.73
-Tech Startup XYZ: $201.88
+Acme Healthcare (Account 1): $127.42
+Springfield Schools (Account 2): $89.15
+Downtown Pharmacy (Account 3): $156.73
 
-Total: $575.18
+Total: $404.30
+```
+
+**Alternative - Cost Explorer API**:
+```bash
+# Login to each pilot account
+aws configure --profile pilot-acme
+
+# Get costs
+aws ce get-cost-and-usage \
+  --profile pilot-acme \
+  --time-period Start=2026-06-01,End=2026-06-30 \
+  --granularity MONTHLY \
+  --metrics BlendedCost
 ```
 
 ---
@@ -776,23 +751,29 @@ Total: $575.18
 
 **Option A: Migrate to Their Account (Recommended)**
 1. Customer creates their own AWS account
-2. You export their data from pilot sub-account:
+2. You export their data from pilot account:
    ```bash
-   aws s3 sync s3://pilot-acme-events s3://customer-new-account-events
-   aws dynamodb scan --table-name pilot-acme-users > users.json
+   aws s3 sync \
+     s3://pilot-acme-events \
+     s3://customer-new-account-events \
+     --profile pilot-acme
+   
+   aws dynamodb scan \
+     --table-name pilot-acme-users \
+     --profile pilot-acme > users.json
    ```
 3. Customer deploys infrastructure to their account
 4. Import their data
-5. You delete pilot sub-account
+5. You DELETE pilot account (stops all costs)
 
 **Option B: Convert to Paid Model**
 1. Customer pays YOU monthly fee ($99-499/month)
-2. They keep using pilot sub-account
-3. You continue paying AWS costs (but make profit from fee)
-4. Becomes SaaS model
+2. They keep using pilot account (still in YOUR name)
+3. You continue paying AWS costs (but profit from their fee)
+4. Becomes SaaS model (you host, they pay you)
 
 **Option C: They Stop Using**
-1. Delete pilot sub-account
+1. DELETE pilot AWS account entirely
 2. Costs stop immediately
 3. Request testimonial/case study
 
@@ -911,17 +892,14 @@ Convert CDK code to CloudFormation template for one-command deployment.
 
 ---
 
-### Priority 4: Setup AWS Organizations
+### Priority 4: Prepare Pilot Infrastructure
 
-```bash
-# Enable Organizations in your master account
-aws organizations create-organization
+For each pilot participant, you'll:
+1. Create separate AWS account (manual at aws.amazon.com)
+2. Deploy infrastructure to that account
+3. Give them API credentials only
 
-# Test creating pilot sub-account
-aws organizations create-account \
-  --email "pilot-test@intelligent-routing.com" \
-  --account-name "Pilot Test Account"
-```
+Cost per pilot: ~$50-150/month × 3 months = $150-450 per pilot
 
 ---
 
