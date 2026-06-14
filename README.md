@@ -259,6 +259,39 @@ Copyright (c) 2025 Yadab Sutradhar
 
 ---
 
+## 🚀 Getting Started
+
+### Are you a business wanting to adopt this system?
+
+**Non-technical?** I'll set everything up for you at zero cost.  
+**Technical team?** Follow the one-click deployment guide.
+
+👉 **[BUSINESS_ADOPTION.md](./BUSINESS_ADOPTION.md)** - Complete adoption guide
+
+**Email**: contact@intelligent-routing.com for free setup support
+
+---
+
+### Are you a developer wanting to contribute?
+
+Help improve the system and get AWS access to test your changes.
+
+👉 **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contributor guidelines
+
+**Email**: contact@intelligent-routing.com to request AWS collaborator access
+
+---
+
+### Want to pilot it first?
+
+Test the system for 3 months with zero cost to you.
+
+👉 **[PILOT_PROGRAM.md](./PILOT_PROGRAM.md)** - Pilot program details
+
+**Email**: contact@intelligent-routing.com to apply for pilot
+
+---
+
 ### 🤝 Support
 
 [![Issues](https://img.shields.io/github/issues/Yadab-Sd/smart-notification-routing-engine?style=flat-square)](https://github.com/Yadab-Sd/smart-notification-routing-engine/issues)
