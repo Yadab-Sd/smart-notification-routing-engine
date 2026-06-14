@@ -14,6 +14,7 @@ import {
   X,
   HelpCircle,
   Send,
+  Zap,
   Megaphone,
   FileText,
   Users,
@@ -38,6 +39,7 @@ const navSections = [
   {
     title: 'Messaging',
     items: [
+      { name: 'Send Event', href: '/events', icon: Zap },
       { name: 'Notifications', href: '/notifications', icon: Send },
       { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
       { name: 'Templates', href: '/templates', icon: FileText },
@@ -62,6 +64,7 @@ const navSections = [
 const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your notifications and their performance' },
   '/analytics': { title: 'Analytics', subtitle: 'ML performance, engagement and platform health' },
+  '/events': { title: 'Send Event', subtitle: 'Send notification events manually for testing' },
   '/notifications': { title: 'Notifications', subtitle: 'All scheduled, in-progress and sent notifications' },
   '/campaigns': { title: 'Campaigns', subtitle: 'Group your notifications by business goal' },
   '/templates': { title: 'Templates', subtitle: 'Reusable templates for your notifications' },

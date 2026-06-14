@@ -11,6 +11,7 @@ import Campaigns from './pages/Campaigns'
 import Templates from './pages/Templates'
 import Audience from './pages/Audience'
 import Users from './pages/Users'
+import Events from './pages/Events'
 import ApiKeys from './pages/ApiKeys'
 import Settings from './pages/Settings'
 import NotFound from './pages/NotFound'
@@ -48,6 +49,7 @@ function App() {
               <Route path="/templates" element={<Templates />} />
               <Route path="/audience" element={<Audience />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/events" element={<Events />} />
               <Route path="/api-keys" element={<ApiKeys />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
