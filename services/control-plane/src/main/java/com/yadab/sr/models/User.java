@@ -33,6 +33,12 @@ public class User {
     @JsonProperty("lastSeenAt")
     public String lastSeenAt;
 
+    @JsonProperty("createdAt")
+    public String createdAt;
+
+    @JsonProperty("createdBy")
+    public String createdBy; // "API" or "AUTO_EVENT"
+
     // Internal DynamoDB fields (not exposed in API)
     public String pk;
     public String sk;
@@ -134,6 +140,14 @@ public class User {
             user.lastSeenAt = item.get("lastSeenAt").s();
         }
 
+        if (item.containsKey("createdAt") && item.get("createdAt").s() != null) {
+            user.createdAt = item.get("createdAt").s();
+        }
+
+        if (item.containsKey("createdBy") && item.get("createdBy").s() != null) {
+            user.createdBy = item.get("createdBy").s();
+        }
+
         return user;
     }
 
@@ -174,9 +188,17 @@ public class User {
         countersMap.put("sends", AttributeValue.builder().n(String.valueOf(counters.sends)).build());
         item.put("counters", AttributeValue.builder().m(countersMap).build());
 
-        // Timestamp
+        // Timestamps
         if (lastSeenAt != null) {
             item.put("lastSeenAt", AttributeValue.builder().s(lastSeenAt).build());
+        }
+        if (createdAt != null) {
+            item.put("createdAt", AttributeValue.builder().s(createdAt).build());
+        }
+
+        // Creation source
+        if (createdBy != null) {
+            item.put("createdBy", AttributeValue.builder().s(createdBy).build());
         }
 
         return item;
