@@ -35,9 +35,11 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
 
+            {/* Public landing - register page */}
+            <Route path="/" element={<Register />} />
+
             {/* Protected */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/notifications" element={<Notifications />} />

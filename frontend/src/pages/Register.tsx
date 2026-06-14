@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import PilotProgramBanner from '@/components/common/PilotProgramBanner'
 import {
   Sparkles,
   Mail,
@@ -83,9 +84,11 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left — branding */}
-      <div className="hidden lg:flex relative flex-col justify-between p-12 bg-gradient-to-br from-primary-700 via-primary-600 to-primary-900 text-white overflow-hidden">
+    <>
+      <PilotProgramBanner />
+      <div className="min-h-screen grid lg:grid-cols-2">
+        {/* Left — branding */}
+        <div className="hidden lg:flex relative flex-col justify-between p-12 bg-gradient-to-br from-primary-700 via-primary-600 to-primary-900 text-white overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary-400/30 blur-3xl" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-accent-500/20 blur-3xl" />
 
@@ -316,6 +319,7 @@ const Register = () => {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
