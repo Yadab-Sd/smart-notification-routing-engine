@@ -1,22 +1,143 @@
-Welcome! I’m excited to see your interest in the Smart Notification Engine. This project is a polyglot system designed for high performance and scalability, involving Java for services, TypeScript for infrastructure (CDK), and Python for ML logic.
+# Contributing to Intelligent Routing Engine
 
-### How to Contribute
-1. **Fork** the repository and create your branch from main.
+Thank you for your interest in contributing! This document provides guidelines for collaborators.
 
-2. **Environment Setup:**
+---
 
-    - Java: Ensure you have JDK 17+ and Maven installed for the backend services.
+## Getting Started
 
-    - TypeScript: Use Node.js 22+ for the AWS CDK infrastructure code.
+### Prerequisites
 
-    - Python: Use a virtual environment (venv) for ML-related scripts and model logic.
+Before contributing, you'll need:
+- Git installed locally
+- AWS access (see below)
+- Basic knowledge of AWS CDK, Java (Spring Boot), and React
 
-3. **Code Standards:**
+---
 
-    - Services (Java): Follow standard Spring Boot/Microservices patterns.
+## AWS Access for Collaborators
 
-    - Infrastructure (TypeScript): Keep CDK constructs modular and ensure cdk synth passes.
+**IMPORTANT**: You need AWS permissions to deploy/test changes.
 
-    - ML (Python): Ensure all dependencies are updated in requirements.txt.
+### Request IAM Role Access
 
-4. **Submit a Pull Request:** Provide a clear description of the problem you're solving. If you're adding a new AWS service to the stack, please update the architecture documentation as well.
+Contact **Yadab Sutradhar** to request AWS access:
+
+- **Email**: contact@intelligent-routing.com
+- **Subject**: AWS Access Request - Contributor
+
+**What you'll get**:
+- IAM role with write access to specific services only
+- Permissions to deploy/test your changes
+- No access to production data or billing
+- **All costs borne by project maintainer**
+
+**What to provide in your request**:
+```
+Name: [Your Name]
+GitHub Username: [username]
+Email: [your email]
+Area of contribution: [Frontend/Backend/Infrastructure/ML]
+AWS Account ID (if you have one): [optional]
+```
+
+**You'll receive**:
+- IAM user credentials OR
+- Instructions to assume a role from your AWS account
+
+---
+
+## Development Workflow
+
+### 1. Fork & Clone
+
+```bash
+# Fork the repo on GitHub first
+git clone https://github.com/YOUR_USERNAME/smart-notification-routing-engine.git
+cd smart-notification-routing-engine
+```
+
+### 2. Set Up Environment
+
+```bash
+# Run one-click setup
+./scripts/setup.sh
+
+# Configure AWS credentials (provided by maintainer)
+aws configure --profile ire-contributor
+# Enter credentials from maintainer
+```
+
+### 3. Create Feature Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### 4. Make Changes & Test
+
+```bash
+# Build services
+./scripts/build-services.sh
+
+# Deploy to test environment
+cd infra/cdk
+export AWS_PROFILE=ire-contributor
+pnpm exec cdk deploy --all
+```
+
+### 5. Submit Pull Request
+
+```bash
+git add .
+git commit -m "feat: your feature description"
+git push origin feature/your-feature-name
+```
+
+Open PR on GitHub with clear description and test results.
+
+---
+
+## Code Standards
+
+### Java (Backend)
+- Java 21 with Spring Boot conventions
+- Lombok for boilerplate
+- JUnit 5 for tests
+
+### TypeScript/React (Frontend)
+- React 18 functional components
+- TypeScript strict mode
+- TailwindCSS for styling
+
+### AWS CDK (Infrastructure)
+- TypeScript for all stacks
+- Environment variables for config
+- Tag all resources
+
+---
+
+## Pull Request Checklist
+
+- [ ] Code follows style guidelines
+- [ ] Tests added for new features
+- [ ] CDK synthesis successful
+- [ ] No sensitive data in commits
+- [ ] PR description clear
+
+---
+
+## Communication
+
+- **GitHub Issues**: Bug reports, feature requests
+- **Email**: contact@intelligent-routing.com (for AWS access)
+
+---
+
+## License
+
+By contributing, you agree your contributions will be licensed under MIT License.
+
+---
+
+Thank you for contributing! 🎉

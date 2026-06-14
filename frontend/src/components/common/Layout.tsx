@@ -41,6 +41,7 @@ const navSections = [
       { name: 'Notifications', href: '/notifications', icon: Send },
       { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
       { name: 'Templates', href: '/templates', icon: FileText },
+      { name: 'Users', href: '/users', icon: Users },
       { name: 'Audience', href: '/audience', icon: Users },
     ],
   },
@@ -64,7 +65,8 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/notifications': { title: 'Notifications', subtitle: 'All scheduled, in-progress and sent notifications' },
   '/campaigns': { title: 'Campaigns', subtitle: 'Group your notifications by business goal' },
   '/templates': { title: 'Templates', subtitle: 'Reusable templates for your notifications' },
-  '/audience': { title: 'Audience', subtitle: 'User profiles and target segments' },
+  '/users': { title: 'Users', subtitle: 'Manage user profiles and track creation sources' },
+  '/audience': { title: 'Audience', subtitle: 'User segments and targeting' },
   '/api-keys': { title: 'API keys', subtitle: 'API keys and webhooks to integrate SNRE with your stack' },
   '/settings': { title: 'Settings', subtitle: 'User preferences, channels and quiet hours' },
 }
