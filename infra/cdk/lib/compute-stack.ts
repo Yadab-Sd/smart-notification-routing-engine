@@ -145,6 +145,8 @@ export class ComputeStack extends Stack {
                 allowOrigins: [
                     'http://localhost:5173', // Vite dev server
                     'http://localhost:3000', // Alternative dev port
+                    'https://dgp44tqg8encf.cloudfront.net', // CloudFront distribution (temporary)
+                    'https://intelligent-routing.com', // Custom domain
                     'https://dgp44tqg8encf.cloudfront.net/', // CloudFront URL will be added after deployment
                 ],
                 allowMethods: [
