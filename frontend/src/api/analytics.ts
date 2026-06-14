@@ -21,7 +21,6 @@ export const getMetricsOverview = async (): Promise<MetricsOverview> => {
   const response = await apiClient.get('/v1/analytics/metrics')
   return response.data
 }
-
 /**
  * Fetch system health metrics from CloudWatch
  */

@@ -173,7 +173,7 @@ You need a user to log in. Create one via AWS Console or CLI:
 3. Enter email and temporary password
 4. User will be prompted to change password on first login
 
-**Option B: AWS CLI (or, reach out to yadab.sd2013@gmail.com for a temporary admin user)**
+**Option B: AWS CLI**
 ```bash
 aws cognito-idp admin-create-user \
   --user-pool-id us-west-2_XXXXXXXXX \
