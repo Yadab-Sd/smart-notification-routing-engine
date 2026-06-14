@@ -9,6 +9,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins'
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
+import * as acm from 'aws-cdk-lib/aws-certificatemanager'
 import { Construct } from 'constructs'
 
 export class FrontendStack extends Stack {
@@ -35,8 +36,18 @@ export class FrontendStack extends Stack {
     })
     websiteBucket.grantRead(oai)
 
-    // CloudFront distribution
-    const distribution = new cloudfront.Distribution(this, 'Distribution', {
+    // SSL Certificate for custom domain (optional, must be in us-east-1)
+    // To use custom domain:
+    // 1. Request ACM certificate: aws acm request-certificate --domain-name yourdomain.com --validation-method DNS --region us-east-1
+    // 2. Set environment variables before deployment:
+    //    export CERTIFICATE_ARN=arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT_ID
+    //    export CUSTOM_DOMAIN=yourdomain.com
+    // 3. Deploy: pnpm exec cdk deploy SR-Frontend
+    // If not set, CloudFront will use default *.cloudfront.net domain
+    const certificateArn = process.env.CERTIFICATE_ARN
+    const customDomain = process.env.CUSTOM_DOMAIN
+
+    const distributionConfig: cloudfront.DistributionProps = {
       defaultBehavior: {
         origin: new origins.S3Origin(websiteBucket, {
           originAccessIdentity: oai,
@@ -70,7 +81,19 @@ export class FrontendStack extends Stack {
       ],
       comment: 'Smart Routing Engine Frontend',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // Use only North America and Europe
-    })
+    }
+
+    // Add custom domain if certificate is provided
+    if (certificateArn) {
+      distributionConfig.domainNames = [customDomain]
+      distributionConfig.certificate = acm.Certificate.fromCertificateArn(
+        this,
+        'Certificate',
+        certificateArn
+      )
+    }
+
+    const distribution = new cloudfront.Distribution(this, 'Distribution', distributionConfig)
 
     this.distributionUrl = `https://${distribution.distributionDomainName}`
     this.bucketName = websiteBucket.bucketName
