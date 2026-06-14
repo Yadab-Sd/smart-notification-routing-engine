@@ -30,6 +30,7 @@ import java.util.ArrayList;
  * - POST /v1/users - Create user
  * - POST /v1/users/bulk - Bulk import users
  * - GET /v1/users/{id} - Get user
+ * - GET /v1/users/stats - Get user creation statistics
  * - PUT /v1/users/{id} - Update user
  * - DELETE /v1/users/{id} - Delete user
  * - POST /v1/events - Ingest events (auto-creates user if not exists)
@@ -105,6 +106,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return ingestEvent(e, ctx);
             }
 
+            // User statistics
+            if ("/v1/users/stats".equals(path) && "GET".equals(method)) {
+                return getUserStats(ctx);
+            }
+
             return json(404, "{\"error\":\"Not found\"}");
 
         } catch (ValidationException ex) {
@@ -154,11 +160,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             throw new ConflictException("User already exists: " + user.userId);
         }
 
-        // Initialize counters and timestamp
+        // Initialize counters and timestamps
         if (user.counters == null) {
             user.counters = new User.Counters();
         }
-        user.lastSeenAt = Instant.now().toString();
+        String now = Instant.now().toString();
+        user.createdAt = now;
+        user.lastSeenAt = now;
+        user.createdBy = "API";
 
         // Save to DynamoDB
         PutItemRequest putReq = PutItemRequest.builder()
@@ -438,7 +447,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             newUser.email = email;
             newUser.phone = phone;
             newUser.counters = new User.Counters();
-            newUser.lastSeenAt = Instant.now().toString();
+            String now = Instant.now().toString();
+            newUser.createdAt = now;
+            newUser.lastSeenAt = now;
+            newUser.createdBy = "AUTO_EVENT";
 
             PutItemRequest putReq = PutItemRequest.builder()
                     .tableName(table())
@@ -464,6 +476,57 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         response.put("status", "queued");
 
         return json(200, mapper.writeValueAsString(response));
+    }
+
+    /**
+     * GET /v1/users/stats - Get user creation statistics
+     */
+    private APIGatewayV2HTTPResponse getUserStats(Context ctx) throws Exception {
+        // Scan DynamoDB to count users by createdBy field
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":profile", AttributeValue.builder().s("PROFILE").build()
+        );
+
+        ScanRequest scanReq = ScanRequest.builder()
+                .tableName(table())
+                .filterExpression("sk = :profile")
+                .expressionAttributeValues(expressionValues)
+                .build();
+
+        ScanResponse scanRes = ddb.scan(scanReq);
+
+        int totalUsers = 0;
+        int apiCreated = 0;
+        int autoCreated = 0;
+        int unknownSource = 0;
+
+        for (Map<String, AttributeValue> item : scanRes.items()) {
+            totalUsers++;
+
+            if (item.containsKey("createdBy") && item.get("createdBy").s() != null) {
+                String createdBy = item.get("createdBy").s();
+                if ("API".equals(createdBy)) {
+                    apiCreated++;
+                } else if ("AUTO_EVENT".equals(createdBy)) {
+                    autoCreated++;
+                } else {
+                    unknownSource++;
+                }
+            } else {
+                unknownSource++; // Users created before this feature was added
+            }
+        }
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUsers", totalUsers);
+        stats.put("apiCreated", apiCreated);
+        stats.put("autoCreated", autoCreated);
+        stats.put("unknownSource", unknownSource);
+        stats.put("autoCreatedPercentage", totalUsers > 0 ? (autoCreated * 100.0 / totalUsers) : 0);
+
+        ctx.getLogger().log(String.format("User stats: %d total, %d API, %d auto-event", totalUsers, apiCreated, autoCreated));
+
+        return json(200, mapper.writeValueAsString(stats));
     }
 
     /**
