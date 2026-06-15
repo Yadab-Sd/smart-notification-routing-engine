@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Mail } from 'lucide-react'
+import { X } from 'lucide-react'
 
 export default function PilotProgramBanner() {
   const [isVisible, setIsVisible] = useState(true)
