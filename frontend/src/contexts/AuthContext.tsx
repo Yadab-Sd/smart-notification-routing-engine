@@ -9,6 +9,7 @@ interface AuthContextType {
   signup: (data: SignUpData) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
+  getIdToken: () => string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -38,6 +39,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null)
   }
 
+  const getIdToken = (): string | null => {
+    return localStorage.getItem('auth_token')
+  }
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -45,6 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signup,
     logout,
     isAuthenticated: authApi.isAuthenticated(),
+    getIdToken,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
