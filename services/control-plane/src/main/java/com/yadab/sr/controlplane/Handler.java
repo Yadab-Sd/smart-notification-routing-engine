@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Control Plane API Handler
@@ -26,10 +28,12 @@ import java.util.HashMap;
  *
  * Endpoints:
  * - POST /v1/users - Create user
+ * - POST /v1/users/bulk - Bulk import users
  * - GET /v1/users/{id} - Get user
+ * - GET /v1/users/stats - Get user creation statistics
  * - PUT /v1/users/{id} - Update user
  * - DELETE /v1/users/{id} - Delete user
- * - POST /v1/events - Ingest events (validates user exists)
+ * - POST /v1/events - Ingest events (auto-creates user if not exists)
  * - GET /v1/health - Health check
  */
 public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
@@ -78,6 +82,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return createUser(e, ctx);
             }
 
+            if (path.equals("/v1/users/bulk") && "POST".equals(method)) {
+                return bulkCreateUsers(e, ctx);
+            }
+
             if (path.matches("/v1/users/[^/]+") && "GET".equals(method)) {
                 String userId = extractUserId(path);
                 return getUser(userId, ctx);
@@ -96,6 +104,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             // Event Ingestion (validates user exists)
             if ("/v1/events".equals(path) && "POST".equals(method)) {
                 return ingestEvent(e, ctx);
+            }
+
+            // User statistics
+            if ("/v1/users/stats".equals(path) && "GET".equals(method)) {
+                return getUserStats(ctx);
             }
 
             return json(404, "{\"error\":\"Not found\"}");
@@ -147,11 +160,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             throw new ConflictException("User already exists: " + user.userId);
         }
 
-        // Initialize counters and timestamp
+        // Initialize counters and timestamps
         if (user.counters == null) {
             user.counters = new User.Counters();
         }
-        user.lastSeenAt = Instant.now().toString();
+        String now = Instant.now().toString();
+        user.createdAt = now;
+        user.lastSeenAt = now;
+        user.createdBy = "API";
 
         // Save to DynamoDB
         PutItemRequest putReq = PutItemRequest.builder()
@@ -168,6 +184,83 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         response.put("created", true);
 
         return json(201, mapper.writeValueAsString(response));
+    }
+
+    /**
+     * POST /v1/users/bulk - Bulk import users
+     */
+    private APIGatewayV2HTTPResponse bulkCreateUsers(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        JsonNode users = mapper.readTree(body);
+
+        if (!users.isArray()) {
+            throw new ValidationException("Request body must be array of users");
+        }
+
+        int created = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (JsonNode userNode : users) {
+            try {
+                User user = mapper.treeToValue(userNode, User.class);
+
+                // Validate required fields
+                if (user.userId == null || user.userId.isEmpty()) {
+                    errors.add("userId is required");
+                    continue;
+                }
+
+                // Validate at least one contact method
+                if (!user.hasContactInfo()) {
+                    errors.add("User " + user.userId + ": at least one contact method required");
+                    continue;
+                }
+
+                // Validate phone format if provided
+                if (user.phone != null && !user.phone.isEmpty() && !user.phone.matches("^\\+[1-9]\\d{1,14}$")) {
+                    errors.add("User " + user.userId + ": phone must be in E.164 format");
+                    continue;
+                }
+
+                // Skip if user already exists
+                if (userExists(user.userId)) {
+                    skipped++;
+                    continue;
+                }
+
+                // Initialize counters and timestamp
+                if (user.counters == null) {
+                    user.counters = new User.Counters();
+                }
+                user.lastSeenAt = Instant.now().toString();
+
+                // Save to DynamoDB
+                PutItemRequest putReq = PutItemRequest.builder()
+                        .tableName(table())
+                        .item(user.toItem())
+                        .build();
+
+                ddb.putItem(putReq);
+                created++;
+
+            } catch (Exception ex) {
+                errors.add(ex.getMessage());
+            }
+        }
+
+        ctx.getLogger().log(String.format("Bulk import: %d created, %d skipped, %d errors", created, skipped, errors.size()));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("created", created);
+        response.put("skipped", skipped);
+        response.put("errors", errors);
+
+        return json(200, mapper.writeValueAsString(response));
     }
 
     /**
@@ -314,7 +407,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     }
 
     /**
-     * POST /v1/events - Ingest event (validates user exists)
+     * POST /v1/events - Ingest event (auto-creates user if not exists)
      */
     private APIGatewayV2HTTPResponse ingestEvent(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
         String body = e.getBody();
@@ -322,7 +415,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             throw new ValidationException("Request body required");
         }
 
-        // Parse event to extract userId
+        // Parse event to extract userId and contact info
         JsonNode event = mapper.readTree(body);
         if (!event.has("userId")) {
             throw new ValidationException("userId is required in event");
@@ -330,12 +423,45 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
         String userId = event.get("userId").asText();
 
-        // IMPORTANT: Validate user exists before accepting event
+        // Auto-create user if doesn't exist
         if (!userExists(userId)) {
-            throw new ResourceNotFoundException("User not found: " + userId + ". Create user first via POST /v1/users");
+            ctx.getLogger().log("User not found, auto-creating: " + userId);
+
+            // Extract contact info from event if provided
+            String email = event.has("email") ? event.get("email").asText() : null;
+            String phone = event.has("phone") ? event.get("phone").asText() : null;
+
+            // Validate at least one contact method
+            if ((email == null || email.isEmpty()) && (phone == null || phone.isEmpty())) {
+                throw new ValidationException("User not found and no contact info (email/phone) provided in event");
+            }
+
+            // Validate phone format if provided
+            if (phone != null && !phone.isEmpty() && !phone.matches("^\\+[1-9]\\d{1,14}$")) {
+                throw new ValidationException("Phone must be in E.164 format (+1XXXXXXXXXX)");
+            }
+
+            // Create user profile
+            User newUser = new User();
+            newUser.userId = userId;
+            newUser.email = email;
+            newUser.phone = phone;
+            newUser.counters = new User.Counters();
+            String now = Instant.now().toString();
+            newUser.createdAt = now;
+            newUser.lastSeenAt = now;
+            newUser.createdBy = "AUTO_EVENT";
+
+            PutItemRequest putReq = PutItemRequest.builder()
+                    .tableName(table())
+                    .item(newUser.toItem())
+                    .build();
+
+            ddb.putItem(putReq);
+            ctx.getLogger().log("Auto-created user: " + userId);
         }
 
-        // User exists - send event to Kinesis
+        // User exists (or just created) - send event to Kinesis
         String stream = System.getenv("USER_EVENTS_STREAM");
         kinesis.putRecord(PutRecordRequest.builder()
                 .streamName(stream)
@@ -350,6 +476,57 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         response.put("status", "queued");
 
         return json(200, mapper.writeValueAsString(response));
+    }
+
+    /**
+     * GET /v1/users/stats - Get user creation statistics
+     */
+    private APIGatewayV2HTTPResponse getUserStats(Context ctx) throws Exception {
+        // Scan DynamoDB to count users by createdBy field
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":profile", AttributeValue.builder().s("PROFILE").build()
+        );
+
+        ScanRequest scanReq = ScanRequest.builder()
+                .tableName(table())
+                .filterExpression("sk = :profile")
+                .expressionAttributeValues(expressionValues)
+                .build();
+
+        ScanResponse scanRes = ddb.scan(scanReq);
+
+        int totalUsers = 0;
+        int apiCreated = 0;
+        int autoCreated = 0;
+        int unknownSource = 0;
+
+        for (Map<String, AttributeValue> item : scanRes.items()) {
+            totalUsers++;
+
+            if (item.containsKey("createdBy") && item.get("createdBy").s() != null) {
+                String createdBy = item.get("createdBy").s();
+                if ("API".equals(createdBy)) {
+                    apiCreated++;
+                } else if ("AUTO_EVENT".equals(createdBy)) {
+                    autoCreated++;
+                } else {
+                    unknownSource++;
+                }
+            } else {
+                unknownSource++; // Users created before this feature was added
+            }
+        }
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUsers", totalUsers);
+        stats.put("apiCreated", apiCreated);
+        stats.put("autoCreated", autoCreated);
+        stats.put("unknownSource", unknownSource);
+        stats.put("autoCreatedPercentage", totalUsers > 0 ? (autoCreated * 100.0 / totalUsers) : 0);
+
+        ctx.getLogger().log(String.format("User stats: %d total, %d API, %d auto-event", totalUsers, apiCreated, autoCreated));
+
+        return json(200, mapper.writeValueAsString(stats));
     }
 
     /**
