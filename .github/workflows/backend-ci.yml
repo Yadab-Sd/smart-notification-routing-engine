@@ -10,6 +10,9 @@ on:
       - 'services/**'
       - '.github/workflows/backend-ci.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.service }})
