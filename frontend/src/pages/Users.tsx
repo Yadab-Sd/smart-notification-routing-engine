@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from '@/components/common/Layout'
 import {
-  Plus,
   Search,
   Users as UsersIcon,
   UserPlus,
@@ -12,7 +11,7 @@ import {
   X,
   Loader2,
 } from 'lucide-react'
-import { useAuth } from '@/lib/auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface User {
   userId: string

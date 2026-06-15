@@ -11,9 +11,8 @@ import {
   CheckCircle,
   AlertCircle,
   X,
-  Plus,
 } from 'lucide-react'
-import { useAuth } from '@/lib/auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || ''
 
