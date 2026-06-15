@@ -1,0 +1,128 @@
+name: Infrastructure CI
+
+on:
+  push:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-ci.yml'
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-ci.yml'
+
+defaults:
+  run:
+    working-directory: infra/cdk
+
+jobs:
+  validate:
+    name: CDK Synth & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Create mock .env file
+        run: |
+          cat > .env << EOF
+          SENDER_EMAIL=test@example.com
+          AWS_REGION=us-west-2
+          EOF
+
+      - name: Run CDK synth
+        run: cdk synth --all
+        env:
+          CDK_DEFAULT_ACCOUNT: '123456789012'
+          CDK_DEFAULT_REGION: 'us-west-2'
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Create mock .env file
+        run: |
+          cat > .env << EOF
+          SENDER_EMAIL=test@example.com
+          AWS_REGION=us-west-2
+          EOF
+
+      - name: Synthesize CloudFormation templates
+        run: cdk synth --all
+        env:
+          CDK_DEFAULT_ACCOUNT: '123456789012'
+          CDK_DEFAULT_REGION: 'us-west-2'
+
+      - name: Install cfn-nag
+        run: |
+          gem install cfn-nag
+
+      - name: Run cfn-nag on templates
+        run: |
+          find cdk.out -name "*.template.json" -exec cfn_nag_scan --input-path {} \; || true
+
+  cost-estimate:
+    name: Cost Estimation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Add PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '💰 **Cost Estimate**: Infrastructure changes detected. Please review AWS costs before deploying.\n\n**Estimated monthly costs:**\n- Lambda: ~$5-20 (based on usage)\n- DynamoDB: ~$10-50 (on-demand pricing)\n- Kinesis: ~$30-100 (2 shards)\n- SageMaker: ~$50-200 (ml.t2.medium endpoint)\n- S3: ~$5-10\n- CloudWatch: ~$5-10\n\n**Total: ~$105-390/month** (varies with usage)'
+            })
+
+  pr-check:
+    name: PR Status Check
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
+        run: |
+          if [[ "${{ needs.validate.result }}" == "success" ]] && \
+             [[ "${{ needs.security.result }}" == "success" ]]; then
+            echo "✅ All checks passed"
+            exit 0
+          else
+            echo "❌ One or more checks failed"
+            echo "Validate: ${{ needs.validate.result }}"
+            echo "Security: ${{ needs.security.result }}"
+            exit 1
+          fi

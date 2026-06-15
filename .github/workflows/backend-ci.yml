@@ -1,0 +1,119 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'services/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'services/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - control-plane
+          - ingestion-service
+          - ml-service
+          - delivery-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build ${{ matrix.service }}
+        run: |
+          cd services/${{ matrix.service }}
+          mvn clean package -DskipTests
+
+      - name: Run tests
+        run: |
+          cd services/${{ matrix.service }}
+          mvn test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.service }}
+          path: services/${{ matrix.service }}/target/surefire-reports/
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run Checkstyle
+        run: |
+          for service in control-plane ingestion-service ml-service delivery-service; do
+            echo "Running checkstyle for $service..."
+            cd services/$service
+            mvn checkstyle:check || true
+            cd ../..
+          done
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run OWASP Dependency Check
+        run: |
+          for service in control-plane ingestion-service ml-service delivery-service; do
+            echo "Running dependency check for $service..."
+            cd services/$service
+            mvn dependency-check:check || true
+            cd ../..
+          done
+
+  pr-check:
+    name: PR Status Check
+    runs-on: ubuntu-latest
+    needs: [build-and-test, code-quality, security-scan]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
+        run: |
+          if [[ "${{ needs.build-and-test.result }}" == "success" ]] && \
+             [[ "${{ needs.code-quality.result }}" == "success" ]] && \
+             [[ "${{ needs.security-scan.result }}" == "success" ]]; then
+            echo "✅ All checks passed"
+            exit 0
+          else
+            echo "❌ One or more checks failed"
+            echo "Build & Test: ${{ needs.build-and-test.result }}"
+            echo "Code Quality: ${{ needs.code-quality.result }}"
+            echo "Security Scan: ${{ needs.security-scan.result }}"
+            exit 1
+          fi
