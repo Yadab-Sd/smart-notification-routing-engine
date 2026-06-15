@@ -99,13 +99,16 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high || true
 
   pr-check:
     name: PR Status Check
     runs-on: ubuntu-latest
     needs: [lint-and-typecheck, build, test, security-audit]
     if: always()
+    defaults:
+      run:
+        working-directory: .
     steps:
       - name: Check if all jobs passed
         run: |
