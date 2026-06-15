@@ -104,7 +104,7 @@ fi
 if [ ! -f ~/.aws/credentials ]; then
     print_warning "AWS credentials not configured"
     echo -e "${YELLOW}Please configure AWS CLI:${NC}"
-    echo "  1. Get your AWS Access Key ID and Secret Access Key from AWS Console"
+    echo "  1. Get your AWS Access Key ID and Secret Access Key from AWS Console. (Or, email to contact@intelligent-routing.com)"
     echo "  2. Run: aws configure"
     echo "  3. Then re-run this script"
     exit 0
