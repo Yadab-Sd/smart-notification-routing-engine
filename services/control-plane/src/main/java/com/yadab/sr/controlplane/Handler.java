@@ -86,6 +86,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return bulkCreateUsers(e, ctx);
             }
 
+            // User statistics - must come BEFORE wildcard /v1/users/{id}
+            if ("/v1/users/stats".equals(path) && "GET".equals(method)) {
+                return getUserStats(ctx);
+            }
+
             if (path.matches("/v1/users/[^/]+") && "GET".equals(method)) {
                 String userId = extractUserId(path);
                 return getUser(userId, ctx);
@@ -104,11 +109,6 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             // Event Ingestion (validates user exists)
             if ("/v1/events".equals(path) && "POST".equals(method)) {
                 return ingestEvent(e, ctx);
-            }
-
-            // User statistics
-            if ("/v1/users/stats".equals(path) && "GET".equals(method)) {
-                return getUserStats(ctx);
             }
 
             return json(404, "{\"error\":\"Not found\"}");
