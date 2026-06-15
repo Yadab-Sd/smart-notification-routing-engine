@@ -19,9 +19,11 @@ jobs:
       matrix:
         service:
           - control-plane
-          - ingestion-service
-          - ml-service
-          - delivery-service
+          - analytics-service
+          - decision-service
+          - endpoint-deployer
+          - events-consumer
+          - sender-service
 
     steps:
       - name: Checkout code
@@ -67,7 +69,7 @@ jobs:
 
       - name: Run Checkstyle
         run: |
-          for service in control-plane ingestion-service ml-service delivery-service; do
+          for service in control-plane analytics-service decision-service endpoint-deployer events-consumer sender-service; do
             echo "Running checkstyle for $service..."
             cd services/$service
             mvn checkstyle:check || true
@@ -90,7 +92,7 @@ jobs:
 
       - name: Run OWASP Dependency Check
         run: |
-          for service in control-plane ingestion-service ml-service delivery-service; do
+          for service in control-plane analytics-service decision-service endpoint-deployer events-consumer sender-service; do
             echo "Running dependency check for $service..."
             cd services/$service
             mvn dependency-check:check || true
