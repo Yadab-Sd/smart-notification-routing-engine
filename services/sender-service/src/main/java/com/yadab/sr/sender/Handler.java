@@ -121,9 +121,19 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         NotificationChannel channel = selection.getChannel();
         String recipient = getRecipient(user, channel);
 
+        // Extract subject from metadata if provided
+        String subject = "Notification from Smart Routing Engine"; // Default
+        if (event.containsKey("metadata") && event.get("metadata") instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = (Map<String, Object>) event.get("metadata");
+            if (metadata.containsKey("subject")) {
+                subject = (String) metadata.get("subject");
+                context.getLogger().log("Using custom subject from metadata: " + subject);
+            }
+        }
+
         // Use custom message if provided, otherwise fetch template
         String renderedBody;
-        String subject = "Notification from Smart Routing Engine";
 
         if (customMessage != null && !customMessage.isEmpty()) {
             renderedBody = customMessage;
