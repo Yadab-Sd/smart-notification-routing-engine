@@ -62,7 +62,6 @@ This installs AWS CLI, Node.js, Java, Maven, CDK and configures everything.
 
 ```bash
 cd infra/cdk
-cp .env.example .env
 nano .env  # Set SENDER_EMAIL
 
 pnpm install
@@ -108,28 +107,12 @@ curl $API_URL/v1/health
 ```bash
 # 1. Create user (required first)
 POST /v1/users
-{
-  "userId": "user_123",
-  "email": "user@example.com",
-  "phone": "+14155551234",
-  "prefs": { "channel": "EMAIL" }
-}
 
 # 2. Track events
 POST /v1/events
-{
-  "userId": "user_123",
-  "type": "CLICK",
-  "ts": "2026-06-12T10:30:00Z"
-}
 
 # 3. Get optimal send time
 POST /v1/decisions/preview
-{
-  "userId": "user_123",
-  "windowStart": 1718186400,
-  "windowEnd": 1718272800
-}
 
 # Response
 {
@@ -213,30 +196,6 @@ cd infra/cdk && pnpm exec cdk destroy --all
 
 ---
 
-## Current Limitations
-
-- Only 3 ML features (missing timezone, day of week, device type)
-- Cold start for new users (no historical data)
-- No channel selection (email vs SMS)
-- Fixed nightly training schedule
-- Single region deployment
-
-[Complete Limitations List](docs/LIMITATIONS.md)
-
----
-
-## Contributing
-
-Areas needing work:
-- Add more ML features (timezone, day of week, device)
-- Multi-channel optimization
-- Cold-start handling (epsilon-greedy)
-- Documentation improvements
-
-Fork, make changes, submit PR. Follow existing code style.
-
----
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
@@ -244,18 +203,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 ```
 Copyright (c) 2025 Yadab Sutradhar
 ```
-
----
-
-<div align="center">
-
-## 📬 Contact
-
-**Yadab Sutradhar**
-
-[![Email](https://img.shields.io/badge/Email-yadab.sd2013%40gmail.com-red?style=for-the-badge&logo=gmail&logoColor=white)](mailto:yadab.sd2013@gmail.com)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-yadab--sutradhar-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/yadab-sutradhar)
-[![GitHub](https://img.shields.io/badge/GitHub-%40Yadab--Sd-black?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Yadab-Sd)
 
 ---
 
@@ -289,6 +236,17 @@ Test the system for 3 months with zero cost to you.
 👉 **[PILOT_PROGRAM.md](./PILOT_PROGRAM.md)** - Pilot program details
 
 **Email**: contact@intelligent-routing.com to apply for pilot
+
+---
+<div align="center">
+
+## 📬 Contact
+
+**Yadab Sutradhar**
+
+[![Email](https://img.shields.io/badge/Email-yadab.sd2013%40gmail.com-red?style=for-the-badge&logo=gmail&logoColor=white)](mailto:yadab.sd2013@gmail.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-yadab--sutradhar-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/yadab-sutradhar)
+[![GitHub](https://img.shields.io/badge/GitHub-%40Yadab--Sd-black?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Yadab-Sd)
 
 ---
 
