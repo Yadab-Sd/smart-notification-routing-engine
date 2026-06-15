@@ -74,9 +74,14 @@ const Users = () => {
         setStats(statsData)
       }
 
-      // TODO: Implement list users endpoint
-      // For now, users list will be empty until you implement GET /v1/users endpoint
-      setUsers([])
+      // Load users list
+      const usersRes = await fetch(`${API_ENDPOINT}/v1/users?limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (usersRes.ok) {
+        const usersData = await usersRes.json()
+        setUsers(usersData.users || [])
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {

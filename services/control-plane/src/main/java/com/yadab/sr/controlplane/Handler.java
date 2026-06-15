@@ -28,9 +28,10 @@ import java.util.ArrayList;
  *
  * Endpoints:
  * - POST /v1/users - Create user
+ * - GET /v1/users - List all users (with pagination)
  * - POST /v1/users/bulk - Bulk import users
- * - GET /v1/users/{id} - Get user
  * - GET /v1/users/stats - Get user creation statistics
+ * - GET /v1/users/{id} - Get user
  * - PUT /v1/users/{id} - Update user
  * - DELETE /v1/users/{id} - Delete user
  * - POST /v1/events - Ingest events (auto-creates user if not exists)
@@ -80,6 +81,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             // User Management Endpoints
             if (path.equals("/v1/users") && "POST".equals(method)) {
                 return createUser(e, ctx);
+            }
+
+            if (path.equals("/v1/users") && "GET".equals(method)) {
+                return listUsers(e, ctx);
             }
 
             if (path.equals("/v1/users/bulk") && "POST".equals(method)) {
@@ -527,6 +532,71 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         ctx.getLogger().log(String.format("User stats: %d total, %d API, %d auto-event", totalUsers, apiCreated, autoCreated));
 
         return json(200, mapper.writeValueAsString(stats));
+    }
+
+    /**
+     * GET /v1/users - List all users with pagination
+     */
+    private APIGatewayV2HTTPResponse listUsers(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        // Get query parameters for pagination
+        Map<String, String> queryParams = e.getQueryStringParameters();
+        int limit = 100; // Default limit
+        String lastKey = null;
+
+        if (queryParams != null) {
+            if (queryParams.containsKey("limit")) {
+                try {
+                    limit = Integer.parseInt(queryParams.get("limit"));
+                    limit = Math.min(limit, 500); // Max 500 items
+                } catch (NumberFormatException ex) {
+                    throw new ValidationException("Invalid limit parameter");
+                }
+            }
+            lastKey = queryParams.get("lastKey");
+        }
+
+        // Scan DynamoDB for all user profiles
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":profile", AttributeValue.builder().s("PROFILE").build()
+        );
+
+        ScanRequest.Builder scanBuilder = ScanRequest.builder()
+                .tableName(table())
+                .filterExpression("sk = :profile")
+                .expressionAttributeValues(expressionValues)
+                .limit(limit);
+
+        // Add pagination if lastKey provided
+        if (lastKey != null && !lastKey.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = Map.of(
+                    "pk", AttributeValue.builder().s(lastKey).build(),
+                    "sk", AttributeValue.builder().s("PROFILE").build()
+            );
+            scanBuilder.exclusiveStartKey(exclusiveStartKey);
+        }
+
+        ScanResponse scanRes = ddb.scan(scanBuilder.build());
+
+        // Convert items to User objects
+        List<User> users = new ArrayList<>();
+        for (Map<String, AttributeValue> item : scanRes.items()) {
+            User user = User.fromItem(item);
+            users.add(user);
+        }
+
+        // Build response with pagination info
+        Map<String, Object> response = new HashMap<>();
+        response.put("users", users);
+        response.put("count", users.size());
+
+        if (scanRes.lastEvaluatedKey() != null && !scanRes.lastEvaluatedKey().isEmpty()) {
+            String nextKey = scanRes.lastEvaluatedKey().get("pk").s();
+            response.put("nextKey", nextKey);
+        }
+
+        ctx.getLogger().log(String.format("Listed %d users", users.size()));
+
+        return json(200, mapper.writeValueAsString(response));
     }
 
     /**
