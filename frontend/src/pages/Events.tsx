@@ -13,8 +13,9 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { ENV } from '@/config/env'
 
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || ''
+const API_ENDPOINT = ENV.API_URL
 
 interface EventLog {
   id: string

@@ -12,6 +12,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { ENV } from '@/config/env'
 
 interface User {
   userId: string
@@ -35,7 +36,7 @@ interface UserStats {
   autoCreatedPercentage: number
 }
 
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || ''
+const API_ENDPOINT = ENV.API_URL
 
 const Users = () => {
   const { getIdToken } = useAuth()
