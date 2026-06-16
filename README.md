@@ -38,7 +38,7 @@ Learns when each user is most likely to engage with notifications, then automati
 **Core Components**:
 - **Ingestion**: REST API → Kinesis → S3 data lake
 - **ML Pipeline**: Glue (Spark) → SageMaker (XGBoost) → Endpoint
-- **Delivery**: Decision Lambda → EventBridge Scheduler → Sender Lambda → Pinpoint
+- **Delivery**: Decision Lambda → EventBridge Scheduler → Sender Lambda → SMS/EMAIL/PUSH
 
 Built entirely on AWS serverless (Lambda, SageMaker, Glue, S3, DynamoDB).
 
