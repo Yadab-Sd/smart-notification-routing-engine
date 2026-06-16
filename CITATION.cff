@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Sutradhar"
+    given-names: "Yadab"
+    orcid: "https://orcid.org/0009-0008-8319-2410"
+title: "Smart Notification Routing Engine"
+version: "2.0.0"
+doi: 10.5281/zenodo.20707474
+date-released: 2026-06-15
+url: "https://github.com/Yadab-Sd/smart-notification-routing-engine"

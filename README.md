@@ -264,11 +264,17 @@ Report bugs • Request features • Ask questions
 ### 📖 Citation
 
 ```bibtex
-@software{sutradhar2025notification,
-  author = {Sutradhar, Yadab},
-  title = {Smart Notification Routing Engine},
-  year = {2025},
-  url = {https://github.com/Yadab-Sd/smart-notification-routing-engine}
+@software{yadab_sutradhar_2026_20707474,
+  author       = {Yadab Sutradhar},
+  title        = {Yadab-Sd/smart-notification-routing-engine: v2.0.0
+                   - User Management \& CI/CD - 06/15/2026
+                  },
+  month        = jun,
+  year         = 2026,
+  publisher    = {Zenodo},
+  version      = {v2.0.0},
+  doi          = {10.5281/zenodo.20707474},
+  url          = {https://doi.org/10.5281/zenodo.20707474},
 }
 ```
 
