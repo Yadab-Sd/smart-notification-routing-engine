@@ -144,6 +144,16 @@ const LoginForm = () => {
         </Link>
       </div>
 
+      <div className="mt-6 text-center text-sm text-slate-500">
+        Need help?{' '}
+        <a
+          href="mailto:contact@intelligent-routing.com"
+          className="text-primary-600 hover:underline font-medium"
+        >
+          contact@intelligent-routing.com
+        </a>
+      </div>
+
       <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
         Secured by AWS Cognito · TLS 1.3 · JWT 1 h
       </div>
