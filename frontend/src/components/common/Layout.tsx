@@ -289,6 +289,20 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
             </div>
           </div>
 
+          {/* Promotional Banner */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 text-center text-sm">
+            <span className="font-medium">Before you deploy: </span>
+            <span className="text-blue-100">Get zero-cost pilot testing, setup support & feature customization. </span>
+            <a
+              href="https://get.intelligent-routing.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-bold hover:text-white ml-2"
+            >
+              Apply now →
+            </a>
+          </div>
+
           <div className="px-4 sm:px-6 lg:px-8 pb-5 pt-1 flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-xs text-slate-400 mb-1">
