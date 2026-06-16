@@ -2,122 +2,69 @@
 
 ## Overview
 
-This is the web-based dashboard for the **Smart Notification Routing Engine**, a machine learning-powered system that optimizes notification delivery times to maximize user engagement. This frontend provides:
+This is the web-based dashboard for **Smart Notification Routing Engine (SNRE)**, a machine learning-powered notification delivery optimization platform. The frontend provides:
 
-- **User Dashboard**: Customer-facing interface for scheduling notifications with ML-predicted optimal send times
-- **Analytics Dashboard**: Visualizations showing ML model performance, engagement metrics, and business impact
-- **Authentication**: Secure login via AWS Cognito
+- **Dashboard**: Real-time system monitoring and KPIs
+- **Analytics**: ML performance metrics, engagement trends, and business impact
+- **Campaign Management**: Multi-channel notification orchestration
+- **User Management**: Audience segmentation and targeting
+- **Template Library**: Reusable notification templates
+- **API Key Management**: Integration with external systems
 
-**Purpose**: This frontend is being developed to demonstrate the technical innovation and national interest value of the ML notification optimization system.
+**Tech Stack**: React 18 + TypeScript + Vite + Tailwind CSS + React Query + AWS Cognito
+
+---
+
+## Who Is This README For?
+
+This documentation serves **two distinct audiences**:
+
+### 👔 Type 1: Business Adopters (Deploying to Your AWS)
+
+You're an engineer at an organization that wants to deploy SNRE to your own AWS infrastructure. You have your own AWS account and will manage your own backend deployment.
+
+**→ See [Section A: Business Adopter Guide](#a-business-adopter-guide)**
+
+### 💻 Type 2: Contributors (Local Development Only)
+
+You're contributing to the open-source codebase. You'll run the frontend on localhost and submit pull requests. You don't need AWS access or deployment permissions.
+
+**→ See [Section B: Contributor Guide](#b-contributor-guide)**
 
 ---
 
-## Tech Stack
-
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite (fast development and optimized production builds)
-- **Styling**: Tailwind CSS (utility-first CSS framework)
-- **Routing**: React Router v6
-- **State Management**:
-  - TanStack Query (React Query) for server state
-  - Zustand for client state (auth, UI preferences)
-- **Authentication**: AWS Cognito (amazon-cognito-identity-js)
-- **HTTP Client**: Axios with auth interceptors
-- **Charts**: Recharts (for analytics visualizations)
-- **Icons**: Lucide React
-- **Deployment**: AWS S3 + CloudFront (via CDK)
-
----
+# A. Business Adopter Guide
 
 ## Prerequisites
 
-Before starting, ensure you have:
+- **Node.js 18+** and **npm 9+**
+- **AWS Account** with appropriate permissions
+- **AWS CLI** configured with credentials
+- **Backend infrastructure deployed** (see main repo's `infra/cdk/` directory)
 
-1. **Node.js 18+** (check with `node --version`)
-2. **npm 9+** (check with `npm --version`)
-3. **AWS CLI** configured with credentials
-4. **Backend infrastructure deployed** (CDK stacks: SR-Identity, SR-Compute, SR-Data)
-5. **Git** for version control
+## Step 1: Deploy Backend Infrastructure
 
----
-
-## Project Structure
-
-```
-frontend/
-├── public/                  # Static assets
-├── src/
-│   ├── api/                 # API client functions
-│   │   ├── client.ts        # Axios instance with auth interceptor
-│   │   ├── auth.ts          # Cognito authentication
-│   │   ├── users.ts         # User profile APIs
-│   │   ├── events.ts        # Event ingestion
-│   │   └── decisions.ts     # ML prediction APIs
-│   ├── components/
-│   │   ├── auth/            # Login, signup, protected routes
-│   │   ├── common/          # Layout, header, shared components
-│   │   ├── user-dashboard/  # User-facing components
-│   │   └── analytics-dashboard/  # Analytics visualizations
-│   ├── pages/               # Top-level page components
-│   │   ├── Login.tsx
-│   │   ├── Dashboard.tsx
-│   │   ├── Analytics.tsx
-│   │   └── NotFound.tsx
-│   ├── contexts/            # React contexts
-│   │   └── AuthContext.tsx  # Global auth state
-│   ├── hooks/               # Custom React hooks
-│   ├── types/               # TypeScript type definitions
-│   ├── utils/               # Utility functions
-│   ├── styles/              # Global styles (Tailwind)
-│   ├── config/              # Environment configuration
-│   ├── App.tsx              # Root component with routing
-│   └── main.tsx             # Application entry point
-├── .env.example             # Environment variables template
-├── .env.local               # Local environment variables (gitignored)
-├── package.json             # Dependencies and scripts
-├── vite.config.ts           # Vite configuration
-├── tailwind.config.js       # Tailwind CSS configuration
-├── tsconfig.json            # TypeScript configuration
-└── README.md                # This file
-```
-
----
-
-## Setup Instructions (From Scratch)
-
-### Step 1: Install Dependencies
+First, deploy the backend stacks that provide API endpoints and authentication:
 
 ```bash
-cd frontend
-npm install
-```
-
-This installs all required packages:
-- React, React DOM, React Router
-- TanStack Query, Zustand, Axios
-- Cognito identity SDK
-- Recharts, Lucide React
-- Tailwind CSS, PostCSS, Autoprefixer
-- TypeScript, Vite, ESLint
-
-### Step 2: Deploy Backend Infrastructure
-
-If you haven't already deployed the backend:
-
-```bash
-cd ../infra/cdk
+cd infra/cdk
 npm install
 npm run build
 
-# Deploy required stacks
+# Deploy all required stacks
 cdk deploy SR-Network SR-Security SR-Identity SR-Data SR-Messaging SR-Compute
 ```
 
-**Important**: Wait for deployment to complete and note the outputs.
+Wait for deployment to complete. This creates:
+- API Gateway (REST API endpoints)
+- Cognito User Pool (authentication)
+- Lambda functions (business logic)
+- DynamoDB tables (data storage)
+- SageMaker endpoint (ML inference)
 
-### Step 3: Get AWS Configuration Values
+## Step 2: Retrieve AWS Configuration Values
 
-After deploying the backend, retrieve these values from CDK outputs:
+After backend deployment, get the required values from CloudFormation outputs:
 
 ```bash
 # Get API URL
@@ -133,13 +80,11 @@ aws cloudformation describe-stacks --stack-name SR-Identity \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text
 ```
 
-Or check the AWS CloudFormation console:
-- Navigate to CloudFormation → Stacks → SR-Compute → Outputs
-- Navigate to CloudFormation → Stacks → SR-Identity → Outputs
+**Alternative**: Check the AWS CloudFormation console → Stacks → Outputs tab for each stack.
 
-### Step 4: Configure Environment Variables
+## Step 3: Configure Frontend Environment
 
-Create `.env.local` file in the `frontend/` directory:
+Create `.env.local` in the `frontend/` directory:
 
 ```bash
 cd frontend
@@ -149,23 +94,92 @@ cp .env.example .env.local
 Edit `.env.local` with your AWS values:
 
 ```env
-# API Configuration
+# API Configuration (from SR-Compute outputs)
 VITE_API_URL=https://your-api-id.execute-api.us-west-2.amazonaws.com
 
-# Cognito Configuration
+# Cognito Configuration (from SR-Identity outputs)
 VITE_COGNITO_USER_POOL_ID=us-west-2_XXXXXXXXX
 VITE_COGNITO_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j1k2l3m
 VITE_REGION=us-west-2
 
-# Demo Mode (set to 'true' to use demo data for any presentation)
+# Demo Mode (optional, for presentations)
 VITE_DEMO_MODE=false
 ```
 
-**Important**: Never commit `.env.local` to git (it's in .gitignore).
+**Security Note**: Never commit `.env.local` to version control. It's already in `.gitignore`.
 
-### Step 5: Create a Test User in Cognito
+## Step 4: Install Dependencies and Build
 
-You need a user to log in. Create one via AWS Console or CLI:
+```bash
+npm install
+npm run build
+```
+
+This creates production-optimized files in `frontend/dist/`.
+
+## Step 5: Deploy Frontend to AWS
+
+Deploy the frontend stack (S3 + CloudFront CDN):
+
+```bash
+cd ../infra/cdk
+cdk deploy SR-Frontend
+```
+
+This automatically:
+- Creates S3 bucket for static hosting
+- Creates CloudFront distribution (global CDN)
+- Uploads built files from `frontend/dist/`
+- Outputs CloudFront URL
+
+**Optional Manual Upload** (if you rebuild frontend without redeploying CDK):
+
+```bash
+# Get bucket name
+BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name SR-Frontend \
+  --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
+
+# Sync files
+aws s3 sync dist/ s3://$BUCKET_NAME/
+
+# Invalidate CloudFront cache
+DIST_ID=$(aws cloudformation describe-stacks --stack-name SR-Frontend \
+  --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
+aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+```
+
+## Step 6: Configure Cognito Callback URLs
+
+Add your CloudFront URL to Cognito's allowed redirect URIs:
+
+1. Get CloudFront URL from CDK output
+2. Go to AWS Console → Cognito → User Pools → AdminUsers → App clients
+3. Edit "WebClient" settings
+4. Add to "Callback URLs":
+   - `https://your-cloudfront-domain.cloudfront.net`
+   - `https://your-cloudfront-domain.cloudfront.net/callback`
+5. Add to "Sign out URLs":
+   - `https://your-cloudfront-domain.cloudfront.net/login`
+
+## Step 7: Update API Gateway CORS
+
+Add your CloudFront URL to CORS allowed origins in `infra/cdk/lib/compute-stack.ts`:
+
+```typescript
+allowOrigins: [
+    'http://localhost:5173',
+    'https://your-cloudfront-domain.cloudfront.net', // Add this
+],
+```
+
+Then redeploy:
+```bash
+cdk deploy SR-Compute
+```
+
+## Step 8: Create Admin User
+
+Create an initial admin user in Cognito:
 
 **Option A: AWS Console**
 1. Go to AWS Cognito → User Pools → AdminUsers
@@ -177,56 +191,206 @@ You need a user to log in. Create one via AWS Console or CLI:
 ```bash
 aws cognito-idp admin-create-user \
   --user-pool-id us-west-2_XXXXXXXXX \
-  --username user@example.com \
-  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true \
+  --username admin@yourdomain.com \
+  --user-attributes Name=email,Value=admin@yourdomain.com Name=email_verified,Value=true \
   --temporary-password TempPassword123! \
   --message-action SUPPRESS
 ```
 
-### Step 6: Run Development Server
+## Step 9: Access Your Dashboard
+
+Open your CloudFront URL in a browser and log in with your admin credentials.
+
+---
+
+## Ongoing Maintenance (Business Adopters)
+
+### Updating Frontend After Code Changes
+
+```bash
+cd frontend
+npm run build
+cd ../infra/cdk
+cdk deploy SR-Frontend
+```
+
+### Monitoring
+
+- **CloudWatch Logs**: Lambda and API Gateway logs
+- **CloudFront Metrics**: Cache hit rates, origin latency
+- **Cognito Metrics**: Sign-in success/failure rates
+
+### Cost Optimization
+
+- Enable CloudFront caching headers for static assets
+- Use S3 Intelligent-Tiering for static files
+- Monitor Lambda cold starts and adjust memory allocation
+
+---
+
+# B. Contributor Guide
+
+## Prerequisites
+
+- **Node.js 18+** and **npm 9+**
+- **Git** for version control
+
+## Quick Start (5 Minutes)
+
+### Step 1: Clone Repository
+
+```bash
+git clone https://github.com/Yadab-Sd/smart-notification-routing-engine.git
+cd smart-notification-routing-engine/frontend
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+### Step 3: Get API Endpoint (Request from Maintainer)
+
+You need the backend API endpoint to connect the frontend. **Contact the project maintainer** to get:
+
+1. **API endpoint URL** (e.g., `https://abc123.execute-api.us-west-2.amazonaws.com`)
+2. **Test user credentials** (email and password for localhost testing)
+
+Email: **contact@intelligent-routing.com**
+
+### Step 4: Configure Environment
+
+Create `.env.local` in `frontend/` directory:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` and add **only the API URL** provided by the maintainer:
+
+```env
+# API Configuration (provided by maintainer)
+VITE_API_URL=https://abc123.execute-api.us-west-2.amazonaws.com
+
+# Leave these blank - they're auto-configured for localhost
+VITE_COGNITO_USER_POOL_ID=
+VITE_COGNITO_CLIENT_ID=
+VITE_REGION=us-west-2
+
+# Optional: Enable demo mode if API is unavailable
+VITE_DEMO_MODE=false
+```
+
+**Important**: You don't need AWS credentials, Cognito pool IDs, or any AWS CLI setup. The maintainer provides a shared development API endpoint for contributors.
+
+### Step 5: Run Development Server
 
 ```bash
 npm run dev
 ```
 
-The app will open at **http://localhost:5173**
+The app opens at **http://localhost:5173**
 
-You should see the login page. Try logging in with your test user credentials.
+Log in with the test credentials provided by the maintainer.
 
 ---
 
-## Development Workflow
+## Development Workflow (Contributors)
 
-### Running the App
+### Available Commands
 
 ```bash
-npm run dev          # Start development server (hot reload)
-npm run build        # Build for production
+npm run dev          # Start dev server with hot reload
+npm run build        # Build for production (to test build errors)
 npm run preview      # Preview production build locally
 npm run lint         # Run ESLint
 ```
 
 ### Making Changes
 
-1. **Component Development**: Create new components in `src/components/`
-2. **API Integration**: Add API functions in `src/api/`
-3. **Type Safety**: Define types in `src/types/`
-4. **Styling**: Use Tailwind utility classes (see `tailwind.config.js`)
+1. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-### Common Tasks
+2. **Make your changes**:
+   - Add/modify components in `src/components/`
+   - Add API functions in `src/api/`
+   - Define types in `src/types/`
+   - Use Tailwind utility classes for styling
 
-**Add a new page:**
-1. Create component in `src/pages/NewPage.tsx`
+3. **Test locally**:
+   - Test on `localhost:5173` with test user credentials
+   - Verify API calls work correctly
+   - Check for TypeScript errors: `npm run build`
+   - Run linter: `npm run lint`
+
+4. **Commit and push**:
+   ```bash
+   git add .
+   git commit -m "feat: add new feature"
+   git push origin feature/your-feature-name
+   ```
+
+5. **Open Pull Request**:
+   - Go to GitHub repository
+   - Click "New Pull Request"
+   - Describe your changes
+   - Wait for maintainer review
+
+### Project Structure (What You'll Work With)
+
+```
+frontend/
+├── src/
+│   ├── api/                 # API client functions (Axios + auth interceptor)
+│   ├── components/
+│   │   ├── auth/            # Login, signup, protected routes
+│   │   ├── common/          # Layout, header, reusable components
+│   │   └── [feature]/       # Feature-specific components
+│   ├── pages/               # Top-level page components
+│   ├── contexts/            # React contexts (AuthContext)
+│   ├── hooks/               # Custom React hooks
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
+│   ├── App.tsx              # Root component with routing
+│   └── main.tsx             # Entry point
+├── .env.example             # Environment variables template
+├── .env.local               # Your local config (gitignored)
+├── package.json             # Dependencies and scripts
+├── vite.config.ts           # Vite configuration
+├── tailwind.config.js       # Tailwind CSS configuration
+└── tsconfig.json            # TypeScript configuration
+```
+
+### Common Development Tasks
+
+#### Add a New Page
+
+1. Create component in `src/pages/NewPage.tsx`:
+   ```tsx
+   import Layout from '@/components/common/Layout'
+
+   export default function NewPage() {
+     return (
+       <Layout title="New Page">
+         <div>Your content here</div>
+       </Layout>
+     )
+   }
+   ```
+
 2. Add route in `src/App.tsx`:
    ```tsx
+   import NewPage from '@/pages/NewPage'
+
+   // Inside Routes:
    <Route path="/new-page" element={<NewPage />} />
    ```
 
-**Add a new API endpoint:**
-1. Create function in appropriate `src/api/*.ts` file
-2. Use `apiClient` from `src/api/client.ts` (automatically includes auth headers)
+#### Add a Protected Route
 
-**Add a protected route:**
 Wrap route in `<ProtectedRoute>` in `src/App.tsx`:
 ```tsx
 <Route element={<ProtectedRoute />}>
@@ -234,145 +398,69 @@ Wrap route in `<ProtectedRoute>` in `src/App.tsx`:
 </Route>
 ```
 
+#### Add a New API Endpoint
+
+1. Create function in `src/api/[feature].ts`:
+   ```typescript
+   import { apiClient } from './client'
+
+   export const getFeatureData = async () => {
+     const response = await apiClient.get('/v1/feature')
+     return response.data
+   }
+   ```
+
+2. Use in component with React Query:
+   ```tsx
+   import { useQuery } from '@tanstack/react-query'
+   import { getFeatureData } from '@/api/feature'
+
+   const { data, isLoading } = useQuery({
+     queryKey: ['feature'],
+     queryFn: getFeatureData
+   })
+   ```
+
+#### Style with Tailwind
+
+Use utility classes:
+```tsx
+<div className="bg-white rounded-lg shadow-md p-6">
+  <h2 className="text-2xl font-bold text-slate-900">Title</h2>
+  <p className="text-sm text-slate-600 mt-2">Description</p>
+</div>
+```
+
+Refer to [Tailwind CSS docs](https://tailwindcss.com/docs) for available utilities.
+
 ---
 
-## Deployment to AWS
+## Deployment (Not Your Responsibility)
 
-### Step 1: Build Frontend
+**Contributors**: You don't need to worry about deployment. When your PR is merged to `main`, the maintainer will trigger automated deployment via GitHub Actions.
 
-```bash
-npm run build
-```
-
-This creates optimized production files in `frontend/dist/`.
-
-### Step 2: Deploy Frontend Stack
-
-```bash
-cd ../infra/cdk
-cdk deploy SR-Frontend
-```
-
-This creates:
-- S3 bucket for hosting
-- CloudFront distribution (CDN)
-- Outputs: CloudFront URL
-
-### Step 3: Upload Files to S3
-
-The CDK stack uses `BucketDeployment` which automatically uploads files from `frontend/dist/`.
-
-If you need to manually update later:
-
-```bash
-# Get bucket name from CDK output
-BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name SR-Frontend \
-  --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
-
-# Sync files
-aws s3 sync dist/ s3://$BUCKET_NAME/
-
-# Get distribution ID
-DIST_ID=$(aws cloudformation describe-stacks --stack-name SR-Frontend \
-  --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
-
-# Invalidate CloudFront cache
-aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
-```
-
-### Step 4: Update Cognito Callback URLs
-
-After deployment, add CloudFront URL to Cognito:
-
-1. Get CloudFront URL from CDK output
-2. Go to AWS Cognito → User Pools → AdminUsers → App clients
-3. Edit "WebClient" settings
-4. Add to "Callback URLs":
-   - `https://your-cloudfront-domain.cloudfront.net`
-   - `https://your-cloudfront-domain.cloudfront.net/callback`
-5. Add to "Sign out URLs":
-   - `https://your-cloudfront-domain.cloudfront.net`
-   - `https://your-cloudfront-domain.cloudfront.net/login`
-
-### Step 5: Update API Gateway CORS
-
-Add CloudFront URL to CORS allowed origins in `infra/cdk/lib/compute-stack.ts`:
-
-```typescript
-allowOrigins: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://your-cloudfront-domain.cloudfront.net', // Add this
-],
-```
-
-Then redeploy:
-```bash
-cdk deploy SR-Compute
-```
+**Behind the scenes**: The GitHub Actions workflow builds the frontend and deploys to AWS S3 + CloudFront. You don't need AWS access for this.
 
 ---
 
 ## Environment Variables Reference
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API Gateway endpoint | `https://abc123.execute-api.us-west-2.amazonaws.com` |
-| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID | `us-west-2_ABC123DEF` |
-| `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID | `1a2b3c4d5e6f7g8h9i0j1k2l3m` |
-| `VITE_REGION` | AWS Region | `us-west-2` |
-| `VITE_DEMO_MODE` | Use demo data (for any presentation) | `true` or `false` |
+### For Contributors (Localhost Only)
 
----
+| Variable | Description | How to Get |
+|----------|-------------|------------|
+| `VITE_API_URL` | Backend API endpoint | Request from maintainer |
+| Test credentials | Email + password for login | Request from maintainer |
 
-## Architecture Overview
+### For Business Adopters (Full Deployment)
 
-### Authentication Flow
-
-1. User enters email/password in `LoginForm.tsx`
-2. `AuthContext` calls `signIn()` from `src/api/auth.ts`
-3. Cognito authenticates and returns JWT token
-4. Token stored in localStorage
-5. `apiClient` automatically adds `Authorization: Bearer <token>` header to all API requests
-6. If 401 error, user redirected to login
-
-### API Request Flow
-
-```
-Component → React Query (useQuery/useMutation)
-           ↓
-API Function (src/api/*.ts)
-           ↓
-Axios Client (src/api/client.ts) + Auth Interceptor
-           ↓
-API Gateway (with CORS + JWT validation)
-           ↓
-Lambda Function (Java 21)
-           ↓
-Response → React Query Cache → Component Update
-```
-
-### Protected Routes
-
-- All routes under `<ProtectedRoute>` require authentication
-- If not authenticated → redirect to `/login`
-- If authenticated → render requested page
-- Implemented in `src/components/auth/ProtectedRoute.tsx`
-
----
-
-## Available API Endpoints
-
-Current backend APIs (see `src/api/` for client functions):
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/v1/health` | Health check | Public |
-| POST | `/v1/events` | Ingest user event | JWT |
-| GET | `/v1/users/{id}` | Get user profile | JWT |
-| PUT | `/v1/users/{id}/preferences` | Update user preferences | JWT |
-| POST | `/v1/decisions/preview` | Get optimal send time (no scheduling) | JWT |
-| POST | `/v1/decisions/schedule` | Get optimal time + schedule notification | JWT |
+| Variable | Description | Source |
+|----------|-------------|--------|
+| `VITE_API_URL` | Backend API Gateway URL | CDK output: SR-Compute → ApiUrl |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID | CDK output: SR-Identity → UserPoolId |
+| `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID | CDK output: SR-Identity → UserPoolClientId |
+| `VITE_REGION` | AWS Region | Your chosen region (e.g., `us-west-2`) |
+| `VITE_DEMO_MODE` | Use demo data (optional) | `true` or `false` |
 
 ---
 
@@ -380,7 +468,7 @@ Current backend APIs (see `src/api/` for client functions):
 
 ### Issue: "Module not found" errors
 
-**Solution**: Ensure all dependencies are installed:
+**Solution**: Reinstall dependencies:
 ```bash
 rm -rf node_modules package-lock.json
 npm install
@@ -394,33 +482,23 @@ Access to XMLHttpRequest at 'https://...' from origin 'http://localhost:5173'
 has been blocked by CORS policy
 ```
 
-**Solution**:
-1. Check API Gateway CORS configuration in `infra/cdk/lib/compute-stack.ts`
-2. Verify `localhost:5173` is in `allowOrigins`
-3. Redeploy: `cd infra/cdk && cdk deploy SR-Compute`
+**Solution**: Notify the maintainer. They need to add `localhost:5173` to API Gateway CORS configuration.
 
 ### Issue: 401 Unauthorized errors
 
 **Possible causes**:
-1. JWT token expired (tokens expire after 1 hour)
-2. User Pool ID or Client ID incorrect in `.env.local`
-3. API Gateway authorizer misconfigured
+1. JWT token expired (log out and log back in)
+2. Test user credentials incorrect
+3. API endpoint URL wrong in `.env.local`
 
-**Solution**:
-1. Try logging out and back in
-2. Verify environment variables match CDK outputs
-3. Check CloudWatch Logs for API Gateway and Lambda
+**Solution**: Try logging out and back in. If still failing, contact maintainer.
 
-### Issue: Cognito login fails with "User does not exist"
+### Issue: "Network Error" when calling API
 
-**Solution**: Create user in Cognito User Pool:
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id <YOUR_USER_POOL_ID> \
-  --username user@example.com \
-  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true \
-  --temporary-password TempPassword123!
-```
+**Solution**: 
+1. Verify `VITE_API_URL` in `.env.local` is correct
+2. Check if API endpoint is reachable: `curl <VITE_API_URL>/v1/health`
+3. If unreachable, contact maintainer
 
 ### Issue: Environment variables not loading
 
@@ -429,59 +507,32 @@ aws cognito-idp admin-create-user \
 **Solution**:
 1. Ensure `.env.local` exists in `frontend/` directory
 2. All variables must start with `VITE_` prefix
-3. Restart dev server after changing `.env.local`
+3. Restart dev server: `Ctrl+C` then `npm run dev`
 
 ### Issue: Hot reload not working
 
 **Solution**:
 ```bash
 # Kill dev server (Ctrl+C)
-# Clear Vite cache
 rm -rf node_modules/.vite
-# Restart
 npm run dev
 ```
 
 ---
 
-## Demo Mode (for any Presentation)
+## Demo Mode (Optional)
 
-To use demo data instead of real API calls (useful for any presentation when backend isn't fully populated):
+If you want to work on the UI without API access, enable demo mode:
 
 1. Set `VITE_DEMO_MODE=true` in `.env.local`
-2. Demo data generators are in `src/utils/demo-data.ts`
-3. Analytics charts will show compelling 40-60% engagement improvement
+2. Restart dev server
+3. Demo data generators are in `src/utils/demo-data.ts`
+4. All API calls will return mock data
 
-**Demo Data Includes**:
-- Synthetic engagement trends (baseline vs ML-optimized)
-- ML model training curves
-- Send-time heatmaps
-- KPI metrics
-
----
-
-## Next Development Phases
-
-### Phase 2: User Dashboard (Planned)
-- [ ] Schedule notification form with date/time picker
-- [ ] Call ML prediction API and display optimal send time
-- [ ] User preferences editor (timezone, quiet hours)
-- [ ] Notification history (localStorage-based)
-- [ ] Engagement stats visualization
-
-### Phase 3: Analytics Dashboard (Planned)
-- [ ] Implement demo data generators
-- [ ] Engagement trends chart (Recharts LineChart)
-- [ ] ML model performance visualization
-- [ ] Send-time heatmap (24×7 grid)
-- [ ] Impact calculator with sliders
-
-### Phase 4: Production Enhancements (Optional)
-- [ ] Real-time analytics from CloudWatch Logs Insights
-- [ ] Athena queries on S3 data lake
-- [ ] Notification history from EventBridge Scheduler
-- [ ] Template management UI
-- [ ] A/B testing dashboard
+**Use cases**:
+- Working on UI components without backend
+- Testing analytics visualizations
+- Creating screenshots for documentation
 
 ---
 
@@ -492,20 +543,22 @@ To use demo data instead of real API calls (useful for any presentation when bac
 - **Tailwind CSS**: https://tailwindcss.com/docs
 - **React Router**: https://reactrouter.com
 - **TanStack Query**: https://tanstack.com/query/latest
-- **AWS Cognito SDK**: https://www.npmjs.com/package/amazon-cognito-identity-js
 - **Recharts**: https://recharts.org
 
 ---
 
 ## Support & Contact
 
-For questions about this project:
-- Check the troubleshooting section above
-- Review CDK stack outputs for correct configuration
-- Check CloudWatch Logs for backend errors
+**Contributors**: 
+- Open an issue on GitHub for bugs or feature requests
+- Email: contact@intelligent-routing.com for API access or test credentials
+
+**Business Adopters**:
+- For deployment support: contact@intelligent-routing.com
+- GitHub: https://github.com/Yadab-Sd/smart-notification-routing-engine
 
 ---
 
 ## License
 
-This project is part of the Smart Notification Routing Engine system developed for  demonstrating technical innovation and national interest value in ML-powered notification optimization.
+MIT License - see main repository for details.
