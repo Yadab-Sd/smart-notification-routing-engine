@@ -9,6 +9,7 @@ import {
     type StackProps
 } from 'aws-cdk-lib';
 import {Construct} from "constructs";
+import {SESConfiguration} from './ses-configuration';
 
 export class MessagingStack extends cdk.Stack {
     public readonly pinpointAppId: string;
@@ -97,6 +98,9 @@ export class MessagingStack extends cdk.Stack {
             principal: new iam.ServicePrincipal('sns.amazonaws.com'),
             sourceArn: this.sesComplaintTopic.topicArn
         });
+
+        // 7. Create SES Configuration Set with event destinations
+        new SESConfiguration(this, 'SESConfig', this);
 
         // ============================================================
         // PINPOINT (Optional - for legacy multi-channel support)
