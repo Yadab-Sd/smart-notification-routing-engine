@@ -2,6 +2,7 @@ package com.yadab.sr.sender.channels;
 
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 import java.util.*;
 
@@ -22,11 +23,12 @@ public class ChannelFactory {
      * Initialize factory with available channels.
      * To add new channel: instantiate and register in constructor.
      */
-    public ChannelFactory(SesV2Client ses, SnsClient sns, String defaultFromAddress) {
+    public ChannelFactory(SesV2Client ses, SnsClient sns, DynamoDbClient dynamodb,
+                          String defaultFromAddress, String suppressionTable) {
         this.channels = new HashMap<>();
 
         // Register available channels
-        channels.put("EMAIL", new EmailChannel(ses, defaultFromAddress));
+        channels.put("EMAIL", new EmailChannel(ses, defaultFromAddress, dynamodb, suppressionTable));
         channels.put("SMS", new SmsChannel(sns));
 
         // Future channels (uncomment when implemented):

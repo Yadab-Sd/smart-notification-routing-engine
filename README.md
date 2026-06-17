@@ -177,6 +177,9 @@ cd infra/cdk && pnpm exec cdk destroy --all
 
 ## Documentation
 
+### Features
+- **[FEATURES.md](FEATURES.md)** - Complete list of all 18+ features (ML optimization, multi-channel, SES compliance, analytics, etc.)
+
 ### Getting Started
 - [Complete Setup Guide](docs/SETUP.md)
 - [User Management API](docs/USER_MANAGEMENT.md)

@@ -62,12 +62,13 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         this.curatedBucket = System.getenv("CURATED_BUCKET");
 
         String defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
+        String suppressionTable = System.getenv().getOrDefault("SUPPRESSION_TABLE", "email-suppression-list");
 
         // Initialize channel factory and selector
         SesV2Client ses = SesV2Client.builder().region(region).build();
         SnsClient sns = SnsClient.builder().region(region).build();
 
-        this.channelFactory = new ChannelFactory(ses, sns, defaultFromAddress);
+        this.channelFactory = new ChannelFactory(ses, sns, dynamodb, defaultFromAddress, suppressionTable);
         this.channelSelector = new ChannelSelector(channelFactory);
     }
 

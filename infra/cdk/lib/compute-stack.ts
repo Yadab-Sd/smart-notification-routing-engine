@@ -70,11 +70,17 @@ export class ComputeStack extends Stack {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
                 CURATED_BUCKET: data.curatedBucket.bucketName,
                 PINPOINT_APP_ID: messaging?.pinpointAppId || 'PLACEHOLDER', // Automatically from MessagingStack, or placeholder if not deployed yet
-                DEFAULT_FROM_ADDRESS: senderEmail // Configurable via SENDER_EMAIL environment variable
+                DEFAULT_FROM_ADDRESS: senderEmail, // Configurable via SENDER_EMAIL environment variable
+                SUPPRESSION_TABLE: messaging?.suppressionTable.tableName || 'email-suppression-list' // SES bounce/complaint suppression
             }
         });
         data.curatedBucket.grantRead(senderFn); // templates
         data.profilesTable.grantReadData(senderFn); // read user profiles
+
+        // Grant permission to read suppression list
+        if (messaging?.suppressionTable) {
+            messaging.suppressionTable.grantReadData(senderFn);
+        }
 
         // Multi-channel permissions: SES + SNS + Pinpoint (legacy)
         senderFn.addToRolePolicy(new iam.PolicyStatement({
