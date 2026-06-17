@@ -31,11 +31,6 @@ export class SESConfiguration extends Construct {
         const configSet = new ses.CfnConfigurationSet(this, 'SNREConfigurationSet', {
             name: 'snre-production',
 
-            // Track engagement (opens, clicks)
-            trackingOptions: {
-                customRedirectDomain: undefined // Use default SES tracking domain
-            },
-
             // Enable reputation metrics
             reputationOptions: {
                 reputationMetricsEnabled: true
