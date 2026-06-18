@@ -43,7 +43,7 @@ export class SESConfiguration extends Construct {
         });
 
         // Event destination for BOUNCES → SNS
-        new ses.CfnConfigurationSetEventDestination(this, 'BounceDestination', {
+        const bounceDestination = new ses.CfnConfigurationSetEventDestination(this, 'BounceDestination', {
             configurationSetName: configSet.name!,
             eventDestination: {
                 name: 'bounce-to-sns',
@@ -54,9 +54,10 @@ export class SESConfiguration extends Construct {
                 }
             }
         });
+        bounceDestination.addDependency(configSet);
 
         // Event destination for COMPLAINTS → SNS
-        new ses.CfnConfigurationSetEventDestination(this, 'ComplaintDestination', {
+        const complaintDestination = new ses.CfnConfigurationSetEventDestination(this, 'ComplaintDestination', {
             configurationSetName: configSet.name!,
             eventDestination: {
                 name: 'complaint-to-sns',
@@ -67,9 +68,10 @@ export class SESConfiguration extends Construct {
                 }
             }
         });
+        complaintDestination.addDependency(configSet);
 
         // Event destination for DELIVERY (optional - for analytics)
-        new ses.CfnConfigurationSetEventDestination(this, 'DeliveryDestination', {
+        const deliveryDestination = new ses.CfnConfigurationSetEventDestination(this, 'DeliveryDestination', {
             configurationSetName: configSet.name!,
             eventDestination: {
                 name: 'delivery-events',
@@ -92,6 +94,7 @@ export class SESConfiguration extends Construct {
                 }
             }
         });
+        deliveryDestination.addDependency(configSet);
 
         // Output configuration set name
         new cdk.CfnOutput(this, 'SESConfigurationSetName', {
