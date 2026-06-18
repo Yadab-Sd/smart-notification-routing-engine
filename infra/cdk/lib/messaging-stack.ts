@@ -11,6 +11,10 @@ import {
 import {Construct} from "constructs";
 import {SESConfiguration} from './ses-configuration';
 
+interface MessagingStackProps extends StackProps {
+    profilesTable: dynamodb.ITable;
+}
+
 export class MessagingStack extends cdk.Stack {
     public readonly pinpointAppId: string;
     public readonly sesBounceTopic: sns.Topic;
@@ -18,7 +22,7 @@ export class MessagingStack extends cdk.Stack {
     public readonly suppressionTable: dynamodb.Table;
     public readonly sesEventsTable: dynamodb.Table;
 
-    constructor(scope: Construct, id: string, props: StackProps) {
+    constructor(scope: Construct, id: string, props: MessagingStackProps) {
         super(scope, id, props);
 
         // ============================================================
@@ -75,7 +79,7 @@ export class MessagingStack extends cdk.Stack {
             environment: {
                 SUPPRESSION_TABLE: this.suppressionTable.tableName,
                 SES_EVENTS_TABLE: this.sesEventsTable.tableName,
-                USER_PROFILES_TABLE: '{{USER_PROFILES_TABLE}}' // Will be updated by compute stack
+                USER_PROFILES_TABLE: props.profilesTable.tableName
             },
             description: 'Processes SES bounce and complaint notifications'
         });
@@ -83,6 +87,7 @@ export class MessagingStack extends cdk.Stack {
         // Grant permissions
         this.suppressionTable.grantReadWriteData(sesEventProcessor);
         this.sesEventsTable.grantReadWriteData(sesEventProcessor);
+        props.profilesTable.grantReadWriteData(sesEventProcessor);
 
         // 5. Subscribe Lambda to SNS topics
         this.sesBounceTopic.addSubscription(new subscriptions.LambdaSubscription(sesEventProcessor));
