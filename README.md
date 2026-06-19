@@ -5,6 +5,7 @@
 **ML-Powered Notification Delivery Optimization**
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/1075035783.svg)](https://zenodo.org/badge/latestdoi/1075035783)
 [![AWS](https://img.shields.io/badge/AWS-Serverless-orange)](https://aws.amazon.com/)
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/)
 [![Python](https://img.shields.io/badge/Python-3.10-green)](https://www.python.org/)
