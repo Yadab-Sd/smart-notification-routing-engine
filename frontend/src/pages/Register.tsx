@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import PilotProgramBanner from '@/components/common/PilotProgramBanner'
@@ -39,7 +39,7 @@ const STRENGTH_COLORS = [
 const BULLETS = ['Sign up in 60 seconds', 'SOC 2 & GDPR compliant']
 
 const Register = () => {
-  const { signup } = useAuth()
+  const { signup, isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const navigate = useNavigate()
 
   const [company, setCompany] = useState('')
@@ -54,6 +54,23 @@ const Register = () => {
   const [success, setSuccess] = useState(false)
 
   const strength = useMemo(() => evaluateStrength(password), [password])
+
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthLoading, isAuthenticated, navigate])
+
+  if (isAuthLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
