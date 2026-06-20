@@ -1,174 +1,243 @@
 # Business Adoption Guide
 
-## For Non-Technical Businesses
+Smart Notification Routing Engine (SNRE) helps organizations test a safer way to send notifications: not only choosing a better delivery time, but also asking whether a message is worth the user's attention right now.
 
-Don't have a technical team? **No problem!**
-
-Contact me and I'll set up the entire system for you at **zero cost**.
+SNRE is open source and pilot-ready. It is best introduced through a small, controlled pilot before any permanent adoption decision.
 
 ---
 
-## Two Options for Businesses
+## Recommended Adoption Path
 
-### Option 1: Free Setup & Support (Recommended for Non-Technical)
+### 1. Hosted Discovery Pilot
+
+Best for organizations that want to evaluate SNRE without creating AWS infrastructure first.
+
+**What this means**:
+
+- I host a dedicated pilot environment for a limited period.
+- The organization tests one low-risk notification use case.
+- Pilot data is minimized, pseudonymized where possible, and deleted or transferred after the pilot.
+- The goal is to prove whether SNRE is useful before asking the organization to own infrastructure.
+
+**Typical duration**:
+
+- 7 days: technical validation
+- 15 days: recommended first pilot
+- 30 days: stronger measurement window
+
+**Best for**:
+
+- early evaluation
+- non-technical teams
+- organizations that want to see value before assigning engineers
+- low-risk email-first notification workflows
+
+**Important boundary**:
+
+This is not a permanent hosted SaaS offer. If the organization decides to adopt SNRE long-term, the recommended model is deployment into the organization's own AWS account.
+
+---
+
+### 2. Assisted Customer-Owned Deployment
+
+Best after a successful pilot or for organizations that already require data and infrastructure control.
 
 **What you get**:
-- ✅ Complete infrastructure deployment
-- ✅ System configuration for your use case
-- ✅ API integration assistance
-- ✅ Training for your team
-- ✅ **Lifetime access** to the system
-- ✅ **You own everything** (deployed to YOUR AWS account)
+
+- SNRE deployed into your AWS account
+- full ownership of infrastructure and data
+- API integration guidance
+- admin console setup
+- SES sender configuration guidance
+- documentation for your technical team
 
 **What you pay**:
-- Only YOUR AWS infrastructure costs (~$50-150/month)
-- No setup fees
-- No licensing fees
-- **Free support for initial setup**
 
-**How it works**:
-1. **You create AWS account** (10 minutes, I'll guide you)
-2. **I deploy everything** to your account
-3. **I help integrate** with your existing systems
-4. **You maintain** and benefit forever
+- your AWS infrastructure cost
+- no software licensing fee
+- optional support/customization if agreed separately
+
+**Why this is the preferred long-term model**:
+
+- you control access
+- you control retention
+- you control AWS billing
+- there is no vendor lock-in
+- the code is MIT licensed
 
 ---
 
-### Option 2: Self-Deploy (For Technical Teams)
+### 3. Self-Deploy
 
-If you have engineers who know AWS, follow the step-by-step guide:
+Best for technical teams comfortable with AWS, CDK, Java, and React.
+
+Start here:
 
 👉 **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete technical deployment guide
 
-**One-command deployment**:
-```bash
-./scripts/setup.sh
-cd infra/cdk
-pnpm exec cdk deploy --all
-```
+Recommended commands:
 
-Takes 15-30 minutes.
+```bash
+./scripts/deploy-infra.sh
+./scripts/deploy-frontend.sh
+```
 
 ---
 
-## Contact for Free Setup
+## Best First Use Cases
+
+Good first pilots are useful but not dangerous if delayed:
+
+- appointment reminders
+- abandoned cart reminders
+- renewal reminders
+- course or learning reminders
+- account nudges
+- shipping or order updates
+- internal staff announcements
+- community announcements
+
+Avoid first pilots with:
+
+- emergency alerts
+- password reset codes
+- fraud alerts
+- medical-critical notifications
+- legal notices
+- financial-critical instructions
+
+Those can be considered later after the system proves reliability in safer categories.
+
+---
+
+## What A Pilot Measures
+
+SNRE pilots should be judged with practical, conservative metrics:
+
+- how many messages were sent, scheduled, or deferred
+- how often Attention Escrow prevented low-value sends
+- bounce and complaint behavior
+- suppression list additions
+- blocked sends to suppressed addresses
+- click/open/conversion trends if available
+- organization feedback on explainability and workflow fit
+
+The goal is not to promise a dramatic lift. The goal is to test whether notification delivery becomes safer, more explainable, and more respectful of user attention.
+
+---
+
+## Data And Security Expectations
+
+For hosted discovery pilots:
+
+- use one limited notification workflow
+- prefer test users, pilot users, or a small eligible segment
+- avoid sensitive content unless a proper agreement is in place
+- use stable pseudonymous IDs when possible
+- share only the fields needed for routing and measurement
+- define deletion/export expectations before starting
+
+For permanent adoption:
+
+- deploy into your AWS account
+- keep data under your access controls
+- connect SNRE to your existing compliance and consent workflows
+- review security, retention, and monitoring policies internally
+
+See [SECURITY.md](./SECURITY.md) for vulnerability reporting and security expectations.
+
+---
+
+## Contact For Pilot Or Adoption Discussion
 
 **Email**: contact@intelligent-routing.com
 
-**Subject**: Business Adoption - Free Setup Request
+**Subject**:
 
-**Include**:
-```
-Company Name:
-Industry: (Healthcare / Education / E-commerce / Other)
-Location: (City, State)
-Use Case: (What notifications do you send?)
-Monthly Volume: (Approximate number of notifications)
-Timeline: (When would you like to start?)
+```text
+SNRE Pilot Or Adoption Request - [Your Organization]
 ```
 
-I'll reply within 24 hours to schedule a call.
+Include:
+
+```text
+Organization:
+Industry:
+Location:
+Primary notification use case:
+Current sending channel:
+Approximate monthly notification volume:
+Preferred pilot length: 7 / 15 / 30 days
+Do you have a technical contact?:
+Do you want hosted pilot first or customer-owned AWS deployment?:
+What outcome do you want to improve?:
+Can you share aggregate pilot metrics?:
+Preferred start date:
+```
 
 ---
 
-## Why Offer Free Setup?
+## Why I Offer Pilots
 
-This open-source project powers my research for a U.S. immigration petition (National Interest Waiver). By adopting this system:
+This open-source project supports my work on intelligent, trust-aware notification infrastructure. Real-world pilots help validate the system with operational data, while organizations get a low-friction way to test whether smarter notification timing and Attention Escrow are useful for their users.
 
-- ✅ You get cutting-edge ML notification optimization
-- ✅ You help validate the technology with real-world usage
-- ✅ You support an open-source project benefiting US businesses
+The pilot is designed to be mutually beneficial:
 
----
-
-## What Happens After Setup?
-
-**You own the system**:
-- Deployed to YOUR AWS account
-- Full control and access
-- No vendor lock-in
-- MIT licensed (use commercially, modify freely)
-
-**Ongoing costs**:
-- Your AWS bill only (~$50-150/month based on usage)
-- Optional: Paid support ($500-2,000/month if you want dedicated help)
-
-**Benefits**:
-- 40-60% higher notification engagement rates
-- Lower notification costs (ML optimization)
-- Better user experience (right time delivery)
-- Full data sovereignty (your data stays in your AWS)
+- organizations test the system with limited risk
+- users benefit from more respectful notification delivery
+- the project gains evidence, feedback, and adoption readiness
 
 ---
 
-## Success Stories
+## After A Pilot
 
-### Healthcare Provider (California)
-- **Use case**: Appointment reminders
-- **Results**: 52% higher response rate
-- **Cost**: $87/month AWS infrastructure
-- **Quote**: "Setup was seamless, results were immediate"
+The organization can choose:
 
-### E-commerce Store (Texas)
-- **Use case**: Order confirmations, shipping updates
-- **Results**: 43% increase in click-through rate
-- **Cost**: $124/month AWS infrastructure
-- **Quote**: "Best ROI of any tool we've deployed"
+1. **Stop**
+   - pilot data is deleted or exported as agreed
+   - no lock-in
+
+2. **Extend**
+   - add more users, campaigns, or tracking signals
+   - continue measuring before adoption
+
+3. **Adopt**
+   - deploy SNRE into the organization's AWS account
+   - operate it independently
+   - customize the MIT-licensed code as needed
 
 ---
 
 ## Frequently Asked Questions
 
-### Do I need AWS knowledge?
+### Do we need AWS knowledge to try SNRE?
 
-**No** - if you use Option 1 (free setup), I handle everything. You just need to create an AWS account (I'll guide you).
+Not for a hosted discovery pilot. For permanent adoption, your organization should use its own AWS account or have a technical partner operate it.
 
-### What if I don't have AWS account?
+### Who pays for the pilot AWS cost?
 
-I'll walk you through creating one (takes 10 minutes). You need:
-- Credit card (for AWS billing)
-- Email address
-- Phone number (verification)
+For selected discovery pilots, I may host and cover the limited pilot infrastructure cost. Permanent adoption runs in the organization's AWS account and is paid by the organization.
 
-### Can I try it first without committing?
+### Is this a SaaS product?
 
-**Yes** - see [PILOT_PROGRAM.md](./PILOT_PROGRAM.md) for 3-month free pilot where I pay ALL costs.
+No. SNRE is an open-source system. The recommended long-term model is customer-owned deployment.
 
-### Is my data secure?
+### Can we use real users?
 
-**100% secure** - everything deploys to YOUR AWS account. I never see your data. Full HIPAA/GDPR compliance.
+Yes, but start with a small, low-risk segment and only after consent, compliance, and data-sharing expectations are clear.
 
-### What if I want to stop using it?
+### Can we modify the system?
 
-You can delete the infrastructure anytime (one command). No contracts, no obligations.
-
-### Can I modify the code?
-
-**Yes** - MIT license allows commercial use and modification. You own your deployment.
-
----
-
-## Next Steps
-
-1. **Review** [DEPLOYMENT.md](./DEPLOYMENT.md) (technical overview)
-2. **Email me** at contact@intelligent-routing.com
-3. **Schedule call** to discuss your needs
-4. **Get setup** within 1-2 weeks
-5. **Start optimizing** notifications immediately
+Yes. SNRE is MIT licensed and can be used commercially or modified.
 
 ---
 
 ## Pilot Program
 
-Want to test before full adoption? See [PILOT_PROGRAM.md](./PILOT_PROGRAM.md):
+For the detailed pilot scope, phases, entry criteria, and metrics:
 
-- **3-month pilot**
-- **Zero cost** (I pay everything)
-- **Real production testing**
-- **No commitment** required
+👉 **[PILOT_PROGRAM.md](./PILOT_PROGRAM.md)**
 
 ---
 
-*Questions? Email contact@intelligent-routing.com*
-
-*Last updated: June 14, 2026*
+Last updated: June 20, 2026

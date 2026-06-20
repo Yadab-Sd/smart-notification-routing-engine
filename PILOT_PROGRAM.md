@@ -1,269 +1,432 @@
-# Intelligent Routing Engine - Pilot Program
+# SNRE Pilot Program
 
-## Program Overview
+Smart Notification Routing Engine (SNRE) is available for limited pilot testing with organizations that want to reduce notification fatigue, improve delivery timing, and evaluate trust-aware notification routing with real operational data.
 
-We're offering **free pilot deployments** to US-based organizations (healthcare providers, educational institutions, e-commerce businesses) to demonstrate the national impact of ML-optimized notification routing.
-
-### What You Get
-
-✅ **Complete Infrastructure Deployment**
-- Deploy to YOUR AWS account (you control all data)
-- Full CDK infrastructure-as-code setup
-- Multi-channel support (Email via SES, SMS via SNS)
-- ML model training pipeline with SageMaker
-
-✅ **Technical Support**
-- Initial deployment assistance (1-2 hours)
-- Configuration guidance
-- Troubleshooting support during pilot period
-- Weekly check-ins (optional)
-
-✅ **Zero Cost From Us**
-- No setup fees
-- No licensing fees during pilot
-- No adoption costs
-- You only pay your own AWS infrastructure costs (~$50-150/month for typical pilot volume)
-
-### Pilot Duration
-
-**3 months** with option to extend
-
-### Eligibility
-
-- ✅ US-based organization (priority)
-- ✅ Have AWS account (or willing to create one)
-- ✅ Use case: Transactional notifications, alerts, or customer communications
-- ✅ Estimated volume: 1,000-100,000 notifications/month
-- ✅ Willing to provide feedback and usage metrics for research purposes
+This is a **controlled pilot program**, not a claim that SNRE is a finished enterprise notification platform. The goal is to test whether intelligent timing and Attention Escrow can improve user experience and business outcomes in a safe, measurable way.
 
 ---
 
-## Pilot Phases
+## Pilot Positioning
 
-### Phase 1: Setup (Week 1)
-1. **Kickoff call** (30 min)
-   - Discuss use case and requirements
-   - Review architecture and deployment model
-   - Set success metrics
+SNRE helps answer two questions before a message is sent:
 
-2. **Deployment** (1-2 hours)
-   - Deploy infrastructure to your AWS account
-   - Configure email/SMS channels
-   - Verify system health
+1. **When should this user receive the message?**
+2. **Is this message worth spending the user's attention right now?**
 
-3. **Integration** (Your team, 2-5 days)
-   - Integrate API into your application
-   - Test with sample notifications
-   - Train team on dashboard
+The first question is handled by send-time optimization. The second is handled by **Attention Escrow**, a trust-aware gate that compares estimated attention cost against message value before scheduling.
 
-### Phase 2: Initial Testing (Weeks 2-4)
-- Start with 10-20% of notification traffic
-- Monitor delivery rates and engagement
-- Collect baseline metrics
-- Weekly check-in calls
+The pilot is best suited for organizations that already send user notifications and want to test whether smarter routing can:
 
-### Phase 3: Full Rollout (Weeks 5-8)
-- Scale to 100% of traffic
-- ML model begins learning from your data
-- Measure engagement improvements
-- Document results
+- reduce over-sending
+- protect user trust
+- improve engagement timing
+- lower bounce/complaint risk
+- make notification decisions more explainable
 
-### Phase 4: Evaluation (Weeks 9-12)
-- Compare metrics: before vs after
-- Document cost/benefit
-- Decide on continued usage
-- Provide testimonial/case study (optional)
+---
+
+## Current Pilot Scope
+
+### Pilot-Ready Today
+
+- Email notification routing through Amazon SES
+- Immediate and optimized delivery modes
+- Event ingestion API for organization systems
+- Admin console for testing and monitoring
+- Send-time prediction integration
+- Attention Escrow MVP scoring
+- Attention decision ledger in DynamoDB
+- Scheduled delivery through EventBridge Scheduler
+- Bounce and complaint processing through SES/SNS
+- Email suppression list enforcement before sending
+- Local deployment scripts and optional GitHub Actions frontend deploy
+
+### Designed For Expansion
+
+The architecture is designed for SMS, push, and additional channels, but the recommended pilot path is **email-first**. This keeps the pilot lower-risk and easier to validate before adding SMS, push, WhatsApp, or emergency channels.
+
+### Not Recommended For First Pilot
+
+Do not start with:
+
+- emergency alerts
+- medical-critical notifications
+- legal notices
+- financial-critical alerts
+- high-volume marketing blasts
+
+Start with non-critical or moderately important messages where deferral is acceptable.
+
+---
+
+## Good Pilot Use Cases
+
+Strong first use cases:
+
+- appointment reminders
+- abandoned cart reminders
+- renewal reminders
+- course or learning reminders
+- account nudges
+- shipping or order updates
+- internal non-urgent staff notifications
+- community announcements
+
+Poor first use cases:
+
+- password reset codes
+- fraud alerts
+- account lockout alerts
+- evacuation or emergency warnings
+- time-sensitive legal or healthcare instructions
+
+Those can be considered later after the system has proven reliability in safer notification categories.
+
+---
+
+## What The Organization Gets
+
+- A deployable open-source notification optimization system
+- A hosted discovery pilot environment for selected low-risk evaluations, or deployment into the organization's AWS account when preferred
+- API-based integration path for existing systems
+- Admin UI for testing, previewing, and monitoring decisions
+- Suppression handling for bounces and complaints
+- Clear metrics for sends, deferrals, suppression, and Attention Escrow decisions
+- A pilot review report at the end of the test period
+
+SNRE is MIT licensed. After the pilot, the organization can continue using, modifying, or self-hosting the system.
+
+Hosted pilots are meant to reduce evaluation friction. They are not a replacement for customer-owned infrastructure when the organization decides to adopt SNRE permanently.
+
+---
+
+## What SNRE Needs From A Pilot Partner
+
+Minimum data/configuration:
+
+- user ID or stable pseudonymous user identifier
+- destination email address
+- notification category
+- message text or template identifier
+- urgency level
+- approximate business value score
+- delivery mode: `IMMEDIATE` or `OPTIMIZED`
+
+Recommended data:
+
+- campaign ID or source ID
+- template ID
+- notification priority
+- historical send timestamps
+- historical click/open/conversion data if available
+- unsubscribe/spam/complaint history if available
+
+SNRE can start without full click/open tracking. However, richer outcome data makes future optimization stronger.
+
+---
+
+## Pilot Architecture
+
+Typical data flow:
+
+```text
+Organization System
+  -> SNRE Events API
+  -> Decision Service
+  -> Send-Time Optimization
+  -> Attention Escrow Gate
+  -> EventBridge Scheduler
+  -> Sender Service
+  -> Amazon SES
+  -> User Inbox
+
+SES Bounce/Complaint Events
+  -> SNS
+  -> SES Event Processor
+  -> Suppression List
+  -> Future Send Blocking
+```
+
+Admin teams can use the SNRE frontend to:
+
+- preview attention decisions
+- send test events
+- inspect send/defer behavior
+- monitor Attention Escrow summary metrics
+- verify suppression behavior
 
 ---
 
 ## Success Metrics
 
-We track (anonymized, aggregate data only):
+The pilot should be judged with clear, conservative metrics.
 
-- **Engagement Rate**: Click-through rate improvement
-- **Delivery Success**: Email/SMS delivery rates
-- **ML Model Performance**: Prediction accuracy over time
-- **Cost Efficiency**: AWS infrastructure costs vs volume
-- **User Satisfaction**: Feedback from your end-users
+### Delivery Safety
 
-### Typical Results
+- bounce rate
+- complaint rate
+- suppression list additions
+- blocked sends to suppressed users
+- failed scheduled sends
 
-Based on research and early testing:
-- **40-60% higher engagement** vs fixed-time delivery
-- **$0.10-0.30 per 1,000 notifications** (AWS costs)
-- **2-3 week learning period** before ML optimization kicks in
+### User Trust And Fatigue
+
+- percentage of messages deferred by Attention Escrow
+- average attention cost
+- average attention value
+- repeated sends per user over time
+- opt-out or unsubscribe trend, if available
+
+### Engagement
+
+- click rate, if available
+- open rate, if available and appropriate
+- conversion or task completion rate, if available
+- response rate for reminder workflows
+
+### Business Value
+
+- messages sent at predicted better times
+- avoidable sends blocked or deferred
+- campaign/source-level performance
+- operational feedback from staff
+- AWS cost per notification volume
+
+For early pilots, the most important result is not a dramatic lift claim. The most important result is whether SNRE makes notification delivery safer, more explainable, and measurably useful.
 
 ---
 
-## Your Responsibilities
+## Pilot Phases
 
-### Technical:
-- ✅ Provide AWS account credentials (or deploy using your own CLI)
-- ✅ Integrate REST API into your application
-- ✅ Configure notification templates
-- ✅ Monitor AWS costs
+### Phase 1: Fit Check
 
-### Operational:
-- ✅ Provide feedback on system performance
-- ✅ Share anonymized usage metrics for research
-- ✅ Participate in weekly/bi-weekly check-ins
-- ✅ Document use case and results (optional case study)
+Duration: 30-45 minutes
 
-### Compliance:
-- ✅ Ensure notification content complies with CAN-SPAM, TCPA
-- ✅ Implement opt-out mechanisms for end-users
-- ✅ Handle your own data privacy (GDPR, HIPAA if applicable)
+- understand the organization's notification workflow
+- choose one safe pilot use case
+- confirm compliance constraints
+- define success metrics
+- choose deployment model
+- decide whether the first test should be hosted discovery, shadow mode, or customer-owned AWS
+
+### Phase 2: Pilot Setup
+
+Duration: 1-3 days depending on integration and AWS readiness
+
+- prepare the hosted pilot environment or deploy infrastructure with CDK/helper scripts
+- configure SES sender identity
+- configure API and Cognito access
+- deploy frontend
+- run health checks
+- test bounce/complaint suppression
+
+Recommended commands for technical teams:
+
+```bash
+./scripts/deploy-infra.sh
+./scripts/deploy-frontend.sh
+```
+
+### Phase 3: Integration
+
+Duration: 2-10 business days
+
+- connect one notification source to `/v1/events`
+- start with test users
+- validate immediate and optimized delivery
+- verify Attention Escrow preview and ledger entries
+- confirm CloudWatch and DynamoDB traces
+
+### Phase 4: Limited Production Test
+
+Duration: 2-4 weeks
+
+- route a small percentage of eligible notifications through SNRE
+- monitor send/defer decisions
+- monitor SES reputation and suppression events
+- compare against baseline behavior
+
+### Phase 5: Review
+
+Duration: 1 week
+
+- summarize results
+- identify integration gaps
+- decide whether to expand, continue, or stop
+- optionally prepare a public or private case study
 
 ---
 
-## Application Process
+## Deployment Models
 
-### Step 1: Initial Contact
+### Recommended First Step: Hosted Discovery Pilot
 
-Email: **contact@intelligent-routing.com**
+Best when the organization wants to validate SNRE before assigning cloud budget or engineering time.
 
-Subject: `Pilot Program Application - [Your Organization]`
+- SNRE maintainer hosts a dedicated pilot environment for a limited period
+- organization shares only the minimum data needed for the selected use case
+- data should be pseudonymized where possible
+- pilot scope, deletion/export expectations, and access boundaries are agreed before starting
+- useful for 7, 15, or 30 day evaluations
+
+This model is designed to lower evaluation friction, not to become permanent hosted infrastructure.
+
+### Long-Term Adoption: Organization-Owned AWS Account
+
+Best for data sovereignty and trust.
+
+- organization owns all AWS resources
+- organization controls data and access
+- SNRE is deployed from open-source code
+- easiest path to long-term adoption
+
+### Shadow Mode Evaluation
+
+Best when the organization is not ready to let SNRE send messages.
+
+- organization sends event samples or limited live events
+- SNRE produces send/schedule/defer/suppress decisions
+- existing production system continues sending as usual
+- results are compared against the organization's baseline behavior
+
+Shadow mode is often the safest first path for sensitive organizations.
+
+For sensitive industries, organization-owned AWS is strongly preferred.
+
+---
+
+## Responsibilities
+
+### SNRE Maintainer
+
+- provide deployment guidance
+- help configure the pilot use case
+- support API integration questions
+- review system metrics
+- help interpret Attention Escrow decisions
+- document lessons learned
+- for hosted discovery pilots, operate the limited pilot environment and follow the agreed deletion/export plan
+
+### Pilot Organization
+
+- ensure it has permission to message users
+- provide compliant notification content
+- maintain opt-out, consent, and privacy obligations
+- monitor AWS costs when using its own AWS account
+- identify one technical contact
+- share agreed aggregate pilot metrics
+- avoid sending sensitive data unless an appropriate agreement is in place
+
+### Important Compliance Note
+
+SNRE is a software tool. The sending organization remains responsible for legal and regulatory compliance, including consent, unsubscribe handling, data protection, CAN-SPAM, TCPA, HIPAA, FERPA, GDPR, or other applicable rules.
+
+This repository includes compliance guidance, but it is not legal advice.
+
+---
+
+## Current Limitations
+
+Be transparent about these during pilot conversations:
+
+- Attention Escrow is currently MVP rule-based scoring, not a trained attention-cost model.
+- Email is the recommended first pilot channel.
+- Click/open/conversion tracking may require additional integration work.
+- Missing clicks do not always mean a message had no value.
+- SMS/push support should be treated as expansion work, not the first validation path.
+- Production SES access and sender/domain authentication may be required before real outbound email volume.
+- The system is deployed per organization and does not learn from other organizations' traffic.
+
+These limitations are acceptable for a pilot as long as the pilot scope is honest.
+
+---
+
+## Pilot Entry Criteria
+
+Good candidates have:
+
+- a real notification workflow
+- one low-risk pilot use case
+- a technical contact
+- willingness to start with hosted discovery, shadow mode, or organization-owned AWS
+- permission to send the selected notification type
+- willingness to evaluate results with aggregate metrics
+
+Suggested pilot volume:
+
+- minimum: 500-1,000 eligible notifications/month
+- comfortable range: 1,000-50,000 notifications/month
+- higher volume should start with a small percentage rollout
+
+---
+
+## Application Template
+
+Email: `contact@intelligent-routing.com`
+
+Subject:
+
+```text
+SNRE Pilot Request - [Organization Name]
+```
 
 Include:
+
+```text
+Organization:
+Industry:
+Location:
+Primary notification use case:
+Current sending channel:
+Approximate monthly notification volume:
+Preferred deployment model: Hosted discovery / Shadow mode / Organization-owned AWS
+Do you use SES, SendGrid, Twilio, Firebase, or another provider?:
+What outcome do you want to improve?:
+Can you share aggregate pilot metrics?:
+Preferred pilot start date:
+Technical contact:
 ```
-Organization Name:
-Industry: (Healthcare / Education / E-commerce / Other)
-Location: (City, State)
-Use Case: (Brief description of notification needs)
-Estimated Monthly Volume:
-AWS Account: (Have one / Will create one)
-Timeline: (When you'd like to start)
-```
-
-### Step 2: Screening Call (15-20 min)
-
-We'll discuss:
-- Your use case and requirements
-- Technical feasibility
-- Success metrics and goals
-- Timeline and commitment
-
-### Step 3: Approval (24-48 hours)
-
-We prioritize based on:
-1. ✅ US-based organizations (NIW requirement)
-2. ✅ High social impact (healthcare, education)
-3. ✅ Clear use case and metrics
-4. ✅ Technical readiness
-
-### Step 4: Onboarding (Week 1)
-
-Kickoff call → Deployment → Integration → Testing
 
 ---
 
-## Technical Requirements
+## After The Pilot
 
-### Infrastructure:
-- AWS account with admin access
-- Region: US-West-2 (Oregon) or US-East-1 (Virginia)
-- Budget: $50-150/month for typical pilot volume
+The organization can choose:
 
-### Integration:
-- REST API integration (any language)
-- Ability to send POST requests to API endpoint
-- User event tracking (clicks, opens) optional but recommended
+1. **Adopt in its own AWS account**
+   - keep using the MIT-licensed system
+   - operate it under its own AWS controls
+   - modify it as needed
 
-### Skills Needed (Your Team):
-- Basic AWS familiarity (or willingness to learn)
-- API integration experience
-- Ability to instrument your application with tracking code
+2. **Expand the pilot**
+   - add more notification sources
+   - add richer outcome tracking
+   - test more channels
+   - calibrate Attention Escrow scoring
 
----
+3. **Stop**
+   - export any needed data
+   - delete AWS resources
+   - share lessons learned
 
-## After Pilot
-
-### Option 1: Continue Using (Open Source)
-
-The system is **MIT licensed** - you can:
-- ✅ Continue using indefinitely
-- ✅ Modify as needed
-- ✅ No ongoing fees to us
-- ✅ Pay only your AWS costs
-
-### Option 2: Paid Support (Future)
-
-If you want ongoing support beyond pilot:
-- **Enterprise Support**: $500-2,000/month (based on volume)
-- Includes: Dedicated support, custom features, SLA guarantees
-- **Not available yet** - we're building based on pilot feedback
-
-### Option 3: Discontinue
-
-No hard feelings! We appreciate:
-- Your feedback and metrics
-- Testimonial or case study (if positive experience)
-- Referrals to similar organizations
+There is no lock-in.
 
 ---
 
-## Research Purpose & NIW Context
+## Maintainer Notes For Outreach
 
-**Why we're offering free pilots:**
+Use careful language:
 
-This pilot program supports research for a **National Interest Waiver (NIW) immigration petition** demonstrating the national impact of intelligent notification routing technology.
+- Say "pilot-ready", not "enterprise complete".
+- Say "email-first", not "fully multi-channel".
+- Say "MVP Attention Escrow scoring", not "fully trained attention AI".
+- Say "measured pilot", not "guaranteed engagement lift".
+- Lead with trust, safety, and explainability.
 
-**What this means for you:**
-- ✅ Your participation helps demonstrate real-world value
-- ✅ Anonymized, aggregate metrics may be used in research papers
-- ✅ You may be mentioned as a pilot participant (with permission)
-- ✅ You benefit from cutting-edge ML optimization at zero cost
+Best one-sentence pitch:
 
-**Your data:**
-- ✅ Stays in YOUR AWS account (we never see it)
-- ✅ You control all user data and notifications
-- ✅ We only see aggregate metrics you choose to share
-- ✅ Complete data sovereignty and privacy
+> SNRE helps organizations decide not only when to send a notification, but whether sending it is worth the user's attention right now.
 
 ---
 
-## FAQs
-
-### Q: Is this really free?
-**A:** Yes. You pay only your own AWS infrastructure costs (~$50-150/month). No fees to us during pilot.
-
-### Q: What happens to my data?
-**A:** It stays in YOUR AWS account. We don't have access. You own and control everything.
-
-### Q: Can I stop anytime?
-**A:** Yes. It's deployed to your account, so you have full control. Stop anytime, no questions asked.
-
-### Q: What if I'm not in the US?
-**A:** We prioritize US organizations for NIW purposes, but international organizations may be considered on case-by-case basis.
-
-### Q: Do I need ML expertise?
-**A:** No. The ML pipeline is automated. You just integrate the API like any other notification service.
-
-### Q: How is this different from SendGrid/Twilio?
-**A:** They're delivery providers. We're an optimization layer that predicts WHEN to send via those providers.
-
-### Q: Can I white-label this?
-**A:** Yes (MIT license). You can brand it however you want.
-
----
-
-## Contact
-
-**Email**: contact@intelligent-routing.com  
-**Website**: https://intelligent-routing.com  
-**GitHub**: https://github.com/Yadab-Sd/smart-notification-routing-engine  
-**Documentation**: https://intelligent-routing.com/docs
-
----
-
-## Timeline to Apply
-
-**Applications accepted**: Rolling basis  
-**Target pilot start dates**: Within 2 weeks of approval  
-**Pilot program duration**: 3 months (Jan-Mar 2026, Apr-Jun 2026, etc.)  
-
-**Limited spots**: We're targeting 3-5 pilot organizations to ensure quality support.
-
----
-
-*Last updated: June 14, 2026*
+Last updated: June 20, 2026

@@ -28,7 +28,7 @@ Learns when each user is most likely to engage with notifications, then automati
 3. Predicts best send time per user (real-time)
 4. Schedules delivery accordingly
 
-**Result**: 40-60% higher engagement vs fixed-time delivery.
+**Pilot goal**: Validate whether user-specific timing and attention-aware routing improve engagement, reduce fatigue, and lower risky sends compared with fixed-time delivery.
 
 ---
 
@@ -225,12 +225,13 @@ Copyright (c) 2025 Yadab Sutradhar
 
 ### Are you a business wanting to adopt this system?
 
-**Non-technical?** I'll set everything up for you at zero cost.  
-**Technical team?** Follow the one-click deployment guide.
+**Want to evaluate first?** Start with a hosted discovery pilot or shadow-mode test.
+**Ready to adopt?** Deploy into your own AWS account for full control.
+**Technical team?** Follow the deployment guide and helper scripts.
 
 👉 **[BUSINESS_ADOPTION.md](./BUSINESS_ADOPTION.md)** - Complete adoption guide
 
-**Email**: contact@intelligent-routing.com for free setup support
+**Email**: contact@intelligent-routing.com for pilot or adoption support
 
 ---
 
@@ -246,7 +247,7 @@ Help improve the system and get AWS access to test your changes.
 
 ### Want to pilot it first?
 
-Test the system for 3 months with zero cost to you.
+Run a controlled, email-first pilot with clear success metrics, minimized data sharing, and no vendor lock-in.
 
 👉 **[PILOT_PROGRAM.md](./PILOT_PROGRAM.md)** - Pilot program details
 
