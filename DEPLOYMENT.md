@@ -14,6 +14,17 @@ This guide helps external collaborators deploy the Intelligent Routing Engine to
 
 ---
 
+## Deployment Options
+
+SNRE supports two deployment styles:
+
+1. **Local scripts**: recommended default for contributors, adopters, and maintainers. You run deploy commands from your machine with your own AWS profile.
+2. **GitHub Actions deploy**: optional maintainer path. It uses GitHub OIDC and manual `workflow_dispatch`, so frontend deployment only happens when someone intentionally runs the workflow.
+
+Use local scripts first. Add GitHub deployment after your AWS account and environments are stable.
+
+---
+
 ## Step 1: Clone Repository
 
 ```bash
@@ -138,6 +149,22 @@ cd services/endpoint-deployer && mvn clean package
 
 ## Step 4: Deploy Infrastructure
 
+Recommended:
+
+```bash
+# Deploy all stacks
+./scripts/deploy-infra.sh
+
+# Or deploy selected stacks
+./scripts/deploy-infra.sh SR-Compute
+./scripts/deploy-infra.sh SR-Messaging SR-Frontend
+
+# Skip CDK bootstrap when already bootstrapped
+SKIP_BOOTSTRAP=true ./scripts/deploy-infra.sh
+```
+
+Manual equivalent:
+
 ```bash
 cd infra/cdk
 
@@ -208,6 +235,27 @@ VITE_DEMO_MODE=false
 
 ### Build and Upload
 
+Recommended:
+
+```bash
+# Builds frontend with CloudFormation outputs, uploads to S3, and invalidates CloudFront
+./scripts/deploy-frontend.sh
+
+# Optional: invalidate only
+./scripts/invalidate-frontend.sh
+
+# Optional: invalidate selected path
+./scripts/invalidate-frontend.sh "/index.html"
+```
+
+The script reads these stack outputs automatically:
+
+- `SR-Compute`: `ApiUrl`
+- `SR-Identity`: `UserPoolId`, `UserPoolClientId`
+- `SR-Frontend`: `BucketName`, `DistributionId`, `WebsiteURL`
+
+Manual equivalent:
+
 ```bash
 # Build frontend
 npm install
@@ -225,6 +273,76 @@ DIST_ID=$(aws cloudformation describe-stacks --stack-name SR-Frontend \
 
 aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
 ```
+
+---
+
+## Optional: GitHub Actions Frontend Deploy
+
+The repository includes a manual frontend deployment workflow:
+
+```text
+.github/workflows/frontend-deploy.yml
+```
+
+It is intentionally **manual**, not automatic on every push to `main`.
+
+### 1. Create AWS OIDC Role
+
+In AWS IAM:
+
+1. Add an OpenID Connect provider:
+   - Provider URL: `https://token.actions.githubusercontent.com`
+   - Audience: `sts.amazonaws.com`
+2. Create an IAM role trusted by that provider.
+3. Restrict the trust policy to your repository and branch, for example:
+
+```json
+"token.actions.githubusercontent.com:sub": "repo:Yadab-Sd/smart-notification-routing-engine:ref:refs/heads/main"
+```
+
+### 2. Attach Minimal Permissions
+
+For frontend deployment, the role needs:
+
+```text
+cloudformation:DescribeStacks
+s3:ListBucket
+s3:PutObject
+s3:DeleteObject
+cloudfront:CreateInvalidation
+```
+
+Scope S3 permissions to the `SR-Frontend` bucket and CloudFront permissions to your distribution where possible.
+
+### 3. Add GitHub Secret
+
+GitHub repository:
+
+```text
+Settings -> Secrets and variables -> Actions -> New repository secret
+```
+
+Create:
+
+```text
+AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::<account-id>:role/<role-name>
+```
+
+### 4. Run the Workflow
+
+GitHub:
+
+```text
+Actions -> Frontend Deploy -> Run workflow
+```
+
+Choose:
+
+- `environment`: `development`, `staging`, or `production`
+- `aws-region`: usually `us-west-2`
+- `demo-mode`: `false` for real backend, `true` for demos
+
+For production, consider enabling GitHub Environment approval rules.
 
 ---
 

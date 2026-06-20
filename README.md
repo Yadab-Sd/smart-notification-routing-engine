@@ -64,14 +64,18 @@ This installs AWS CLI, Node.js, Java, Maven, CDK and configures everything.
 ### Deploy
 
 ```bash
-cd infra/cdk
-nano .env  # Set SENDER_EMAIL
+# Set SENDER_EMAIL in infra/cdk/.env first
 
-pnpm install
-pnpm exec cdk deploy --all
+# Deploy infrastructure
+./scripts/deploy-infra.sh
+
+# Build, upload, and invalidate the frontend
+./scripts/deploy-frontend.sh
 ```
 
 Takes 10-15 minutes. Creates 8 CloudFormation stacks.
+
+For GitHub-based frontend deployment, use the optional manual `Frontend Deploy` workflow after configuring AWS OIDC.
 
 ### Test
 

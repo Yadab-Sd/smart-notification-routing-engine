@@ -286,44 +286,36 @@ You should see CloudFormation templates for 8 stacks printed to terminal.
 
 ## Deployment
 
-### Pre-Deployment: Upload Glue Script
-
-Before deploying, upload the feature engineering script to S3:
+### Recommended: Deploy With Helper Script
 
 ```bash
-# Get the models bucket name (will be created by CDK)
-# First, deploy just the data stack to create buckets
-cd infra/cdk
-pnpm exec cdk deploy SR-Data --require-approval never
-
-# Get the models bucket name
-MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data \
-    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
-
-# Upload Glue script
-aws s3 cp ../../glue-jobs/build_hourly_features.py s3://$MODELS_BUCKET/scripts/build_hourly_features.py
-
-# Verify upload
-aws s3 ls s3://$MODELS_BUCKET/scripts/
-```
-
-**Expected output**:
-```
-2026-06-12 10:30:00      12345 build_hourly_features.py
-```
-
-**Note**: The ML stack (SR-ML) depends on this script being in S3. If you skip this step, the Glue job will fail with "The specified key does not exist" error.
-
----
-
-### Deploy All Stacks
-
-```bash
-cd infra/cdk
-pnpm exec cdk deploy --all --require-approval never
+# Builds Lambda artifacts, deploys data prerequisites, uploads the Glue script,
+# and deploys all CDK stacks.
+./scripts/deploy-infra.sh
 ```
 
 **Time**: 10-15 minutes
+
+The script automatically uploads `glue-jobs/build_hourly_features.py` to the models bucket before deploying `SR-ML`.
+
+---
+
+### Manual: Upload Glue Script And Deploy All Stacks
+
+If you prefer manual commands, upload the feature engineering script to S3 before deploying all stacks:
+
+```bash
+cd infra/cdk
+
+pnpm exec cdk deploy SR-Security SR-Data --require-approval never
+
+MODELS_BUCKET=$(aws cloudformation describe-stacks --stack-name SR-Data \
+    --query "Stacks[0].Outputs[?OutputKey=='ModelsBucketName'].OutputValue" --output text)
+
+aws s3 cp ../../glue-jobs/build_hourly_features.py s3://$MODELS_BUCKET/scripts/build_hourly_features.py
+
+pnpm exec cdk deploy --all --require-approval never
+```
 
 **What gets created**:
 - VPC with public/private subnets across 2 AZs
@@ -349,7 +341,10 @@ pnpm exec cdk deploy --all --require-approval never
 To deploy just one stack (faster iteration during development):
 
 ```bash
-pnpm exec cdk deploy SR-Compute
+./scripts/deploy-infra.sh SR-Compute
+
+# Or from infra/cdk:
+pnpm exec cdk deploy SR-Compute --require-approval never
 ```
 
 Available stacks:

@@ -1,0 +1,126 @@
+name: Frontend Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment to deploy to
+        required: true
+        default: production
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      aws-region:
+        description: AWS region for SNRE stacks
+        required: true
+        default: us-west-2
+        type: string
+      demo-mode:
+        description: Build the frontend in demo mode
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Resolve stack outputs
+        id: stack_outputs
+        run: |
+          get_output() {
+            aws cloudformation describe-stacks \
+              --stack-name "$1" \
+              --region "${{ inputs.aws-region }}" \
+              --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue | [0]" \
+              --output text
+          }
+
+          api_url="$(get_output SR-Compute ApiUrl)"
+          user_pool_id="$(get_output SR-Identity UserPoolId)"
+          client_id="$(get_output SR-Identity UserPoolClientId)"
+          bucket_name="$(get_output SR-Frontend BucketName)"
+          distribution_id="$(get_output SR-Frontend DistributionId)"
+          website_url="$(get_output SR-Frontend WebsiteURL)"
+
+          for value in api_url user_pool_id client_id bucket_name distribution_id; do
+            if [[ -z "${!value}" || "${!value}" == "None" ]]; then
+              echo "Missing required stack output: ${value}" >&2
+              exit 1
+            fi
+          done
+
+          {
+            echo "api_url=${api_url}"
+            echo "user_pool_id=${user_pool_id}"
+            echo "client_id=${client_id}"
+            echo "bucket_name=${bucket_name}"
+            echo "distribution_id=${distribution_id}"
+            echo "website_url=${website_url}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ steps.stack_outputs.outputs.api_url }}
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.stack_outputs.outputs.user_pool_id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.stack_outputs.outputs.client_id }}
+          VITE_REGION: ${{ inputs.aws-region }}
+          VITE_DEMO_MODE: ${{ inputs.demo-mode }}
+
+      - name: Upload frontend assets
+        working-directory: frontend
+        run: |
+          aws s3 sync dist/ "s3://${{ steps.stack_outputs.outputs.bucket_name }}/" \
+            --region "${{ inputs.aws-region }}" \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+
+          aws s3 cp dist/index.html "s3://${{ steps.stack_outputs.outputs.bucket_name }}/index.html" \
+            --region "${{ inputs.aws-region }}" \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.stack_outputs.outputs.distribution_id }}" \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "Frontend deployed: ${{ steps.stack_outputs.outputs.website_url }}" >> "$GITHUB_STEP_SUMMARY"

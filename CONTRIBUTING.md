@@ -358,8 +358,11 @@ The repository includes GitHub Actions for:
 - Backend Maven build/test
 - CDK synth validation
 - Basic security checks
+- Optional manual frontend deployment with GitHub OIDC
 
 Passing CI is expected before merge. If CI fails for a reason unrelated to your change, mention that in the PR.
+
+Deployment workflows are not triggered by contributor PRs. Use local scripts for your own AWS account, or ask a maintainer before running any workflow that deploys to shared infrastructure.
 
 ---
 
