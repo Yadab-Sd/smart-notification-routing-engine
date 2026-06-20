@@ -4,6 +4,156 @@ This guide helps you upgrade Smart Notification Routing Engine between versions.
 
 ---
 
+## Upgrading from v2.0.0 to v2.1.0
+
+### Overview
+
+- **Backward Compatible**: Yes for existing `/v1/events` clients using legacy `notificationType`
+- **Downtime Required**: No planned downtime, but deploy during a low-traffic window
+- **Infrastructure Changes**: Yes, CDK deploy required
+- **Database Changes**: Adds `AttentionLedger` DynamoDB table
+- **Estimated Time**: 30-60 minutes
+
+### What This Release Adds
+
+- Attention Escrow MVP for trust-aware notification routing
+- Attention decision and delivery audit records in DynamoDB
+- Attention dashboard and business summary metrics
+- Enhanced optimized event payload with `notification.deliveryMode`
+- SES bounce/complaint processing and suppression list improvements
+- Local deployment helpers for infrastructure, frontend deployment, and CloudFront invalidation
+- Optional manual GitHub Actions frontend deployment with AWS OIDC
+
+### Step 1: Backup Current Deployment
+
+```bash
+aws cloudformation describe-stacks --stack-name SR-Compute > backup-sr-compute.json
+aws cloudformation describe-stacks --stack-name SR-Data > backup-sr-data.json
+aws dynamodb list-tables > backup-dynamodb-tables.json
+```
+
+If you have production user profile data, export the relevant DynamoDB table before deploying.
+
+### Step 2: Pull Release Code
+
+```bash
+git fetch --all --tags
+git checkout v2.1.0
+```
+
+### Step 3: Deploy Infrastructure
+
+Recommended:
+
+```bash
+./scripts/deploy-infra.sh
+```
+
+If your CDK environment is already bootstrapped:
+
+```bash
+SKIP_BOOTSTRAP=true ./scripts/deploy-infra.sh
+```
+
+Manual equivalent:
+
+```bash
+./scripts/build-services.sh
+cd infra/cdk
+pnpm install --frozen-lockfile
+pnpm exec cdk diff --all
+pnpm exec cdk deploy --all --require-approval never
+```
+
+### Step 4: Deploy Frontend
+
+```bash
+./scripts/deploy-frontend.sh
+```
+
+This reads CloudFormation outputs from `SR-Compute`, `SR-Identity`, and `SR-Frontend`, builds the frontend, uploads to S3, and invalidates CloudFront.
+
+### Step 5: Verify Attention Escrow
+
+Send an optimized event:
+
+```bash
+curl -X POST "$API_URL/v1/events" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "pilot_user_1",
+    "type": "ABANDONED_CART",
+    "ts": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "notification": {
+      "deliveryMode": "OPTIMIZED",
+      "channel": "EMAIL",
+      "message": "You left something in your cart.",
+      "sourceId": "campaign:abandoned_cart",
+      "campaignId": "abandoned_cart",
+      "templateId": "cart_reminder_v1",
+      "messageCategory": "MARKETING",
+      "priorityClass": "LOW",
+      "businessValue": 6.0,
+      "urgency": 0.3,
+      "metadata": {
+        "subject": "Complete your order"
+      }
+    }
+  }'
+```
+
+Confirm the ledger:
+
+```bash
+ATTENTION_LEDGER=$(aws cloudformation describe-stacks --stack-name SR-Data \
+  --query "Stacks[0].Outputs[?OutputKey=='AttentionLedgerTableName'].OutputValue" \
+  --output text)
+
+aws dynamodb scan --table-name "$ATTENTION_LEDGER" --max-items 5
+```
+
+### Step 6: Verify SES Suppression
+
+Use AWS SES simulator addresses in a non-production test flow:
+
+```text
+bounce@simulator.amazonses.com
+complaint@simulator.amazonses.com
+```
+
+Confirm bounced or complained addresses are written to the suppression list and future sends are blocked.
+
+### Step 7: Smoke-Test Checklist
+
+- Login to frontend dashboard
+- Send an `IMMEDIATE` event
+- Send an `OPTIMIZED` event
+- Confirm `ATTENTION_DECISION` ledger record
+- Confirm `ATTENTION_DELIVERY` ledger record for sent messages
+- Confirm deferred messages do not create EventBridge schedules
+- Confirm scheduled messages create EventBridge schedules
+- Confirm `/v1/attention/summary` returns dashboard metrics
+- Confirm SES bounce/complaint suppression path
+- Confirm `./scripts/deploy-frontend.sh` deploys and invalidates CloudFront
+
+### Rollback Notes
+
+Existing event clients can continue using legacy `notificationType`, so rollback is usually only needed if infrastructure deployment fails.
+
+If rollback is required:
+
+```bash
+git checkout v2.0.0
+./scripts/build-services.sh
+cd infra/cdk
+pnpm exec cdk deploy --all --require-approval never
+```
+
+The new `AttentionLedger` table may remain unless explicitly removed by CloudFormation rollback/delete behavior.
+
+---
+
 ## Upgrading from v1.0.0 to v2.0.0
 
 ### Overview

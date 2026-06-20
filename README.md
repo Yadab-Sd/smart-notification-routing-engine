@@ -282,13 +282,13 @@ Report bugs • Request features • Ask questions
 ```bibtex
 @software{yadab_sutradhar_2026_20707474,
   author       = {Yadab Sutradhar},
-  title        = {Yadab-Sd/smart-notification-routing-engine: v2.0.0
-                   - User Management \& CI/CD - 06/15/2026
+  title        = {Yadab-Sd/smart-notification-routing-engine: v2.1.0
+                   - Attention Escrow MVP - 06/20/2026
                   },
   month        = jun,
   year         = 2026,
   publisher    = {Zenodo},
-  version      = {v2.0.0},
+  version      = {v2.1.0},
   doi          = {10.5281/zenodo.20707474},
   url          = {https://doi.org/10.5281/zenodo.20707474},
 }
