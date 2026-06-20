@@ -74,7 +74,7 @@ jobs:
           EOF
 
       - name: Run CDK synth
-        run: pnpm exec cdk synth
+        run: pnpm exec cdk synth --no-lookups
         env:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: 'us-west-2'
@@ -134,7 +134,7 @@ jobs:
           EOF
 
       - name: Synthesize CloudFormation templates
-        run: pnpm exec cdk synth
+        run: pnpm exec cdk synth --no-lookups
         env:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: 'us-west-2'
