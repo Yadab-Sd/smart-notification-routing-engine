@@ -60,6 +60,19 @@ jobs:
           AWS_REGION=us-west-2
           EOF
 
+      - name: Create CI CDK context
+        run: |
+          cat > cdk.context.json << EOF
+          {
+            "availability-zones:account=123456789012:region=us-west-2": [
+              "us-west-2a",
+              "us-west-2b",
+              "us-west-2c",
+              "us-west-2d"
+            ]
+          }
+          EOF
+
       - name: Run CDK synth
         run: pnpm exec cdk synth
         env:
@@ -105,6 +118,19 @@ jobs:
           cat > .env << EOF
           SENDER_EMAIL=test@example.com
           AWS_REGION=us-west-2
+          EOF
+
+      - name: Create CI CDK context
+        run: |
+          cat > cdk.context.json << EOF
+          {
+            "availability-zones:account=123456789012:region=us-west-2": [
+              "us-west-2a",
+              "us-west-2b",
+              "us-west-2c",
+              "us-west-2d"
+            ]
+          }
           EOF
 
       - name: Synthesize CloudFormation templates
