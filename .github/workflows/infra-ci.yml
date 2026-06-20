@@ -151,6 +151,11 @@ jobs:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: 'us-west-2'
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
       - name: Install cfn-nag
         run: |
           gem install cfn-nag
