@@ -24,6 +24,9 @@ importers:
       '@types/node':
         specifier: ^24.7.1
         version: 24.12.2
+      aws-cdk:
+        specifier: ^2.1128.0
+        version: 2.1128.0
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.12.2)(typescript@5.9.3)
@@ -105,6 +108,11 @@ packages:
       - table
       - yaml
       - mime-types
+
+  aws-cdk@2.1128.0:
+    resolution: {integrity: sha512-CXPl6Yu0gDqrS2GYDPoMCQbdJFS0tupzN8nuaTku3fewTdQJhHGK/2QpwMV/mVgsTTHB9riXT3Zt/k4trh8tCw==}
+    engines: {node: '>= 18.0.0'}
+    hasBin: true
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
@@ -209,6 +217,8 @@ snapshots:
       '@aws-cdk/asset-node-proxy-agent-v6': 2.1.1
       '@aws-cdk/cloud-assembly-schema': 53.18.0
       constructs: 10.6.0
+
+  aws-cdk@2.1128.0: {}
 
   buffer-from@1.1.2: {}
 
