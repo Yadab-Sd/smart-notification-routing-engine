@@ -42,6 +42,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build Lambda service artifacts
+        working-directory: .
+        run: ./scripts/build-services.sh
+
       - name: Create mock .env file
         run: |
           cat > .env << EOF
@@ -50,7 +61,7 @@ jobs:
           EOF
 
       - name: Run CDK synth
-        run: pnpm exec cdk synth --all
+        run: pnpm exec cdk synth
         env:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: 'us-west-2'
@@ -78,6 +89,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build Lambda service artifacts
+        working-directory: .
+        run: ./scripts/build-services.sh
+
       - name: Create mock .env file
         run: |
           cat > .env << EOF
@@ -86,7 +108,7 @@ jobs:
           EOF
 
       - name: Synthesize CloudFormation templates
-        run: pnpm exec cdk synth --all
+        run: pnpm exec cdk synth
         env:
           CDK_DEFAULT_ACCOUNT: '123456789012'
           CDK_DEFAULT_REGION: 'us-west-2'
