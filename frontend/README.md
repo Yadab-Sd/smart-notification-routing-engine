@@ -6,6 +6,8 @@ This is the web-based dashboard for **Smart Notification Routing Engine (SNRE)**
 
 - **Dashboard**: Real-time system monitoring and KPIs
 - **Analytics**: ML performance metrics, engagement trends, and business impact
+- **Attention Escrow**: Review attention cost/value, SEND/DEFER decisions, and run decision previews
+- **Send Event**: Test analytics-only, immediate, and optimized event-triggered notification payloads
 - **Campaign Management**: Multi-channel notification orchestration
 - **User Management**: Audience segmentation and targeting
 - **Template Library**: Reusable notification templates

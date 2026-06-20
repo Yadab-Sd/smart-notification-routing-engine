@@ -1,33 +1,57 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Layout from '@/components/common/Layout'
 import {
-  Send,
-  Zap,
-  Calendar,
+  AlertCircle,
+  Bell,
+  CheckCircle,
+  Copy,
+  Loader2,
   Mail,
   MessageSquare,
-  Bell,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
+  Send,
+  ShieldCheck,
   X,
+  Zap,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ENV } from '@/config/env'
+import type { MessageCategory, PriorityClass } from '@/types'
 
 const API_ENDPOINT = ENV.API_URL
+
+type DeliveryMode = 'ANALYTICS_ONLY' | 'IMMEDIATE' | 'OPTIMIZED'
+type Channel = 'EMAIL' | 'SMS' | 'PUSH'
 
 interface EventLog {
   id: string
   userId: string
   type: string
-  notificationType: string
-  channel: string
+  deliveryMode: DeliveryMode
+  channel?: Channel
   status: 'success' | 'error'
   timestamp: string
   message?: string
   error?: string
 }
+
+const categoryOptions: MessageCategory[] = [
+  'GENERAL',
+  'MARKETING',
+  'PROMOTION',
+  'NEWSLETTER',
+  'TRANSACTIONAL',
+  'SECURITY',
+  'EMERGENCY',
+]
+
+const priorityOptions: PriorityClass[] = [
+  'LOW',
+  'STANDARD',
+  'HIGH',
+  'TRANSACTIONAL',
+  'SECURITY',
+  'EMERGENCY',
+]
 
 const Events = () => {
   const { getIdToken } = useAuth()
@@ -36,17 +60,83 @@ const Events = () => {
   const [showSuccess, setShowSuccess] = useState(false)
   const [error, setError] = useState('')
 
-  // Form state
   const [formData, setFormData] = useState({
-    userId: '',
+    userId: 'pilot_user_1',
     email: '',
     phone: '',
-    type: 'NOTIFICATION',
-    notificationType: 'immediate',
-    channel: 'email',
-    message: '',
-    subject: '',
+    type: 'ABANDONED_CART',
+    deliveryMode: 'OPTIMIZED' as DeliveryMode,
+    channel: 'EMAIL' as Channel,
+    message: 'You left something in your cart.',
+    subject: 'Complete your order',
+    sourceId: 'campaign:abandoned_cart',
+    campaignId: 'abandoned_cart',
+    templateId: 'cart_reminder_v1',
+    messageCategory: 'MARKETING' as MessageCategory,
+    priorityClass: 'LOW' as PriorityClass,
+    businessValue: 6,
+    urgency: 0.3,
   })
+
+  const shouldSendNotification = formData.deliveryMode !== 'ANALYTICS_ONLY'
+  const isOptimized = formData.deliveryMode === 'OPTIMIZED'
+
+  const eventPayload = useMemo(() => {
+    const payload: Record<string, unknown> = {
+      userId: formData.userId.trim(),
+      type: formData.type.trim() || 'CUSTOM',
+      ts: new Date().toISOString(),
+    }
+
+    if (formData.email.trim()) payload.email = formData.email.trim()
+    if (formData.phone.trim()) payload.phone = formData.phone.trim()
+
+    if (shouldSendNotification) {
+      const notification: Record<string, unknown> = {
+        deliveryMode: formData.deliveryMode,
+        channel: formData.channel,
+        message: formData.message.trim(),
+      }
+
+      const metadata: Record<string, unknown> = {}
+      if (formData.subject.trim()) metadata.subject = formData.subject.trim()
+      if (Object.keys(metadata).length > 0) notification.metadata = metadata
+
+      if (isOptimized) {
+        if (formData.sourceId.trim()) notification.sourceId = formData.sourceId.trim()
+        if (formData.campaignId.trim()) notification.campaignId = formData.campaignId.trim()
+        if (formData.templateId.trim()) notification.templateId = formData.templateId.trim()
+        notification.messageCategory = formData.messageCategory
+        notification.priorityClass = formData.priorityClass
+        notification.businessValue = Number(formData.businessValue)
+        notification.urgency = Number(formData.urgency)
+      }
+
+      payload.notification = notification
+    }
+
+    return payload
+  }, [formData, isOptimized, shouldSendNotification])
+
+  const resetForm = () => {
+    setFormData({
+      userId: '',
+      email: '',
+      phone: '',
+      type: 'NOTIFICATION',
+      deliveryMode: 'IMMEDIATE',
+      channel: 'EMAIL',
+      message: '',
+      subject: '',
+      sourceId: '',
+      campaignId: '',
+      templateId: '',
+      messageCategory: 'GENERAL',
+      priorityClass: 'STANDARD',
+      businessValue: 1,
+      urgency: 0.3,
+    })
+  }
 
   const handleSendEvent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,38 +146,13 @@ const Events = () => {
     try {
       const token = await getIdToken()
 
-      // Build event payload
-      const payload: any = {
-        userId: formData.userId.trim(),
-        type: formData.type,
-        notificationType: formData.notificationType,
-        channel: formData.channel,
-        message: formData.message.trim(),
-        ts: new Date().toISOString(),
-      }
-
-      // Add contact info if provided
-      if (formData.email.trim()) {
-        payload.email = formData.email.trim()
-      }
-      if (formData.phone.trim()) {
-        payload.phone = formData.phone.trim()
-      }
-
-      // Add subject for email
-      if (formData.channel === 'email' && formData.subject.trim()) {
-        payload.metadata = {
-          subject: formData.subject.trim(),
-        }
-      }
-
       const res = await fetch(`${API_ENDPOINT}/v1/events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(eventPayload),
       })
 
       if (!res.ok) {
@@ -95,56 +160,50 @@ const Events = () => {
         throw new Error(errData.error || 'Failed to send event')
       }
 
-      // Success - add to log
       const newLog: EventLog = {
         id: Date.now().toString(),
         userId: formData.userId,
         type: formData.type,
-        notificationType: formData.notificationType,
-        channel: formData.channel,
+        deliveryMode: formData.deliveryMode,
+        channel: shouldSendNotification ? formData.channel : undefined,
         status: 'success',
         timestamp: new Date().toISOString(),
-        message: formData.message.substring(0, 50) + (formData.message.length > 50 ? '...' : ''),
+        message: formData.message.substring(0, 60) + (formData.message.length > 60 ? '...' : ''),
       }
-      setEventLogs([newLog, ...eventLogs])
-
-      // Show success message
+      setEventLogs((logs) => [newLog, ...logs])
       setShowSuccess(true)
       setTimeout(() => setShowSuccess(false), 3000)
-
-      // Clear form
-      setFormData({
-        ...formData,
-        message: '',
-        subject: '',
-      })
     } catch (err: any) {
       const newLog: EventLog = {
         id: Date.now().toString(),
         userId: formData.userId,
         type: formData.type,
-        notificationType: formData.notificationType,
-        channel: formData.channel,
+        deliveryMode: formData.deliveryMode,
+        channel: shouldSendNotification ? formData.channel : undefined,
         status: 'error',
         timestamp: new Date().toISOString(),
         error: err.message,
       }
-      setEventLogs([newLog, ...eventLogs])
+      setEventLogs((logs) => [newLog, ...logs])
       setError(err.message || 'Failed to send event')
     } finally {
       setSending(false)
     }
   }
 
-  const channelIcon = (channel: string) => {
-    if (channel === 'email') return Mail
-    if (channel === 'sms') return MessageSquare
+  const channelIcon = (channel?: Channel) => {
+    if (channel === 'EMAIL') return Mail
+    if (channel === 'SMS') return MessageSquare
     return Bell
   }
 
   const formatTime = (iso: string) => {
     const d = new Date(iso)
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+
+  const copyPayload = async () => {
+    await navigator.clipboard.writeText(JSON.stringify(eventPayload, null, 2))
   }
 
   return (
@@ -159,40 +218,14 @@ const Events = () => {
       }
     >
       <div className="space-y-6">
-        {/* Success Banner */}
         {showSuccess && (
           <div className="bg-success-50 border border-success-200 text-success-700 p-4 rounded-lg flex items-center gap-3">
             <CheckCircle size={20} />
-            <span className="font-medium">Event sent successfully!</span>
+            <span className="font-medium">Event accepted. Optimized sends can be tracked in Attention Escrow.</span>
           </div>
         )}
 
-        {/* Event Types Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card">
-            <div className="flex items-start gap-3">
-              <div className="stat-icon-wrap bg-danger-100">
-                <Zap size={18} className="text-danger-700" />
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">Immediate</div>
-                <div className="text-sm text-slate-500 mt-1">Send notification right now (transactional)</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-start gap-3">
-              <div className="stat-icon-wrap bg-primary-100">
-                <Calendar size={18} className="text-primary-700" />
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">Optimized</div>
-                <div className="text-sm text-slate-500 mt-1">ML schedules at best time (marketing)</div>
-              </div>
-            </div>
-          </div>
-
           <div className="card">
             <div className="flex items-start gap-3">
               <div className="stat-icon-wrap bg-slate-100">
@@ -200,203 +233,296 @@ const Events = () => {
               </div>
               <div>
                 <div className="font-semibold text-slate-900">Analytics Only</div>
-                <div className="text-sm text-slate-500 mt-1">Track event, don't send notification</div>
+                <div className="text-sm text-slate-500 mt-1">Track behavior without sending a message</div>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-start gap-3">
+              <div className="stat-icon-wrap bg-danger-100">
+                <Zap size={18} className="text-danger-700" />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900">Immediate</div>
+                <div className="text-sm text-slate-500 mt-1">Invoke Sender Service now</div>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-start gap-3">
+              <div className="stat-icon-wrap bg-primary-100">
+                <ShieldCheck size={18} className="text-primary-700" />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900">Optimized</div>
+                <div className="text-sm text-slate-500 mt-1">Run send-time ML and Attention Escrow</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Send Event Form */}
-        <div className="card" id="event-form">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Send Notification Event</h3>
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6">
+          <div className="card" id="event-form">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Send Event</h3>
 
-          <form onSubmit={handleSendEvent} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* User ID */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  User ID <span className="text-danger-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="user123"
-                  value={formData.userId}
-                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                  disabled={sending}
-                  required
-                />
-                <p className="text-xs text-slate-500 mt-1">User will be auto-created if doesn't exist</p>
+            <form onSubmit={handleSendEvent} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">
+                    User ID <span className="text-danger-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="pilot_user_1"
+                    value={formData.userId}
+                    onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                    disabled={sending}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Event Type</label>
+                  <input
+                    className="input"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value.toUpperCase() })}
+                    disabled={sending}
+                    placeholder="ABANDONED_CART"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Email</label>
+                  <input
+                    type="email"
+                    className="input"
+                    placeholder="user@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={sending}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Useful when auto-creating a user.</p>
+                </div>
+
+                <div>
+                  <label className="label">Phone</label>
+                  <input
+                    type="tel"
+                    className="input"
+                    placeholder="+14155551234"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    disabled={sending}
+                  />
+                </div>
+
+                <div>
+                  <label className="label">
+                    Delivery Mode <span className="text-danger-600">*</span>
+                  </label>
+                  <select
+                    className="select"
+                    value={formData.deliveryMode}
+                    onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value as DeliveryMode })}
+                    disabled={sending}
+                  >
+                    <option value="ANALYTICS_ONLY">Analytics only</option>
+                    <option value="IMMEDIATE">Immediate</option>
+                    <option value="OPTIMIZED">Optimized</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Channel</label>
+                  <select
+                    className="select"
+                    value={formData.channel}
+                    onChange={(e) => setFormData({ ...formData, channel: e.target.value as Channel })}
+                    disabled={sending || !shouldSendNotification}
+                  >
+                    <option value="EMAIL">Email</option>
+                    <option value="SMS">SMS</option>
+                    <option value="PUSH">Push</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Event Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Event Type</label>
-                <select
-                  className="input"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  disabled={sending}
-                >
-                  <option value="NOTIFICATION">NOTIFICATION</option>
-                  <option value="PURCHASE">PURCHASE</option>
-                  <option value="APPOINTMENT">APPOINTMENT</option>
-                  <option value="REMINDER">REMINDER</option>
-                  <option value="ALERT">ALERT</option>
-                  <option value="CUSTOM">CUSTOM</option>
-                </select>
-              </div>
+              {shouldSendNotification && (
+                <>
+                  <div>
+                    <label className="label">Subject</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Complete your order"
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      disabled={sending}
+                    />
+                  </div>
 
-              {/* Email (optional) */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email (optional)</label>
-                <input
-                  type="email"
-                  className="input"
-                  placeholder="user@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={sending}
-                />
-                <p className="text-xs text-slate-500 mt-1">Required if user doesn't exist</p>
-              </div>
+                  <div>
+                    <label className="label">
+                      Message <span className="text-danger-600">*</span>
+                    </label>
+                    <textarea
+                      className="input"
+                      rows={4}
+                      placeholder="You left something in your cart."
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      disabled={sending}
+                      required
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {formData.message.length} characters
+                      {formData.channel === 'SMS' && formData.message.length > 160 && (
+                        <span className="text-warning-600 ml-2">SMS messages over 160 characters may be split.</span>
+                      )}
+                    </p>
+                  </div>
+                </>
+              )}
 
-              {/* Phone (optional) */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Phone (optional)</label>
-                <input
-                  type="tel"
-                  className="input"
-                  placeholder="+14155551234"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  disabled={sending}
-                />
-                <p className="text-xs text-slate-500 mt-1">E.164 format (+1XXXXXXXXXX)</p>
-              </div>
+              {isOptimized && (
+                <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <ShieldCheck size={18} className="text-primary-700" />
+                    <h4 className="font-semibold text-slate-900">Attention Escrow Inputs</h4>
+                  </div>
 
-              {/* Notification Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Notification Type <span className="text-danger-600">*</span>
-                </label>
-                <select
-                  className="input"
-                  value={formData.notificationType}
-                  onChange={(e) => setFormData({ ...formData, notificationType: e.target.value })}
-                  disabled={sending}
-                  required
-                >
-                  <option value="immediate">Immediate (send now)</option>
-                  <option value="optimized">Optimized (ML scheduling)</option>
-                  <option value="">Analytics only (no notification)</option>
-                </select>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Source ID</label>
+                      <input
+                        className="input"
+                        value={formData.sourceId}
+                        onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
+                        disabled={sending}
+                        placeholder="campaign:abandoned_cart"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Campaign ID</label>
+                      <input
+                        className="input"
+                        value={formData.campaignId}
+                        onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
+                        disabled={sending}
+                        placeholder="abandoned_cart"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Template ID</label>
+                      <input
+                        className="input"
+                        value={formData.templateId}
+                        onChange={(e) => setFormData({ ...formData, templateId: e.target.value })}
+                        disabled={sending}
+                        placeholder="cart_reminder_v1"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Message Category</label>
+                      <select
+                        className="select"
+                        value={formData.messageCategory}
+                        onChange={(e) => setFormData({ ...formData, messageCategory: e.target.value as MessageCategory })}
+                        disabled={sending}
+                      >
+                        {categoryOptions.map((value) => (
+                          <option key={value} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Priority Class</label>
+                      <select
+                        className="select"
+                        value={formData.priorityClass}
+                        onChange={(e) => setFormData({ ...formData, priorityClass: e.target.value as PriorityClass })}
+                        disabled={sending}
+                      >
+                        {priorityOptions.map((value) => (
+                          <option key={value} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Business Value: {formData.businessValue.toFixed(1)}</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        step="0.5"
+                        value={formData.businessValue}
+                        onChange={(e) => setFormData({ ...formData, businessValue: Number(e.target.value) })}
+                        className="w-full accent-primary-600"
+                        disabled={sending}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Urgency: {formData.urgency.toFixed(1)}</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={formData.urgency}
+                        onChange={(e) => setFormData({ ...formData, urgency: Number(e.target.value) })}
+                        className="w-full accent-primary-600"
+                        disabled={sending}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Channel */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Channel <span className="text-danger-600">*</span>
-                </label>
-                <select
-                  className="input"
-                  value={formData.channel}
-                  onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                  disabled={sending}
-                  required
-                >
-                  <option value="email">Email</option>
-                  <option value="sms">SMS</option>
-                  <option value="push">Push (future)</option>
-                </select>
+              {error && (
+                <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm p-3 rounded-lg flex items-start gap-2">
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button type="button" onClick={resetForm} className="btn-secondary" disabled={sending}>
+                  Clear
+                </button>
+                <button type="submit" className="btn-primary flex-1" disabled={sending}>
+                  {sending ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Sending Event...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Send Event
+                    </>
+                  )}
+                </button>
               </div>
+            </form>
+          </div>
+
+          <div className="space-y-6">
+            <div className="card-flush overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900">Request Payload</h3>
+                <button className="btn-ghost text-xs" onClick={copyPayload}>
+                  <Copy size={14} /> Copy
+                </button>
+              </div>
+              <pre className="p-4 text-xs overflow-x-auto bg-slate-950 text-slate-100 max-h-[560px]">
+                {JSON.stringify(eventPayload, null, 2)}
+              </pre>
             </div>
-
-            {/* Subject (for email) */}
-            {formData.channel === 'email' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email Subject {formData.notificationType && <span className="text-danger-600">*</span>}
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Your order has shipped!"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  disabled={sending}
-                  required={formData.channel === 'email' && formData.notificationType !== ''}
-                />
-              </div>
-            )}
-
-            {/* Message */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Message {formData.notificationType && <span className="text-danger-600">*</span>}
-              </label>
-              <textarea
-                className="input"
-                rows={4}
-                placeholder="Your order #12345 has been shipped and will arrive in 2-3 business days."
-                value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                disabled={sending}
-                required={formData.notificationType !== ''}
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                {formData.message.length} characters
-                {formData.channel === 'sms' && formData.message.length > 160 && (
-                  <span className="text-warning-600 ml-2">⚠ SMS messages over 160 chars may be split</span>
-                )}
-              </p>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm p-3 rounded-lg flex items-start gap-2">
-                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Submit */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData({
-                  userId: '',
-                  email: '',
-                  phone: '',
-                  type: 'NOTIFICATION',
-                  notificationType: 'immediate',
-                  channel: 'email',
-                  message: '',
-                  subject: '',
-                })}
-                className="btn-secondary"
-                disabled={sending}
-              >
-                Clear
-              </button>
-              <button type="submit" className="btn-primary flex-1" disabled={sending}>
-                {sending ? (
-                  <>
-                    <Loader2 className="animate-spin" size={16} />
-                    Sending Event...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Send Event
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
 
-        {/* Event Log */}
         {eventLogs.length > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
@@ -423,7 +549,7 @@ const Events = () => {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div
                           className={`w-8 h-8 rounded-md flex items-center justify-center ${
                             log.status === 'success' ? 'bg-success-100' : 'bg-danger-100'
@@ -439,20 +565,17 @@ const Events = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900">{log.userId}</span>
-                            <span className="text-slate-400">→</span>
                             <span className="badge badge-neutral text-xs">{log.type}</span>
-                            <span className="badge badge-info text-xs">{log.notificationType}</span>
-                            <span className="flex items-center gap-1 text-xs text-slate-600">
-                              <ChannelIcon size={12} />
-                              {log.channel}
-                            </span>
+                            <span className="badge badge-info text-xs">{log.deliveryMode}</span>
+                            {log.channel && (
+                              <span className="flex items-center gap-1 text-xs text-slate-600">
+                                <ChannelIcon size={12} />
+                                {log.channel}
+                              </span>
+                            )}
                           </div>
-                          {log.message && (
-                            <p className="text-sm text-slate-600 mt-1 truncate">{log.message}</p>
-                          )}
-                          {log.error && (
-                            <p className="text-sm text-danger-700 mt-1">{log.error}</p>
-                          )}
+                          {log.message && <p className="text-sm text-slate-600 mt-1 truncate">{log.message}</p>}
+                          {log.error && <p className="text-sm text-danger-700 mt-1">{log.error}</p>}
                         </div>
                       </div>
 
@@ -465,23 +588,12 @@ const Events = () => {
           </div>
         )}
 
-        {/* Help Text */}
-        <div className="card bg-blue-50 border-blue-200">
-          <h4 className="font-semibold text-slate-900 mb-2">💡 How It Works</h4>
+        <div className="card bg-slate-50">
+          <h4 className="font-semibold text-slate-900 mb-2">How this page maps to the API</h4>
           <ul className="text-sm text-slate-600 space-y-1">
-            <li>
-              <strong>Immediate:</strong> Notification sent instantly via Sender Lambda
-            </li>
-            <li>
-              <strong>Optimized:</strong> Decision Service predicts best send time using ML model (24-hour window)
-            </li>
-            <li>
-              <strong>Analytics Only:</strong> Event tracked in S3 for ML training, no notification sent
-            </li>
-            <li>
-              <strong>Auto-User Creation:</strong> If user doesn't exist, profile created automatically with
-              provided contact info
-            </li>
+            <li>`ANALYTICS_ONLY` sends no `notification` object.</li>
+            <li>`IMMEDIATE` sends `notification.deliveryMode = IMMEDIATE` and invokes Sender Service.</li>
+            <li>`OPTIMIZED` sends `notification.deliveryMode = OPTIMIZED`, then Decision Service writes an AttentionLedger decision.</li>
           </ul>
         </div>
       </div>

@@ -19,6 +19,7 @@ import {
   FileText,
   Users,
   Key,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -34,6 +35,7 @@ const navSections = [
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { name: 'Attention', href: '/attention', icon: ShieldCheck },
     ],
   },
   {
@@ -64,6 +66,7 @@ const navSections = [
 const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your notifications and their performance' },
   '/analytics': { title: 'Analytics', subtitle: 'ML performance, engagement and platform health' },
+  '/attention': { title: 'Attention Escrow', subtitle: 'Review attention cost, value and gated notification decisions' },
   '/events': { title: 'Send Event', subtitle: 'Send notification events manually for testing' },
   '/notifications': { title: 'Notifications', subtitle: 'All scheduled, in-progress and sent notifications' },
   '/campaigns': { title: 'Campaigns', subtitle: 'Group your notifications by business goal' },

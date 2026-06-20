@@ -6,6 +6,7 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import Dashboard from './pages/Dashboard'
 import Analytics from './pages/Analytics'
+import Attention from './pages/Attention'
 import Notifications from './pages/Notifications'
 import Campaigns from './pages/Campaigns'
 import Templates from './pages/Templates'
@@ -44,6 +45,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/attention" element={<Attention />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/templates" element={<Templates />} />

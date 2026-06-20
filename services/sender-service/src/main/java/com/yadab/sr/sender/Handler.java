@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 import software.amazon.awssdk.services.sns.SnsClient;
 
@@ -25,6 +26,8 @@ import com.yadab.sr.sender.model.UserProfile;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Multi-Channel Sender Lambda Handler (Strategy Pattern Implementation)
@@ -51,6 +54,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     private final ChannelFactory channelFactory;
     private final ChannelSelector channelSelector;
     private final String userProfilesTable;
+    private final String attentionTable;
     private final String curatedBucket;
 
     public Handler() {
@@ -59,6 +63,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         this.dynamodb = DynamoDbClient.builder().region(region).build();
         this.handlebars = new Handlebars();
         this.userProfilesTable = System.getenv("USER_PROFILES_TABLE");
+        this.attentionTable = System.getenv("ATTENTION_TABLE");
         this.curatedBucket = System.getenv("CURATED_BUCKET");
 
         String defaultFromAddress = System.getenv().getOrDefault("DEFAULT_FROM_ADDRESS", "CHANGE_ME@example.com");
@@ -150,8 +155,10 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             channel.send(recipient, subject, renderedBody, context);
         } catch (Exception e) {
             context.getLogger().log("Failed to send via " + channel.getChannelType() + ": " + e.getMessage());
+            recordAttentionDelivery(event, userId, selection.getChannelType(), "FAILED", e.getMessage(), context);
             throw new RuntimeException("Notification delivery failed", e);
         }
+        recordAttentionDelivery(event, userId, selection.getChannelType(), "SENT", null, context);
 
         // Build response with metadata
         Map<String, Object> response = new HashMap<>();
@@ -170,6 +177,66 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         }
 
         return response;
+    }
+
+    /**
+     * Record delivery attempt outcomes for Attention Escrow.
+     * Only scheduled sends produced by Decision Service include attentionDecisionId.
+     */
+    private void recordAttentionDelivery(
+            Map<String, Object> event,
+            String userId,
+            String channel,
+            String status,
+            String error,
+            Context context
+    ) {
+        Object decisionId = event.get("attentionDecisionId");
+        if (decisionId == null || attentionTable == null || attentionTable.isBlank()) {
+            return;
+        }
+
+        try {
+            String now = Instant.now().toString();
+            String deliveryId = "delivery_" + UUID.randomUUID();
+            Map<String, AttributeValue> item = new HashMap<>();
+            item.put("pk", AttributeValue.builder().s("USER#" + userId).build());
+            item.put("sk", AttributeValue.builder().s("DELIVERY#" + deliveryId).build());
+            item.put("recordType", AttributeValue.builder().s("ATTENTION_DELIVERY").build());
+            item.put("deliveryId", AttributeValue.builder().s(deliveryId).build());
+            item.put("decisionId", AttributeValue.builder().s(decisionId.toString()).build());
+            item.put("userId", AttributeValue.builder().s(userId).build());
+            item.put("status", AttributeValue.builder().s(status).build());
+            item.put("channel", AttributeValue.builder().s(channel).build());
+            item.put("createdAt", AttributeValue.builder().s(now).build());
+
+            Object sourceId = event.get("sourceId");
+            if (sourceId != null) {
+                item.put("sourceId", AttributeValue.builder().s(sourceId.toString()).build());
+            }
+            Object notificationType = event.get("notificationType");
+            if (notificationType != null) {
+                item.put("notificationType", AttributeValue.builder().s(notificationType.toString()).build());
+            }
+            Object messageCategory = event.get("messageCategory");
+            if (messageCategory != null) {
+                item.put("messageCategory", AttributeValue.builder().s(messageCategory.toString()).build());
+            }
+            Object priorityClass = event.get("priorityClass");
+            if (priorityClass != null) {
+                item.put("priorityClass", AttributeValue.builder().s(priorityClass.toString()).build());
+            }
+            if (error != null) {
+                item.put("error", AttributeValue.builder().s(error).build());
+            }
+
+            dynamodb.putItem(PutItemRequest.builder()
+                    .tableName(attentionTable)
+                    .item(item)
+                    .build());
+        } catch (Exception e) {
+            context.getLogger().log("Could not record attention delivery: " + e.getMessage());
+        }
     }
 
     /**

@@ -76,10 +76,13 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                 String eventType = node.path("type").asText("UNKNOWN");
                 ddbUpdateUser(uid, ts, eventType);
 
-                // Auto-trigger notifications based on event metadata
-                String notificationType = node.path("notificationType").asText(null);
-                if (notificationType != null && !notificationType.isEmpty()) {
-                    triggerNotification(uid, notificationType, node, log);
+                // Auto-trigger notifications when the event includes delivery intent.
+                // Preferred shape: { "notification": { "deliveryMode": "IMMEDIATE|OPTIMIZED", ... } }
+                // Backward-compatible shape: top-level notificationType = "immediate|optimized".
+                JsonNode notification = node.path("notification");
+                String deliveryMode = deliveryMode(node, notification);
+                if (deliveryMode != null && !deliveryMode.isBlank()) {
+                    triggerNotification(uid, deliveryMode, node, notification, log);
                 }
             }
 
@@ -197,23 +200,27 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
     /**
      * Auto-trigger notifications based on event metadata.
      *
-     * notificationType values:
-     * - "immediate": Send notification right now (transactional)
-     * - "optimized": Use ML to schedule at best time (marketing)
+     * deliveryMode values:
+     * - "IMMEDIATE": Send notification right now
+     * - "OPTIMIZED": Use ML + Attention Escrow to schedule at best time
      * - null/empty: No notification, analytics only
+     *
+     * The legacy top-level notificationType field still works for immediate/optimized,
+     * but new integrations should use notification.deliveryMode.
      */
-    private static void triggerNotification(String userId, String notificationType, JsonNode event, LambdaLogger log) {
+    private static void triggerNotification(
+            String userId,
+            String deliveryMode,
+            JsonNode event,
+            JsonNode notification,
+            LambdaLogger log
+    ) {
         try {
-            if ("immediate".equalsIgnoreCase(notificationType)) {
+            if ("immediate".equalsIgnoreCase(deliveryMode)) {
                 // Send notification immediately via Sender Lambda
                 log.log(String.format("Triggering immediate notification for user: %s", userId));
 
-                String payload = MAPPER.writeValueAsString(Map.of(
-                    "userId", userId,
-                    "message", event.path("message").asText(""),
-                    "channel", event.path("channel").asText(""),
-                    "metadata", event.path("metadata").toString()
-                ));
+                String payload = MAPPER.writeValueAsString(notificationPayload(userId, event, notification, false));
 
                 InvokeRequest invokeReq = InvokeRequest.builder()
                     .functionName(SENDER_FUNCTION_ARN)
@@ -223,7 +230,7 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                 InvokeResponse response = LAMBDA.invoke(invokeReq);
                 log.log("Sender invoked. Status: " + response.statusCode());
 
-            } else if ("optimized".equalsIgnoreCase(notificationType)) {
+            } else if ("optimized".equalsIgnoreCase(deliveryMode)) {
                 // Schedule notification via Decision Service (ML-optimized time)
                 log.log(String.format("Triggering optimized notification for user: %s", userId));
 
@@ -231,15 +238,11 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                 long nowEpoch = Instant.now().getEpochSecond();
                 long endEpoch = nowEpoch + (24 * 3600);
 
-                String payload = MAPPER.writeValueAsString(Map.of(
-                    "userId", userId,
-                    "windowStart", nowEpoch,
-                    "windowEnd", endEpoch,
-                    "schedule", true,
-                    "message", event.path("message").asText(""),
-                    "channel", event.path("channel").asText(""),
-                    "metadata", event.path("metadata").toString()
-                ));
+                Map<String, Object> payloadMap = notificationPayload(userId, event, notification, true);
+                payloadMap.put("windowStart", nowEpoch);
+                payloadMap.put("windowEnd", endEpoch);
+                payloadMap.put("schedule", true);
+                String payload = MAPPER.writeValueAsString(apiGatewayPayload(payloadMap));
 
                 InvokeRequest invokeReq = InvokeRequest.builder()
                     .functionName(DECISION_FUNCTION_ARN)
@@ -247,11 +250,117 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                     .build();
 
                 InvokeResponse response = LAMBDA.invoke(invokeReq);
-                log.log("Decision service invoked. Status: " + response.statusCode());
+                logInvokeResult("Decision service", response, log);
             }
         } catch (Exception e) {
             log.log("ERROR triggering notification: " + e.getMessage());
             // Don't fail the entire batch if notification trigger fails
+        }
+    }
+
+    private static String deliveryMode(JsonNode event, JsonNode notification) {
+        String mode = text(notification, "deliveryMode");
+        if (mode == null || mode.isBlank()) {
+            mode = text(event, "deliveryMode");
+        }
+        if (mode == null || mode.isBlank()) {
+            mode = text(event, "notificationType");
+        }
+        return mode;
+    }
+
+    private static Map<String, Object> notificationPayload(
+            String userId,
+            JsonNode event,
+            JsonNode notification,
+            boolean includeAttentionFields
+    ) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("userId", userId);
+        putText(payload, "message", firstText(notification, event, "message"));
+        putText(payload, "channel", firstText(notification, event, "channel"));
+
+        JsonNode metadata = firstNode(notification, event, "metadata");
+        if (metadata != null && metadata.isObject()) {
+            payload.put("metadata", MAPPER.convertValue(metadata, Map.class));
+        }
+
+        if (includeAttentionFields) {
+            putText(payload, "sourceId", firstText(notification, event, "sourceId"));
+            putText(payload, "campaignId", firstText(notification, event, "campaignId"));
+            putText(payload, "templateId", firstText(notification, event, "templateId"));
+            putText(payload, "messageCategory", firstText(notification, event, "messageCategory"));
+            putText(payload, "priorityClass", firstText(notification, event, "priorityClass"));
+            putDouble(payload, "businessValue", firstNode(notification, event, "businessValue"));
+            putDouble(payload, "urgency", firstNode(notification, event, "urgency"));
+        }
+
+        return payload;
+    }
+
+    private static Map<String, Object> apiGatewayPayload(Map<String, Object> body) throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("version", "2.0");
+        payload.put("routeKey", "$default");
+        payload.put("rawPath", "/v1/decisions/schedule");
+        payload.put("rawQueryString", "");
+        payload.put("headers", Map.of("content-type", "application/json"));
+        payload.put("requestContext", Map.of(
+                "http", Map.of(
+                        "method", "POST",
+                        "path", "/v1/decisions/schedule",
+                        "protocol", "HTTP/1.1",
+                        "sourceIp", "events-consumer",
+                        "userAgent", "events-consumer"
+                )
+        ));
+        payload.put("isBase64Encoded", false);
+        payload.put("body", MAPPER.writeValueAsString(body));
+        return payload;
+    }
+
+    private static void logInvokeResult(String serviceName, InvokeResponse response, LambdaLogger log) {
+        String responsePayload = response.payload() == null ? "" : response.payload().asUtf8String();
+        log.log(String.format(
+                "%s invoked. Status: %d FunctionError: %s Payload: %s",
+                serviceName,
+                response.statusCode(),
+                response.functionError(),
+                responsePayload
+        ));
+    }
+
+    private static JsonNode firstNode(JsonNode preferred, JsonNode fallback, String field) {
+        if (preferred != null && preferred.hasNonNull(field)) {
+            return preferred.get(field);
+        }
+        if (fallback != null && fallback.hasNonNull(field)) {
+            return fallback.get(field);
+        }
+        return null;
+    }
+
+    private static String firstText(JsonNode preferred, JsonNode fallback, String field) {
+        String value = text(preferred, field);
+        return value == null || value.isBlank() ? text(fallback, field) : value;
+    }
+
+    private static String text(JsonNode node, String field) {
+        if (node == null || !node.hasNonNull(field)) {
+            return null;
+        }
+        return node.get(field).asText(null);
+    }
+
+    private static void putText(Map<String, Object> payload, String field, String value) {
+        if (value != null && !value.isBlank()) {
+            payload.put(field, value);
+        }
+    }
+
+    private static void putDouble(Map<String, Object> payload, String field, JsonNode value) {
+        if (value != null && value.isNumber()) {
+            payload.put(field, value.asDouble());
         }
     }
 }

@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { DecisionRequest, DecisionResponse } from '@/types'
+import type { AttentionSummaryResponse, DecisionRequest, DecisionResponse } from '@/types'
 
 /**
  * Preview optimal send time without scheduling
@@ -29,6 +29,18 @@ export const scheduleDecision = async (
       ...request,
       schedule: true,
     }
+  )
+  return response.data
+}
+
+export const getAttentionSummary = async (params?: {
+  sourceId?: string
+  userId?: string
+  limit?: number
+}): Promise<AttentionSummaryResponse> => {
+  const response = await apiClient.get<AttentionSummaryResponse>(
+    '/v1/attention/summary',
+    { params }
   )
   return response.data
 }

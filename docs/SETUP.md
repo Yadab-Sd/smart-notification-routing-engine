@@ -471,8 +471,8 @@ curl -X POST $API_URL/v1/events \
 **Expected response**:
 ```json
 {
-  "eventId": "evt_abc123",
-  "status": "accepted"
+  "userId": "user_123",
+  "status": "queued"
 }
 ```
 
@@ -697,11 +697,11 @@ Before going to production:
 
 Once deployed:
 
-1. **Generate Training Data**: Send 10,000+ events with CLICK and SEND types
+1. **Generate Training Data**: Send 10,000+ events with CLICK and SEND/PLAY_MOVIE types
 2. **Train Model**: Run Step Functions pipeline (manual or wait for nightly)
-3. **Test Prediction**: Call `/v1/decisions/preview` API
-4. **Schedule Notification**: Call `/v1/decisions/schedule` API
-5. **Monitor Delivery**: Check CloudWatch logs and Pinpoint metrics
+3. **Test Prediction**: Call `/v1/decisions/preview` API and review Attention Escrow fields
+4. **Schedule Notification**: Call `/v1/decisions/schedule` or send an event with `notification.deliveryMode = "OPTIMIZED"`
+5. **Monitor Delivery**: Check CloudWatch logs, SES/SNS delivery, and AttentionLedger records
 
 📖 [API Reference](API.md) • 📊 [Monitoring Guide](MONITORING.md) • 💰 [Cost Analysis](COST_ANALYSIS.md)
 

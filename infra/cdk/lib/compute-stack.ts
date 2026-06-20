@@ -68,6 +68,7 @@ export class ComputeStack extends Stack {
             memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc,
             environment: {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
+                ATTENTION_TABLE: data.attentionTable.tableName,
                 CURATED_BUCKET: data.curatedBucket.bucketName,
                 PINPOINT_APP_ID: messaging?.pinpointAppId || 'PLACEHOLDER', // Automatically from MessagingStack, or placeholder if not deployed yet
                 DEFAULT_FROM_ADDRESS: senderEmail, // Configurable via SENDER_EMAIL environment variable
@@ -76,6 +77,7 @@ export class ComputeStack extends Stack {
         });
         data.curatedBucket.grantRead(senderFn); // templates
         data.profilesTable.grantReadData(senderFn); // read user profiles
+        data.attentionTable.grantReadWriteData(senderFn);
 
         // Grant permission to read suppression list
         if (messaging?.suppressionTable) {
@@ -110,12 +112,14 @@ export class ComputeStack extends Stack {
             memorySize: 1024, timeout: cdk.Duration.seconds(20), vpc,
             environment: {
                 USER_PROFILES_TABLE: data.profilesTable.tableName,
+                ATTENTION_TABLE: data.attentionTable.tableName,
                 SENDTIME_ENDPOINT: 'send-time-v1', // your SageMaker endpoint name from Sprint 3
                 SENDER_FUNCTION_ARN: senderFn.functionArn,
                 SCHEDULER_ROLE_ARN: schedulerRole.roleArn
             }
         });
         data.profilesTable.grantReadData(decisionFn);
+        data.attentionTable.grantReadWriteData(decisionFn);
         decisionFn.addToRolePolicy(new iam.PolicyStatement({
             actions:['sagemaker:InvokeEndpoint'], resources:['*'] // narrow later
         }));
@@ -150,7 +154,9 @@ export class ComputeStack extends Stack {
             corsPreflight: {
                 allowOrigins: [
                     'http://localhost:5173', // Vite dev server
+                    'http://127.0.0.1:5173', // Vite dev server when bound to loopback IP
                     'http://localhost:3000', // Alternative dev port
+                    'http://127.0.0.1:3000', // Alternative dev port when bound to loopback IP
                     'https://dgp44tqg8encf.cloudfront.net', // CloudFront distribution (temporary)
                     'https://intelligent-routing.com', // Custom domain
                     'https://dgp44tqg8encf.cloudfront.net/', // CloudFront URL will be added after deployment
@@ -245,6 +251,12 @@ export class ComputeStack extends Stack {
         new apigwv2.HttpRoute(this,'DecisionSchedule',{
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/decisions/schedule', apigwv2.HttpMethod.POST),
+            integration: decisionInteg,
+            authorizer: jwtAuth
+        });
+        new apigwv2.HttpRoute(this,'AttentionSummary',{
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/attention/summary', apigwv2.HttpMethod.GET),
             integration: decisionInteg,
             authorizer: jwtAuth
         });

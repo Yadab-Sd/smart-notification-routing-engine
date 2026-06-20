@@ -37,9 +37,11 @@ Learns when each user is most likely to engage with notifications, then automati
 ![Data Flow](docs/diagrams/data-flow.svg)
 
 **Core Components**:
-- **Ingestion**: REST API → Kinesis → S3 data lake
+- **Ingestion**: React console/API clients → API Gateway + Cognito → Control Plane Lambda → Kinesis → S3 data lake + DynamoDB
 - **ML Pipeline**: Glue (Spark) → SageMaker (XGBoost) → Endpoint
-- **Delivery**: Decision Lambda → EventBridge Scheduler → Sender Lambda → SMS/EMAIL/PUSH
+- **Attention Escrow**: Decision Lambda scores attention cost/value before scheduling
+- **Delivery**: EventBridge Scheduler → Sender Lambda → Email (SES) / SMS (SNS)
+- **Feedback**: SES configuration set → SNS bounce/complaint topics → SES Event Processor Lambda → suppression and audit tables
 
 Built entirely on AWS serverless (Lambda, SageMaker, Glue, S3, DynamoDB).
 
@@ -117,9 +119,13 @@ POST /v1/decisions/preview
 
 # Response
 {
+  "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
-  "channel": "EMAIL"
+  "attentionDecision": "SEND",
+  "attentionCost": 2.4,
+  "attentionValue": 5.9,
+  "attentionReason": "Predicted value exceeds attention cost"
 }
 ```
 
@@ -189,6 +195,7 @@ cd infra/cdk && pnpm exec cdk destroy --all
 ### Technical
 - [Architecture Deep Dive](docs/ARCHITECTURE.md)
 - [Channel Architecture (Strategy Pattern)](docs/CHANNEL_ARCHITECTURE.md)
+- [Attention Escrow](docs/ATTENTION_ESCROW.md)
 - [ML Pipeline](docs/ML_PIPELINE.md)
 - [API Reference](docs/API.md)
 

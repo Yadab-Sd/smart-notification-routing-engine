@@ -14,6 +14,7 @@ export class DataStack extends Stack {
     public readonly auditBucket: s3.Bucket;
     public readonly userEvents: kinesis.Stream;
     public readonly profilesTable: ddb.Table;
+    public readonly attentionTable: ddb.Table;
     public readonly glueDb: glue.CfnDatabase;
     constructor(scope: Construct, id: string, { kmsKey, ...props }: Props){
         super(scope,id,props);
@@ -42,6 +43,25 @@ export class DataStack extends Stack {
                 pointInTimeRecoveryEnabled: true,
             },
             removalPolicy: RemovalPolicy.RETAIN
+        });
+
+        this.attentionTable = new ddb.Table(this,'AttentionLedger',{
+            partitionKey:{ name:'pk', type: ddb.AttributeType.STRING },
+            sortKey:{ name:'sk', type: ddb.AttributeType.STRING },
+            billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+            encryption: ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryptionKey: kmsKey,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy: RemovalPolicy.RETAIN
+        });
+
+        this.attentionTable.addGlobalSecondaryIndex({
+            indexName: 'source-index',
+            partitionKey: { name: 'sourceId', type: ddb.AttributeType.STRING },
+            sortKey: { name: 'createdAt', type: ddb.AttributeType.STRING },
+            projectionType: ddb.ProjectionType.ALL
         });
 
 
@@ -76,6 +96,12 @@ export class DataStack extends Stack {
             value: this.profilesTable.tableName,
             description: 'DynamoDB table for user profiles',
             exportName: `${this.stackName}-UserProfilesTableName`
+        });
+
+        new cdk.CfnOutput(this, 'AttentionLedgerTableName', {
+            value: this.attentionTable.tableName,
+            description: 'DynamoDB table for attention escrow decisions and trust signals',
+            exportName: `${this.stackName}-AttentionLedgerTableName`
         });
     }
 }

@@ -1,0 +1,220 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Smart Notification Routing Engine implementation architecture</title>
+  <desc id="desc">Current AWS implementation showing admin API, event ingestion, ML training, notification scheduling, delivery, and SES bounce complaint suppression.</desc>
+
+  <defs>
+    <style>
+      .page { fill: #f8fafc; }
+      .lane { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 18; }
+      .laneTitle { fill: #0f172a; font: 700 22px Arial, sans-serif; }
+      .title { fill: #0f172a; font: 700 34px Arial, sans-serif; }
+      .subtitle { fill: #475569; font: 16px Arial, sans-serif; }
+      .box { fill: #f8fafc; stroke: #334155; stroke-width: 1.5; rx: 10; }
+      .api { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.8; rx: 10; }
+      .data { fill: #ecfdf5; stroke: #059669; stroke-width: 1.8; rx: 10; }
+      .ml { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.8; rx: 10; }
+      .send { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.8; rx: 10; }
+      .ses { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.8; rx: 10; }
+      .boxTitle { fill: #0f172a; font: 700 17px Arial, sans-serif; }
+      .boxText { fill: #475569; font: 14px Arial, sans-serif; }
+      .tiny { fill: #64748b; font: 12px Arial, sans-serif; }
+      .arrow { fill: none; stroke: #475569; stroke-width: 2.2; marker-end: url(#arrow); }
+      .apiArrow { fill: none; stroke: #2563eb; stroke-width: 2.4; marker-end: url(#apiArrow); }
+      .dataArrow { fill: none; stroke: #059669; stroke-width: 2.4; marker-end: url(#dataArrow); }
+      .mlArrow { fill: none; stroke: #7c3aed; stroke-width: 2.4; marker-end: url(#mlArrow); }
+      .sendArrow { fill: none; stroke: #ea580c; stroke-width: 2.4; marker-end: url(#sendArrow); }
+      .sesArrow { fill: none; stroke: #dc2626; stroke-width: 2.4; marker-end: url(#sesArrow); }
+      .note { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1.2; rx: 10; }
+      .num { fill: #ffffff; font: 700 13px Arial, sans-serif; }
+      .badgeApi { fill: #2563eb; }
+      .badgeData { fill: #059669; }
+      .badgeMl { fill: #7c3aed; }
+      .badgeSend { fill: #ea580c; }
+      .badgeSes { fill: #dc2626; }
+    </style>
+
+    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#475569"/>
+    </marker>
+    <marker id="apiArrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="dataArrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#059669"/>
+    </marker>
+    <marker id="mlArrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="sendArrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#ea580c"/>
+    </marker>
+    <marker id="sesArrow" markerWidth="11" markerHeight="11" refX="9" refY="3.5" orient="auto">
+      <path d="M0,0 L10,3.5 L0,7 Z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <rect class="page" width="1600" height="1120"/>
+
+  <text x="800" y="52" text-anchor="middle" class="title">Smart Notification Routing Engine</text>
+  <text x="800" y="82" text-anchor="middle" class="subtitle">Current implementation: event ingestion, ML send-time optimization, scheduled delivery, and SES suppression feedback</text>
+
+  <!-- Lanes -->
+  <rect x="50" y="120" width="1500" height="190" class="lane"/>
+  <text x="80" y="155" class="laneTitle">1. Admin API and Event Ingestion</text>
+
+  <rect x="50" y="340" width="1500" height="190" class="lane"/>
+  <text x="80" y="375" class="laneTitle">2. Event Storage and User State</text>
+
+  <rect x="50" y="560" width="1500" height="190" class="lane"/>
+  <text x="80" y="595" class="laneTitle">3. ML Feature Pipeline and SageMaker Endpoint</text>
+
+  <rect x="50" y="780" width="1500" height="250" class="lane"/>
+  <text x="80" y="815" class="laneTitle">4. Decision, Delivery, and SES Feedback Loop</text>
+
+  <!-- Row 1 -->
+  <rect x="95" y="185" width="185" height="82" class="api"/>
+  <text x="188" y="215" text-anchor="middle" class="boxTitle">Admin Console</text>
+  <text x="188" y="238" text-anchor="middle" class="boxText">React/Vite</text>
+  <text x="188" y="256" text-anchor="middle" class="tiny">S3 + CloudFront</text>
+
+  <rect x="335" y="185" width="185" height="82" class="api"/>
+  <text x="428" y="215" text-anchor="middle" class="boxTitle">Cognito</text>
+  <text x="428" y="238" text-anchor="middle" class="boxText">JWT authentication</text>
+
+  <rect x="575" y="185" width="185" height="82" class="api"/>
+  <text x="668" y="215" text-anchor="middle" class="boxTitle">API Gateway</text>
+  <text x="668" y="238" text-anchor="middle" class="boxText">HTTP API</text>
+  <text x="668" y="256" text-anchor="middle" class="tiny">/v1/users, /v1/events</text>
+
+  <rect x="815" y="185" width="210" height="82" class="api"/>
+  <text x="920" y="215" text-anchor="middle" class="boxTitle">Control Plane Lambda</text>
+  <text x="920" y="238" text-anchor="middle" class="boxText">Java 21</text>
+  <text x="920" y="256" text-anchor="middle" class="tiny">validate, create users, enqueue</text>
+
+  <rect x="1080" y="185" width="185" height="82" class="api"/>
+  <text x="1173" y="215" text-anchor="middle" class="boxTitle">Kinesis</text>
+  <text x="1173" y="238" text-anchor="middle" class="boxText">UserEvents stream</text>
+
+  <rect x="1320" y="185" width="185" height="82" class="api"/>
+  <text x="1413" y="215" text-anchor="middle" class="boxTitle">Events Consumer</text>
+  <text x="1413" y="238" text-anchor="middle" class="boxText">Java 21 Lambda</text>
+
+  <path d="M280 226 H335" class="apiArrow"/>
+  <path d="M520 226 H575" class="apiArrow"/>
+  <path d="M760 226 H815" class="apiArrow"/>
+  <path d="M1025 226 H1080" class="apiArrow"/>
+  <path d="M1265 226 H1320" class="apiArrow"/>
+
+  <!-- Row 2 -->
+  <rect x="190" y="405" width="235" height="82" class="data"/>
+  <text x="308" y="435" text-anchor="middle" class="boxTitle">S3 Events Bucket</text>
+  <text x="308" y="458" text-anchor="middle" class="boxText">Raw JSONL event data</text>
+  <text x="308" y="476" text-anchor="middle" class="tiny">raw/dt=YYYY-MM-DD/h=HH</text>
+
+  <rect x="535" y="405" width="235" height="82" class="data"/>
+  <text x="653" y="435" text-anchor="middle" class="boxTitle">DynamoDB Tables</text>
+  <text x="653" y="458" text-anchor="middle" class="boxText">UserProfiles + AttentionLedger</text>
+  <text x="653" y="476" text-anchor="middle" class="tiny">profiles, counters, attention decisions</text>
+
+  <rect x="880" y="405" width="235" height="82" class="data"/>
+  <text x="998" y="435" text-anchor="middle" class="boxTitle">S3 Curated Bucket</text>
+  <text x="998" y="458" text-anchor="middle" class="boxText">Feature CSV output</text>
+  <text x="998" y="476" text-anchor="middle" class="tiny">features-csv/</text>
+
+  <rect x="1225" y="405" width="235" height="82" class="data"/>
+  <text x="1343" y="435" text-anchor="middle" class="boxTitle">S3 Models Bucket</text>
+  <text x="1343" y="458" text-anchor="middle" class="boxText">Glue scripts and models</text>
+  <text x="1343" y="476" text-anchor="middle" class="tiny">training-output/</text>
+
+  <path d="M1413 267 V322 H308 V405" class="dataArrow"/>
+  <path d="M1413 267 V322 H653 V405" class="dataArrow"/>
+
+  <!-- Row 3 -->
+  <rect x="120" y="625" width="215" height="82" class="ml"/>
+  <text x="228" y="655" text-anchor="middle" class="boxTitle">Step Functions</text>
+  <text x="228" y="678" text-anchor="middle" class="boxText">SR-ML-Pipeline</text>
+
+  <rect x="425" y="625" width="215" height="82" class="ml"/>
+  <text x="533" y="655" text-anchor="middle" class="boxTitle">AWS Glue Job</text>
+  <text x="533" y="678" text-anchor="middle" class="boxText">Build hourly features</text>
+  <text x="533" y="696" text-anchor="middle" class="tiny">hour, click rate, sends</text>
+
+  <rect x="730" y="625" width="215" height="82" class="ml"/>
+  <text x="838" y="655" text-anchor="middle" class="boxTitle">SageMaker Training</text>
+  <text x="838" y="678" text-anchor="middle" class="boxText">XGBoost binary classifier</text>
+
+  <rect x="1035" y="625" width="215" height="82" class="ml"/>
+  <text x="1143" y="655" text-anchor="middle" class="boxTitle">Endpoint Deployer</text>
+  <text x="1143" y="678" text-anchor="middle" class="boxText">Java 21 Lambda</text>
+
+  <rect x="1340" y="625" width="180" height="82" class="ml"/>
+  <text x="1430" y="655" text-anchor="middle" class="boxTitle">SageMaker Endpoint</text>
+  <text x="1430" y="678" text-anchor="middle" class="boxText">send-time-v1</text>
+
+  <path d="M335 666 H425" class="mlArrow"/>
+  <path d="M640 666 H730" class="mlArrow"/>
+  <path d="M945 666 H1035" class="mlArrow"/>
+  <path d="M1250 666 H1340" class="mlArrow"/>
+  <path d="M308 487 V545 H533 V625" class="dataArrow"/>
+  <path d="M533 487 V545 H838 V625" class="dataArrow"/>
+  <path d="M1343 487 V545 H838 V625" class="dataArrow"/>
+
+  <!-- Row 4 delivery -->
+  <rect x="95" y="850" width="200" height="82" class="send"/>
+  <text x="195" y="880" text-anchor="middle" class="boxTitle">Decision Service</text>
+  <text x="195" y="903" text-anchor="middle" class="boxText">Java 21 Lambda</text>
+  <text x="195" y="921" text-anchor="middle" class="tiny">calls endpoint + reads profile</text>
+
+  <rect x="365" y="850" width="200" height="82" class="send"/>
+  <text x="465" y="880" text-anchor="middle" class="boxTitle">EventBridge Scheduler</text>
+  <text x="465" y="903" text-anchor="middle" class="boxText">One-time delivery</text>
+
+  <rect x="635" y="850" width="200" height="82" class="send"/>
+  <text x="735" y="880" text-anchor="middle" class="boxTitle">Sender Service</text>
+  <text x="735" y="903" text-anchor="middle" class="boxText">Java 21 Lambda</text>
+  <text x="735" y="921" text-anchor="middle" class="tiny">channel fallback</text>
+
+  <rect x="905" y="850" width="260" height="82" class="send"/>
+  <text x="1035" y="878" text-anchor="middle" class="boxTitle">Delivery Channels</text>
+  <text x="1035" y="901" text-anchor="middle" class="boxText">AWS SES Email</text>
+  <text x="1035" y="919" text-anchor="middle" class="boxText">AWS SNS SMS</text>
+
+  <rect x="1260" y="850" width="170" height="82" class="box"/>
+  <text x="1345" y="880" text-anchor="middle" class="boxTitle">Users</text>
+  <text x="1345" y="903" text-anchor="middle" class="boxText">Email / SMS</text>
+
+  <path d="M295 891 H365" class="sendArrow"/>
+  <path d="M565 891 H635" class="sendArrow"/>
+  <path d="M835 891 H905" class="sendArrow"/>
+  <path d="M1165 891 H1260" class="sendArrow"/>
+  <path d="M653 487 V810 H195 V850" class="dataArrow"/>
+  <path d="M1430 707 V790 H195 V850" class="mlArrow"/>
+
+  <!-- Row 4 feedback loop, separated lower line -->
+  <rect x="95" y="965" width="210" height="48" class="ses"/>
+  <text x="200" y="995" text-anchor="middle" class="boxTitle">SES Config Set</text>
+
+  <rect x="365" y="965" width="210" height="48" class="ses"/>
+  <text x="470" y="995" text-anchor="middle" class="boxTitle">SNS Bounce/Complaint</text>
+
+  <rect x="635" y="965" width="210" height="48" class="ses"/>
+  <text x="740" y="995" text-anchor="middle" class="boxTitle">SES Event Processor</text>
+
+  <rect x="905" y="965" width="210" height="48" class="ses"/>
+  <text x="1010" y="995" text-anchor="middle" class="boxTitle">Suppression List</text>
+
+  <rect x="1175" y="965" width="210" height="48" class="ses"/>
+  <text x="1280" y="995" text-anchor="middle" class="boxTitle">SES Event Logs</text>
+
+  <path d="M1035 932 V948 H200 V965" class="sesArrow"/>
+  <path d="M305 989 H365" class="sesArrow"/>
+  <path d="M575 989 H635" class="sesArrow"/>
+  <path d="M845 989 H905" class="sesArrow"/>
+  <path d="M845 1001 H1175" class="sesArrow"/>
+  <path d="M1010 965 V945 H735 V932" class="sesArrow"/>
+
+  <!-- Small legend / implementation note -->
+  <rect x="1080" y="120" width="425" height="48" class="note"/>
+  <text x="1293" y="141" text-anchor="middle" class="boxText">Implemented channels: Email via SES and SMS via SNS.</text>
+  <text x="1293" y="160" text-anchor="middle" class="tiny">Push, WhatsApp, and WEA are future capabilities, not shown here.</text>
+</svg>
