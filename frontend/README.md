@@ -165,18 +165,11 @@ Add your CloudFront URL to Cognito's allowed redirect URIs:
 
 ## Step 7: Update API Gateway CORS
 
-Add your CloudFront URL to CORS allowed origins in `infra/cdk/lib/compute-stack.ts`:
-
-```typescript
-allowOrigins: [
-    'http://localhost:5173',
-    'https://your-cloudfront-domain.cloudfront.net', // Add this
-],
-```
+For the generated CloudFront frontend, no manual CORS update is required. CDK automatically allows the frontend distribution origin. If `CUSTOM_DOMAIN` is configured in `infra/cdk/.env`, CDK also allows that domain.
 
 Then redeploy:
 ```bash
-cdk deploy SR-Compute
+./scripts/deploy-infra.sh SR-Compute
 ```
 
 ## Step 8: Create Admin User

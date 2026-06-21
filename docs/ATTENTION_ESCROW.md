@@ -459,7 +459,7 @@ label,hour,channel,messageCategory,priorityClass,businessValue,urgency,sendTimeP
 Runtime collaboration:
 
 ```text
-Existing send-time model -> predicts best hour and engagement probability
+Existing send-time model -> scores UTC hour buckets inside the requested window
 Future attention model   -> predicts negative/wasted-attention risk
 Attention Gate           -> combines value, cost, urgency, and policy
 ```
@@ -484,9 +484,10 @@ Do not train this model until enough outcome data exists in `AttentionLedger` an
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-19T14:00:00Z",
+  "sendNowTime": "2026-06-19T10:37:24Z",
   "sendNowHour": 10,
   "sendNowProbability": 0.41,
-  "recommendedSendTime": "2026-06-19T14:00Z",
   "attentionDecision": "SEND",
   "attentionCost": 2.4,
   "attentionValue": 5.9,
@@ -498,11 +499,11 @@ Do not train this model until enough outcome data exists in `AttentionLedger` an
   "decisionId": "attn_...",
   "scheduled": true,
   "scheduleId": "send-...",
-  "scheduledTime": "2026-06-19T14:00Z"
+  "scheduledTime": "2026-06-19T14:00:00Z"
 }
 ```
 
-`probability` is the predicted score for the recommended hour. `sendNowProbability` is the predicted score for sending in the current UTC hour. `recommendedSendTime` lets the UI show what time would be scheduled before the user clicks Schedule.
+`recommendedSendTime` is the actual UTC timestamp selected inside the requested delivery window. `probability` is the predicted score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the predicted score for sending in that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
 If the message is deferred:
 

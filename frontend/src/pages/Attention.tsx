@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Layout from '@/components/common/Layout'
 import {
   AlertCircle,
   CalendarClock,
   CheckCircle2,
   Clock,
+  Code2,
   Gauge,
   Loader2,
   RefreshCw,
@@ -14,6 +15,7 @@ import {
   TrendingUp,
   XCircle,
 } from 'lucide-react'
+import { apiClient } from '@/api/client'
 import { getAttentionSummary, previewDecision, scheduleDecision } from '@/api/decisions'
 import type { AttentionSummaryResponse, DecisionResponse, MessageCategory, PriorityClass } from '@/types'
 
@@ -94,17 +96,54 @@ const categories: MessageCategory[] = [
 
 const priorities: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'TRANSACTIONAL', 'SECURITY', 'EMERGENCY']
 const channels: Channel[] = ['AUTO', 'EMAIL', 'SMS', 'PUSH']
+const INITIAL_TABLE_ROWS = 10
 
 const decisionBadge = (decision: 'SEND' | 'DEFER') =>
   decision === 'SEND' ? 'badge badge-success' : 'badge badge-warning'
 
+const decisionPanelClass = (decision?: 'SEND' | 'DEFER') =>
+  decision === 'SEND'
+    ? 'bg-success-50 border-success-200 text-success-800'
+    : decision === 'DEFER'
+      ? 'bg-warning-50 border-warning-200 text-warning-800'
+      : 'bg-slate-50 border-slate-200 text-slate-800'
+
+const toDateTimeLocal = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const epochSecondsFromLocalInput = (value: string) => Math.floor(new Date(value).getTime() / 1000)
+const utcFromLocalInput = (value: string) => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '-' : date.toISOString()
+}
+
+const defaultDeliveryWindow = () => {
+  const start = new Date()
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  return {
+    start: toDateTimeLocal(start),
+    end: toDateTimeLocal(end),
+    preset: 'next24h',
+  }
+}
+
 const Attention = () => {
-  const [loading, setLoading] = useState<'preview' | 'schedule' | null>(null)
+  const [loading, setLoading] = useState<'preview' | 'schedule' | 'sendNow' | null>(null)
   const [error, setError] = useState('')
+  const [actionNotice, setActionNotice] = useState('')
   const [result, setResult] = useState<DecisionResponse | null>(null)
+  const [showDeveloperDetails, setShowDeveloperDetails] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState('')
   const [summaryData, setSummaryData] = useState<AttentionSummaryResponse | null>(null)
+  const [showAllRows, setShowAllRows] = useState(false)
   const [filters, setFilters] = useState({
     sourceId: '',
     userId: '',
@@ -121,9 +160,14 @@ const Attention = () => {
     message: 'You left something in your cart.',
     subject: 'Complete your order',
   })
+  const [deliveryWindow, setDeliveryWindow] = useState(defaultDeliveryWindow)
 
-  const windowStart = Math.floor(Date.now() / 1000)
-  const windowEnd = windowStart + 86400
+  useEffect(() => {
+    if (!result) return
+    requestAnimationFrame(() => {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [result])
 
   const loadSummary = async () => {
     setSummaryLoading(true)
@@ -170,6 +214,8 @@ const Attention = () => {
     return decisionRows
   }, [summaryData])
 
+  const visibleRows = showAllRows ? rows : rows.slice(0, INITIAL_TABLE_ROWS)
+
   const summary = useMemo(() => {
     if (summaryData) {
       return {
@@ -212,31 +258,71 @@ const Attention = () => {
     }
   }, [summaryData])
 
+  const applyWindowPreset = (preset: 'next24h' | 'today' | 'tomorrow' | 'next48h') => {
+    const now = new Date()
+    let start = new Date(now)
+    let end = new Date(now)
+
+    if (preset === 'next24h') {
+      end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+    } else if (preset === 'next48h') {
+      end = new Date(start.getTime() + 48 * 60 * 60 * 1000)
+    } else if (preset === 'today') {
+      end = new Date(now)
+      end.setHours(23, 59, 0, 0)
+    } else {
+      start = new Date(now)
+      start.setDate(start.getDate() + 1)
+      start.setHours(9, 0, 0, 0)
+      end = new Date(start)
+      end.setHours(17, 0, 0, 0)
+    }
+
+    setDeliveryWindow({
+      start: toDateTimeLocal(start),
+      end: toDateTimeLocal(end),
+      preset,
+    })
+  }
+
+  const buildDecisionRequest = () => ({
+    userId: form.userId,
+    windowStart: epochSecondsFromLocalInput(deliveryWindow.start),
+    windowEnd: epochSecondsFromLocalInput(deliveryWindow.end),
+    channel: form.channel,
+    sourceId: form.sourceId,
+    messageCategory: form.messageCategory,
+    priorityClass: form.priorityClass,
+    businessValue: form.businessValue,
+    urgency: form.urgency,
+    message: form.message,
+    metadata: form.subject ? { subject: form.subject } : undefined,
+  })
+
   const runDecision = async (mode: 'preview' | 'schedule') => {
     setLoading(mode)
     setError('')
-    setResult(null)
+    setActionNotice('')
+    if (mode === 'preview') setResult(null)
+    if (mode === 'preview') setShowDeveloperDetails(false)
 
     try {
-      const request = {
-        userId: form.userId,
-        windowStart,
-        windowEnd,
-        channel: form.channel,
-        sourceId: form.sourceId,
-        messageCategory: form.messageCategory,
-        priorityClass: form.priorityClass,
-        businessValue: form.businessValue,
-        urgency: form.urgency,
-        message: form.message,
-        metadata: form.subject ? { subject: form.subject } : undefined,
-      }
+      const request = buildDecisionRequest()
 
+      if (Number.isNaN(request.windowStart) || Number.isNaN(request.windowEnd)) {
+        throw new Error('Choose a valid delivery window.')
+      }
+      if (request.windowEnd <= request.windowStart) {
+        throw new Error('Delivery window end must be after start.')
+      }
       const response = mode === 'preview'
         ? await previewDecision(request)
         : await scheduleDecision(request)
 
       setResult(response)
+      if (mode === 'schedule' && response.scheduled) {
+        setActionNotice('Recommended send time scheduled.')
+      }
     } catch (err: any) {
       const status = err.response?.status
       const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Decision request failed'
@@ -246,7 +332,47 @@ const Attention = () => {
     }
   }
 
+  const sendNow = async () => {
+    setLoading('sendNow')
+    setError('')
+    setActionNotice('')
+
+    try {
+      await apiClient.post('/v1/events', {
+        userId: form.userId,
+        type: 'MANUAL_ATTENTION_SEND',
+        ts: new Date().toISOString(),
+        notification: {
+          deliveryMode: 'IMMEDIATE',
+          channel: form.channel === 'AUTO' ? undefined : form.channel,
+          message: form.message,
+          sourceId: form.sourceId,
+          messageCategory: form.messageCategory,
+          priorityClass: form.priorityClass,
+          businessValue: form.businessValue,
+          urgency: form.urgency,
+          metadata: form.subject ? { subject: form.subject } : undefined,
+        },
+      })
+      setActionNotice('Immediate send event submitted.')
+    } catch (err: any) {
+      const status = err.response?.status
+      const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Immediate send failed'
+      setError(status ? `HTTP ${status}: ${message}` : message)
+    } finally {
+      setLoading(null)
+    }
+  }
+
   const scorePosition = (value: number) => `${Math.min(100, Math.max(0, value * 10))}%`
+  const probabilityPercent = (value?: number) =>
+    typeof value === 'number' ? `${Math.round(value * 100)}%` : '-'
+
+  const probabilityPointDelta = (recommended?: number, sendNow?: number) => {
+    if (typeof recommended !== 'number' || typeof sendNow !== 'number') return null
+    return Math.round((recommended - sendNow) * 100)
+  }
+
   const formatDateTime = (value?: string) => {
     if (!value) return '-'
     const date = new Date(value)
@@ -411,7 +537,7 @@ const Attention = () => {
                         No Attention Escrow decisions found for this scope yet.
                       </td>
                     </tr>
-                  ) : rows.map((row) => (
+                  ) : visibleRows.map((row) => (
                     <tr key={row.decisionId}>
                       <td>
                         <span className={decisionBadge(row.attentionDecision)}>{row.attentionDecision}</span>
@@ -438,9 +564,19 @@ const Attention = () => {
                 </tbody>
               </table>
             </div>
+            {rows.length > INITIAL_TABLE_ROWS && (
+              <div className="px-5 py-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-xs text-slate-500">
+                  Showing {visibleRows.length} of {rows.length} decisions
+                </div>
+                <button className="btn-secondary text-sm" onClick={() => setShowAllRows(!showAllRows)}>
+                  {showAllRows ? 'Show 10' : 'Show all'}
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="card">
+          <div className="card" id="attention-decision-form">
             <h3 className="font-semibold text-slate-900 mb-4">Decision Tester</h3>
             <div className="space-y-4">
               <div>
@@ -515,6 +651,67 @@ const Attention = () => {
                   className="w-full accent-primary-600"
                 />
               </div>
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Delivery Window</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Optimize only inside this local admin time range.</div>
+                  </div>
+                  <CalendarClock size={18} className="text-slate-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next24h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                    onClick={() => applyWindowPreset('next24h')}
+                  >
+                    Next 24h
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next48h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                    onClick={() => applyWindowPreset('next48h')}
+                  >
+                    Next 48h
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'today' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                    onClick={() => applyWindowPreset('today')}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'tomorrow' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                    onClick={() => applyWindowPreset('tomorrow')}
+                  >
+                    Tomorrow
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Window Start</label>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      value={deliveryWindow.start}
+                      onChange={(e) => setDeliveryWindow({ ...deliveryWindow, start: e.target.value, preset: 'custom' })}
+                    />
+                    <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.start)}</div>
+                  </div>
+                  <div>
+                    <label className="label">Window End</label>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      value={deliveryWindow.end}
+                      onChange={(e) => setDeliveryWindow({ ...deliveryWindow, end: e.target.value, preset: 'custom' })}
+                    />
+                    <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.end)}</div>
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="label">Subject</label>
                 <input
@@ -540,14 +737,10 @@ const Attention = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <button className="btn-secondary" onClick={() => runDecision('preview')} disabled={loading !== null}>
+              <div className="grid grid-cols-1 gap-3">
+                <button className="btn-primary" onClick={() => runDecision('preview')} disabled={loading !== null}>
                   {loading === 'preview' ? <Loader2 className="animate-spin" size={16} /> : <Clock size={16} />}
                   Preview
-                </button>
-                <button className="btn-primary" onClick={() => runDecision('schedule')} disabled={loading !== null}>
-                  {loading === 'schedule' ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                  Schedule
                 </button>
               </div>
             </div>
@@ -555,15 +748,79 @@ const Attention = () => {
         </div>
 
         {result && (
-          <div className="card-flush overflow-hidden">
+          <div className="card-flush overflow-hidden scroll-mt-6" ref={resultRef}>
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-primary-700" />
                 <h3 className="font-semibold text-slate-900">Latest Decision Result</h3>
               </div>
-              <span className={decisionBadge(result.attentionDecision || 'DEFER')}>
+              <div className={`px-4 py-2 rounded-lg border text-base font-bold tracking-wide ${decisionPanelClass(result.attentionDecision)}`}>
                 {result.attentionDecision || 'UNKNOWN'}
-              </span>
+              </div>
+            </div>
+            <div className={`px-5 py-5 border-b ${decisionPanelClass(result.attentionDecision)}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider opacity-75">Attention Decision</div>
+                  <div className="text-4xl font-extrabold mt-1">{result.attentionDecision || 'UNKNOWN'}</div>
+                </div>
+                <div className="sm:text-right">
+                  <div className="text-sm font-medium opacity-80">Value - Cost</div>
+                  <div className="text-2xl font-bold">
+                    {typeof result.attentionValue === 'number' && typeof result.attentionCost === 'number'
+                      ? (result.attentionValue - result.attentionCost).toFixed(3)
+                      : '-'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-slate-900">
+                    {result.attentionDecision === 'SEND'
+                      ? 'This notification is cleared by Attention Escrow.'
+                      : 'Attention Escrow recommends not sending this now.'}
+                  </div>
+                  <div className="text-sm text-slate-600 mt-1">
+                    {result.attentionDecision === 'SEND'
+                      ? 'Schedule the recommended time for best engagement, or send now if the business need is immediate.'
+                      : 'You can still schedule this as a manual override while testing, or adjust inputs and preview again.'}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    className="btn-primary"
+                    onClick={() => runDecision('schedule')}
+                    disabled={loading !== null || result.scheduled}
+                  >
+                    {loading === 'schedule' ? <Loader2 className="animate-spin" size={16} /> : <CalendarClock size={16} />}
+                    Schedule Recommended
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={sendNow}
+                    disabled={loading !== null}
+                  >
+                    {loading === 'sendNow' ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                    Send Now
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => document.getElementById('attention-decision-form')?.scrollIntoView({ behavior: 'smooth' })}
+                    disabled={loading !== null}
+                  >
+                    <SlidersHorizontal size={16} />
+                    Adjust
+                  </button>
+                </div>
+              </div>
+              {actionNotice && (
+                <div className="mt-3 bg-success-50 border border-success-200 text-success-700 text-sm p-3 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  <span>{actionNotice}</span>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 border-b border-slate-100">
               <div className="p-5 border-b lg:border-b-0 lg:border-r border-slate-100">
@@ -602,28 +859,97 @@ const Attention = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-b border-slate-100">
               <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
                 <div className="text-xs text-slate-500">Best-hour click probability</div>
-                <div className="text-2xl font-bold text-slate-900">{Math.round((result.probability ?? 0) * 100)}%</div>
+                <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.probability)}</div>
               </div>
               <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
                 <div className="text-xs text-slate-500">If sent now</div>
-                <div className="text-2xl font-bold text-slate-900">{Math.round((result.sendNowProbability ?? 0) * 100)}%</div>
+                <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.sendNowProbability)}</div>
                 <div className="text-xs text-slate-500 mt-1">
-                  Current model hour: {typeof result.sendNowHour === 'number' ? `${result.sendNowHour}:00 UTC` : '-'}
+                  {result.sendNowTime
+                    ? formatDateTime(result.sendNowTime)
+                    : typeof result.sendNowHour === 'number'
+                      ? `Current model hour: ${result.sendNowHour}:00 UTC`
+                      : '-'}
                 </div>
               </div>
               <div className="p-5">
                 <div className="text-xs text-slate-500">Lift from waiting</div>
                 <div className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                   <TrendingUp size={20} className="text-success-600" />
-                  {Math.round(((result.probability ?? 0) - (result.sendNowProbability ?? 0)) * 100)} pts
+                  {probabilityPointDelta(result.probability, result.sendNowProbability) ?? '-'} pts
+                </div>
+              </div>
+            </div>
+            <div className="p-5 border-b border-slate-100 bg-white">
+              <div className="flex items-start gap-3">
+                <div className="stat-icon-wrap bg-slate-100 flex-shrink-0">
+                  <Send size={18} className="text-slate-700" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-900">Send Now Impact</div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="text-xs text-slate-500">Send-now probability</div>
+                      <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.sendNowProbability)}</div>
+                      <div className="text-xs text-slate-500 mt-1">{result.sendNowTime ? formatDateTime(result.sendNowTime) : 'Current model hour'}</div>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="text-xs text-slate-500">Recommended probability</div>
+                      <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.probability)}</div>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="text-xs text-slate-500">Timing penalty</div>
+                      <div className="text-xl font-bold text-slate-900 mt-1">
+                        {(() => {
+                          const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
+                          if (delta === null) return '-'
+                          if (delta <= 0) return '0 pts'
+                          return `-${delta} pts`
+                        })()}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="text-xs text-slate-500">Attention cost</div>
+                      <div className="text-xl font-bold text-slate-900 mt-1">{result.attentionCost?.toFixed(3) ?? '-'}</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-600 mt-4">
+                    {(() => {
+                      const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
+                      if (result.attentionDecision === 'DEFER') {
+                        return 'The API recommends deferring this notification; sending now may increase fatigue risk for this user.'
+                      }
+                      if (delta === null) {
+                        return 'Send-now impact is based on the API decision response. Send-now probability was not returned for this result.'
+                      }
+                      if (delta <= 0) {
+                        return 'No timing penalty is detected by the current model, so sending now and scheduling have similar predicted engagement.'
+                      }
+                      return `The model predicts scheduling may improve engagement by ${delta} percentage points compared with sending now.`
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
             <div className="p-5">
               <div className="text-sm text-slate-600">{result.attentionReason}</div>
-              <pre className="mt-4 p-4 rounded-lg bg-slate-950 text-slate-100 text-xs overflow-x-auto">
-                {JSON.stringify(result, null, 2)}
-              </pre>
+              <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
+                <button
+                  className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 text-sm font-medium text-slate-700 flex items-center justify-between"
+                  onClick={() => setShowDeveloperDetails(!showDeveloperDetails)}
+                >
+                  <span className="flex items-center gap-2">
+                    <Code2 size={16} />
+                    Developer details
+                  </span>
+                  <span>{showDeveloperDetails ? 'Hide' : 'Show'}</span>
+                </button>
+                {showDeveloperDetails && (
+                  <pre className="p-4 bg-slate-950 text-slate-100 text-xs overflow-x-auto">
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
+                )}
+              </div>
             </div>
           </div>
         )}

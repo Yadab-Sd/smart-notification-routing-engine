@@ -44,7 +44,7 @@ import java.util.UUID;
 /**
  * Decision Lambda.
  *
- * Stage 1: existing SageMaker send-time model finds the best hour.
+ * Stage 1: existing SageMaker send-time model scores UTC hour buckets inside the requested window.
  * Stage 2: Attention Escrow gate decides whether that message deserves to spend attention now.
  */
 public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
@@ -111,9 +111,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             }
             responseNode.put("hour", sendTime.bestHour);
             responseNode.put("probability", round(sendTime.bestScore));
+            responseNode.put("recommendedSendTime", sendTime.recommendedTime.toString());
+            responseNode.put("sendNowTime", sendTime.sendNowTime.toString());
             responseNode.put("sendNowHour", sendTime.sendNowHour);
             responseNode.put("sendNowProbability", round(sendTime.sendNowScore));
-            responseNode.put("recommendedSendTime", recommendedSendTime(sendTime.bestHour));
             responseNode.put("attentionDecision", attention.decision);
             responseNode.put("attentionCost", round(attention.cost));
             responseNode.put("attentionValue", round(attention.value));
@@ -296,6 +297,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (req.getWindowEnd() <= req.getWindowStart()) {
             return "windowEnd must be after windowStart";
         }
+        if (!Instant.ofEpochSecond(req.getWindowEnd()).isAfter(Instant.now())) {
+            return "windowEnd must be in the future";
+        }
         long hours = ChronoUnit.HOURS.between(
                 Instant.ofEpochSecond(req.getWindowStart()),
                 Instant.ofEpochSecond(req.getWindowEnd())
@@ -331,40 +335,52 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private SendTimeResult findBestSendTime(DecisionRequest req, UserStats stats, Context context) throws Exception {
         Instant startTs = Instant.ofEpochSecond(req.getWindowStart());
         Instant endTs = Instant.ofEpochSecond(req.getWindowEnd());
+        Instant sendNowTime = Instant.now();
 
-        int sendNowHour = startTs.atZone(ZoneOffset.UTC).getHour();
-        double sendNowScore = 0.0;
-        boolean sendNowCaptured = false;
-        int bestHour = -1;
-        double bestScore = -1.0;
+        int sendNowHour = sendNowTime.atZone(ZoneOffset.UTC).getHour();
+        double sendNowScore = scoreHour(sendNowHour, stats, context);
 
-        for (Instant ts = startTs; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
+        Instant optimizedStart = startTs.isAfter(sendNowTime) ? startTs : sendNowTime;
+        int bestHour = optimizedStart.atZone(ZoneOffset.UTC).getHour();
+        double bestScore = scoreHour(bestHour, stats, context);
+        Instant bestTime = optimizedStart;
+
+        Instant firstFutureSlot = optimizedStart.truncatedTo(ChronoUnit.HOURS).plus(1, ChronoUnit.HOURS);
+        for (Instant ts = firstFutureSlot; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
             int hour = ts.atZone(ZoneOffset.UTC).getHour();
-            int sendsCountHour = Math.max(0, stats.totalSends / 24);
-            String csvRow = String.format("%d,%.4f,%d", hour, stats.clickRate(), sendsCountHour);
-
-            context.getLogger().log("SageMaker Input: " + csvRow);
-            InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
-                    .endpointName(sageMakerEndpoint)
-                    .contentType("text/csv")
-                    .body(SdkBytes.fromUtf8String(csvRow))
-                    .build());
-
-            double score = parseScore(invokeRes.body().asUtf8String());
-            context.getLogger().log("Score: " + score);
-
-            if (!sendNowCaptured) {
-                sendNowScore = score;
-                sendNowCaptured = true;
-            }
+            double score = scoreHour(hour, stats, context);
 
             if (score > bestScore) {
                 bestScore = score;
                 bestHour = hour;
+                bestTime = ts;
             }
         }
 
-        return new SendTimeResult(bestHour, Math.max(0.0, bestScore), sendNowHour, Math.max(0.0, sendNowScore));
+        return new SendTimeResult(
+                bestHour,
+                Math.max(0.0, bestScore),
+                bestTime,
+                sendNowHour,
+                Math.max(0.0, sendNowScore),
+                sendNowTime
+        );
+    }
+
+    private double scoreHour(int hour, UserStats stats, Context context) throws Exception {
+        int sendsCountHour = Math.max(0, stats.totalSends / 24);
+        String csvRow = String.format("%d,%.4f,%d", hour, stats.clickRate(), sendsCountHour);
+
+        context.getLogger().log("SageMaker Input: " + csvRow);
+        InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
+                .endpointName(sageMakerEndpoint)
+                .contentType("text/csv")
+                .body(SdkBytes.fromUtf8String(csvRow))
+                .build());
+
+        double score = parseScore(invokeRes.body().asUtf8String());
+        context.getLogger().log("Score: " + score);
+        return score;
     }
 
     private double parseScore(String resultStr) throws Exception {
@@ -481,6 +497,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("sourceTrustScore", AttributeValue.builder().n(String.format("%.4f", attention.sourceTrustScore)).build());
             item.put("bestHour", AttributeValue.builder().n(String.valueOf(sendTime.bestHour)).build());
             item.put("probability", AttributeValue.builder().n(String.format("%.4f", sendTime.bestScore)).build());
+            item.put("recommendedSendTime", AttributeValue.builder().s(sendTime.recommendedTime.toString()).build());
+            item.put("sendNowTime", AttributeValue.builder().s(sendTime.sendNowTime.toString()).build());
+            item.put("sendNowHour", AttributeValue.builder().n(String.valueOf(sendTime.sendNowHour)).build());
+            item.put("sendNowProbability", AttributeValue.builder().n(String.format("%.4f", sendTime.sendNowScore)).build());
             item.put("scheduleRequested", AttributeValue.builder().bool(Boolean.TRUE.equals(req.getSchedule())).build());
             item.put("createdAt", AttributeValue.builder().s(now).build());
             item.put("windowStart", AttributeValue.builder().n(String.valueOf(req.getWindowStart())).build());
@@ -511,7 +531,12 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     }
 
     private ScheduleResult scheduleSend(DecisionRequest req, SendTimeResult sendTime, String decisionId, AttentionDecision attention) throws Exception {
-        ZonedDateTime targetTime = nextUtcHour(sendTime.bestHour);
+        Instant scheduleInstant = sendTime.recommendedTime;
+        Instant minimumScheduleTime = Instant.now().plus(1, ChronoUnit.MINUTES);
+        if (!scheduleInstant.isAfter(minimumScheduleTime)) {
+            scheduleInstant = minimumScheduleTime;
+        }
+        ZonedDateTime targetTime = scheduleInstant.atZone(ZoneOffset.UTC);
 
         String scheduleExpression = "at(" + targetTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")) + ")";
         String scheduleName = "send-" + UUID.randomUUID();
@@ -537,29 +562,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         scheduler.createSchedule(CreateScheduleRequest.builder()
                 .name(scheduleName)
                 .scheduleExpression(scheduleExpression)
+                .scheduleExpressionTimezone("UTC")
                 .flexibleTimeWindow(FlexibleTimeWindow.builder()
                         .mode(FlexibleTimeWindowMode.OFF)
                         .build())
                 .target(target)
                 .build());
 
-        return new ScheduleResult(scheduleName, targetTime.toString());
-    }
-
-    private String recommendedSendTime(int bestHour) {
-        if (bestHour < 0) {
-            return null;
-        }
-        return nextUtcHour(bestHour).toString();
-    }
-
-    private ZonedDateTime nextUtcHour(int hour) {
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
-        ZonedDateTime targetTime = nowUtc.withHour(hour).withMinute(0).withSecond(0).withNano(0);
-        if (!targetTime.isAfter(nowUtc)) {
-            targetTime = targetTime.plusDays(1);
-        }
-        return targetTime;
+        return new ScheduleResult(scheduleName, scheduleInstant.toString());
     }
 
     private double fatigueScore(UserStats stats) {
@@ -738,7 +748,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return value == null ? "Internal server error" : value.replace("\"", "'");
     }
 
-    private record SendTimeResult(int bestHour, double bestScore, int sendNowHour, double sendNowScore) {}
+    private record SendTimeResult(
+            int bestHour,
+            double bestScore,
+            Instant recommendedTime,
+            int sendNowHour,
+            double sendNowScore,
+            Instant sendNowTime
+    ) {}
 
     private record ScheduleResult(String scheduleName, String scheduledTime) {}
 

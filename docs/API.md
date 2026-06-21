@@ -155,6 +155,8 @@ Create categories first when you want API callers to send simpler events and let
 
 In the admin console, use **Messaging → Categories** to create and edit these policies. The **Send Event** page can then load a category, prefill the notification fields, and still let the admin override values for the specific send before submitting.
 
+The **Attention Escrow** page is a decision workbench: choose a delivery window, preview first, then schedule the recommended time, send immediately, or adjust inputs and preview again. The default UI window is the next 24 hours, but admins can choose today, tomorrow, next 48 hours, or a custom local date/time range.
+
 Storage shape:
 
 - Table: `NotificationCategories`
@@ -422,9 +424,10 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-12T14:00:00Z",
+  "sendNowTime": "2026-06-12T10:37:24Z",
   "sendNowHour": 10,
   "sendNowProbability": 0.41,
-  "recommendedSendTime": "2026-06-12T14:00Z",
   "attentionDecision": "SEND",
   "attentionCost": 2.4,
   "attentionValue": 5.9,
@@ -438,7 +441,7 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
 }
 ```
 
-`probability` is the model score for the recommended hour. `sendNowProbability` is the model score for the current hour at request time. `recommendedSendTime` shows the timestamp that would be used if the caller schedules this decision.
+`recommendedSendTime` is the actual UTC timestamp chosen inside `windowStart`/`windowEnd`. `probability` is the model score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the model score for that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
 **POST /v1/decisions/schedule** - Schedule notification
 
@@ -468,6 +471,10 @@ Attention Escrow runs before scheduling. If the decision is `DEFER`, no EventBri
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-12T14:00:00Z",
+  "sendNowTime": "2026-06-12T10:37:24Z",
+  "sendNowHour": 10,
+  "sendNowProbability": 0.41,
   "attentionDecision": "SEND",
   "attentionCost": 2.1,
   "attentionValue": 6.8,

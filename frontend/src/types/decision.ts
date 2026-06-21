@@ -19,6 +19,7 @@ export interface DecisionResponse {
   userId?: string
   hour: number // 0-23
   probability: number // 0-1
+  sendNowTime?: string
   sendNowHour?: number // 0-23
   sendNowProbability?: number // 0-1
   recommendedSendTime?: string

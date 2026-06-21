@@ -32,6 +32,10 @@ const messaging = new MessagingStack(app, 'SR-Messaging', {
   profilesTable: data.profilesTable,
 })
 
+// Frontend hosting (S3 + CloudFront). Created before Compute so API CORS can
+// automatically allow the generated CloudFront origin.
+const frontend = new FrontendStack(app, 'SR-Frontend', { env })
+
 // Now ComputeStack can reference the Pinpoint App ID from MessagingStack
 new ComputeStack(app, 'SR-Compute', {
   env,
@@ -40,6 +44,7 @@ new ComputeStack(app, 'SR-Compute', {
   data,
   identity,
   messaging,
+  frontendUrl: frontend.distributionUrl,
 })
 
 // after creating DataStack (named `data`) and IdentityStack...
@@ -48,9 +53,6 @@ const ml = new MlStack(app, 'SR-ML', {
   data,
   kmsKey: security.dataKey,
 })
-
-// Frontend hosting (S3 + CloudFront)
-const frontend = new FrontendStack(app, 'SR-Frontend', { env })
 
 // NOTE: SR-SageMaker stack is deprecated and no longer used
 // The endpoint is now automatically deployed by the ML pipeline (SR-ML)
