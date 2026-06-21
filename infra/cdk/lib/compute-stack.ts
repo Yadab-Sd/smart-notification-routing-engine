@@ -29,7 +29,9 @@ export class ComputeStack extends Stack {
         // Permissions
         data.userEvents.grantWrite(controlPlane);
         data.profilesTable.grantReadWriteData(controlPlane);
+        data.categoriesTable.grantReadWriteData(controlPlane);
         controlPlane.addEnvironment('USER_TABLE', data.profilesTable.tableName);
+        controlPlane.addEnvironment('CATEGORY_TABLE', data.categoriesTable.tableName);
 
         // Lambda: eventsConsumer (Java zip you will build at services/events-consumer)
         const eventsConsumer = new lambda.Function(this,'EventsConsumerFn',{
@@ -237,6 +239,41 @@ export class ComputeStack extends Stack {
         new apigwv2.HttpRoute(this, 'DeleteUserRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'CreateCategoryRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/categories', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'ListCategoriesRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/categories', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'GetCategoryRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/categories/{id}', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'UpdateCategoryRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/categories/{id}', apigwv2.HttpMethod.PUT),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'DeleteCategoryRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/categories/{id}', apigwv2.HttpMethod.DELETE),
             integration: integ,
             authorizer: jwtAuth,
         });

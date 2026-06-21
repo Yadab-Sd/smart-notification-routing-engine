@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 
 import com.yadab.sr.models.User;
+import com.yadab.sr.models.NotificationCategory;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
@@ -15,6 +16,7 @@ import software.amazon.awssdk.services.dynamodb.model.*;
 import software.amazon.awssdk.regions.Region;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
 import java.util.Map;
@@ -34,6 +36,11 @@ import java.util.ArrayList;
  * - GET /v1/users/{id} - Get user
  * - PUT /v1/users/{id} - Update user
  * - DELETE /v1/users/{id} - Delete user
+ * - POST /v1/categories - Create notification category policy
+ * - GET /v1/categories - List notification categories
+ * - GET /v1/categories/{id} - Get notification category
+ * - PUT /v1/categories/{id} - Update notification category
+ * - DELETE /v1/categories/{id} - Delete notification category
  * - POST /v1/events - Ingest events (auto-creates user if not exists)
  * - GET /v1/health - Health check
  */
@@ -59,6 +66,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
     private static String table() {
         return System.getenv("USER_TABLE");
+    }
+
+    private static String categoryTable() {
+        return System.getenv("CATEGORY_TABLE");
     }
 
     private final DynamoDbClient ddb = DynamoDbClient.builder()
@@ -109,6 +120,30 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             if (path.matches("/v1/users/[^/]+") && "DELETE".equals(method)) {
                 String userId = extractUserId(path);
                 return deleteUser(userId, ctx);
+            }
+
+            // Notification Category Configuration Endpoints
+            if (path.equals("/v1/categories") && "POST".equals(method)) {
+                return createCategory(e, ctx);
+            }
+
+            if (path.equals("/v1/categories") && "GET".equals(method)) {
+                return listCategories(e, ctx);
+            }
+
+            if (path.matches("/v1/categories/[^/]+") && "GET".equals(method)) {
+                String categoryId = extractPathId(path);
+                return getCategory(categoryId, e, ctx);
+            }
+
+            if (path.matches("/v1/categories/[^/]+") && "PUT".equals(method)) {
+                String categoryId = extractPathId(path);
+                return updateCategory(categoryId, e, ctx);
+            }
+
+            if (path.matches("/v1/categories/[^/]+") && "DELETE".equals(method)) {
+                String categoryId = extractPathId(path);
+                return deleteCategory(categoryId, e, ctx);
             }
 
             // Event Ingestion (validates user exists)
@@ -412,6 +447,132 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     }
 
     /**
+     * POST /v1/categories - Create notification category configuration.
+     */
+    private APIGatewayV2HTTPResponse createCategory(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        NotificationCategory category = mapper.readValue(body, NotificationCategory.class);
+        category.organizationId = organizationId(e);
+        validateCategory(category);
+
+        if (categoryExists(category.organizationId, category.categoryId)) {
+            throw new ConflictException("Category already exists: " + category.categoryId);
+        }
+
+        applyCategoryDefaults(category);
+        validateCategoryEnums(category);
+        String now = Instant.now().toString();
+        category.createdAt = now;
+        category.updatedAt = now;
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(category.toItem())
+                .build());
+
+        ctx.getLogger().log("Category created: " + category.categoryId);
+        return json(201, mapper.writeValueAsString(category));
+    }
+
+    /**
+     * GET /v1/categories - List notification category configurations.
+     */
+    private APIGatewayV2HTTPResponse listCategories(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build()
+        );
+
+        QueryResponse queryRes = ddb.query(QueryRequest.builder()
+                .tableName(categoryTable())
+                .keyConditionExpression("pk = :pk")
+                .expressionAttributeValues(expressionValues)
+                .build());
+
+        List<NotificationCategory> categories = new ArrayList<>();
+        for (Map<String, AttributeValue> item : queryRes.items()) {
+            NotificationCategory category = NotificationCategory.fromItem(item);
+            if (category != null && category.categoryId != null) {
+                categories.add(category);
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("organizationId", organizationId);
+        response.put("categories", categories);
+        response.put("count", categories.size());
+
+        ctx.getLogger().log(String.format("Listed %d categories", categories.size()));
+        return json(200, mapper.writeValueAsString(response));
+    }
+
+    /**
+     * GET /v1/categories/{id} - Get notification category configuration.
+     */
+    private APIGatewayV2HTTPResponse getCategory(String categoryId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        NotificationCategory category = fetchCategory(organizationId(e), categoryId);
+        if (category == null) {
+            throw new ResourceNotFoundException("Category not found: " + categoryId);
+        }
+        return json(200, mapper.writeValueAsString(category));
+    }
+
+    /**
+     * PUT /v1/categories/{id} - Replace notification category configuration.
+     */
+    private APIGatewayV2HTTPResponse updateCategory(String categoryId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        String organizationId = organizationId(e);
+        NotificationCategory existing = fetchCategory(organizationId, categoryId);
+        if (existing == null) {
+            throw new ResourceNotFoundException("Category not found: " + categoryId);
+        }
+
+        NotificationCategory category = mapper.readValue(body, NotificationCategory.class);
+        category.organizationId = organizationId;
+        category.categoryId = categoryId;
+        validateCategory(category);
+        applyCategoryDefaults(category);
+        validateCategoryEnums(category);
+        category.createdAt = existing.createdAt;
+        category.updatedAt = Instant.now().toString();
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(category.toItem())
+                .build());
+
+        ctx.getLogger().log("Category updated: " + category.categoryId);
+        return json(200, mapper.writeValueAsString(category));
+    }
+
+    /**
+     * DELETE /v1/categories/{id} - Delete notification category configuration.
+     */
+    private APIGatewayV2HTTPResponse deleteCategory(String categoryId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        if (!categoryExists(organizationId, categoryId)) {
+            throw new ResourceNotFoundException("Category not found: " + categoryId);
+        }
+
+        ddb.deleteItem(DeleteItemRequest.builder()
+                .tableName(categoryTable())
+                .key(categoryKey(organizationId, categoryId))
+                .build());
+
+        ctx.getLogger().log("Category deleted: " + categoryId);
+        return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "categoryId", categoryId, "deleted", true)));
+    }
+
+    /**
      * POST /v1/events - Ingest event (auto-creates user if not exists)
      */
     private APIGatewayV2HTTPResponse ingestEvent(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
@@ -466,12 +627,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             ctx.getLogger().log("Auto-created user: " + userId);
         }
 
+        String enrichedBody = enrichEventWithCategoryDefaults(event, body);
+
         // User exists (or just created) - send event to Kinesis
         String stream = System.getenv("USER_EVENTS_STREAM");
         kinesis.putRecord(PutRecordRequest.builder()
                 .streamName(stream)
                 .partitionKey(userId)
-                .data(SdkBytes.fromUtf8String(body))
+                .data(SdkBytes.fromUtf8String(enrichedBody))
                 .build());
 
         ctx.getLogger().log("Event queued for user: " + userId);
@@ -481,6 +644,62 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         response.put("status", "queued");
 
         return json(200, mapper.writeValueAsString(response));
+    }
+
+    /**
+     * Apply organization-defined category defaults to a notification payload.
+     *
+     * Category config is advisory by default: request fields win, category fields fill gaps.
+     */
+    private String enrichEventWithCategoryDefaults(JsonNode event, String originalBody) throws Exception {
+        JsonNode notificationNode = event.path("notification");
+        if (!notificationNode.isObject()) {
+            return originalBody;
+        }
+
+        String categoryId = text(notificationNode, "categoryId");
+        if (categoryId == null || categoryId.isBlank()) {
+            categoryId = text(event, "categoryId");
+        }
+        if (categoryId == null || categoryId.isBlank()) {
+            return originalBody;
+        }
+
+        NotificationCategory category = fetchCategory(organizationIdFromEvent(event), categoryId);
+        if (category == null) {
+            throw new ValidationException("Category not found: " + categoryId);
+        }
+        if (!category.isActive()) {
+            throw new ValidationException("Category is inactive: " + categoryId);
+        }
+
+        ObjectNode enrichedEvent = event.deepCopy();
+        putMissing(enrichedEvent, "organizationId", category.organizationId);
+        ObjectNode notification = (ObjectNode) enrichedEvent.get("notification");
+        putMissing(notification, "categoryId", category.categoryId);
+        putMissing(notification, "deliveryMode", category.defaultDeliveryMode);
+        putMissing(notification, "messageCategory", category.messageCategory);
+        putMissing(notification, "priorityClass", category.priorityClass);
+        putMissing(notification, "businessValue", category.businessValue);
+        putMissing(notification, "urgency", category.urgency);
+        putMissing(notification, "riskClass", category.riskClass);
+        putMissing(notification, "maxDelayHours", category.maxDelayHours);
+        putMissing(notification, "quietHoursRespect", category.quietHoursRespect);
+
+        if (!notification.hasNonNull("channel") && category.allowedChannels != null && category.allowedChannels.size() == 1) {
+            notification.put("channel", category.allowedChannels.get(0));
+        }
+
+        String requestedChannel = text(notification, "channel");
+        if (requestedChannel != null && category.allowedChannels != null && !category.allowedChannels.isEmpty()) {
+            boolean allowed = category.allowedChannels.stream()
+                    .anyMatch(channel -> channel.equalsIgnoreCase(requestedChannel));
+            if (!allowed) {
+                throw new ValidationException("Channel " + requestedChannel + " is not allowed for category " + categoryId);
+            }
+        }
+
+        return mapper.writeValueAsString(enrichedEvent);
     }
 
     /**
@@ -617,10 +836,194 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return res.hasItem() && !res.item().isEmpty();
     }
 
+    private boolean categoryExists(String organizationId, String categoryId) {
+        return fetchCategory(organizationId, categoryId) != null;
+    }
+
+    private NotificationCategory fetchCategory(String organizationId, String categoryId) {
+        if (categoryId == null || categoryId.isBlank()) {
+            return null;
+        }
+
+        GetItemResponse res = ddb.getItem(GetItemRequest.builder()
+                .tableName(categoryTable())
+                .key(categoryKey(organizationId, categoryId))
+                .build());
+
+        if (!res.hasItem() || res.item().isEmpty()) {
+            return null;
+        }
+        return NotificationCategory.fromItem(res.item());
+    }
+
+    private Map<String, AttributeValue> categoryKey(String organizationId, String categoryId) {
+        return Map.of(
+                "pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                "sk", AttributeValue.builder().s("CATEGORY#" + categoryId).build()
+        );
+    }
+
+    private void validateCategory(NotificationCategory category) throws ValidationException {
+        if (category.categoryId == null || category.categoryId.isBlank()) {
+            throw new ValidationException("categoryId is required");
+        }
+        if (category.organizationId == null || category.organizationId.isBlank()) {
+            throw new ValidationException("organizationId is required");
+        }
+        if (!category.categoryId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("categoryId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (!category.organizationId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("organizationId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (category.displayName == null || category.displayName.isBlank()) {
+            throw new ValidationException("displayName is required");
+        }
+        if (category.businessValue != null && (category.businessValue < 0.0 || category.businessValue > 10.0)) {
+            throw new ValidationException("businessValue must be between 0.0 and 10.0");
+        }
+        if (category.urgency != null && (category.urgency < 0.0 || category.urgency > 1.0)) {
+            throw new ValidationException("urgency must be between 0.0 and 1.0");
+        }
+        if (category.maxDelayHours != null && (category.maxDelayHours < 0 || category.maxDelayHours > 48)) {
+            throw new ValidationException("maxDelayHours must be between 0 and 48");
+        }
+        if (category.allowedChannels != null) {
+            for (String channel : category.allowedChannels) {
+                if (channel == null || channel.isBlank()) {
+                    throw new ValidationException("allowedChannels cannot contain blank values");
+                }
+                if (!List.of("AUTO", "EMAIL", "SMS", "PUSH").contains(channel.trim().toUpperCase())) {
+                    throw new ValidationException("Unsupported channel in allowedChannels: " + channel);
+                }
+            }
+        }
+    }
+
+    private void validateCategoryEnums(NotificationCategory category) throws ValidationException {
+        requireOneOf("defaultDeliveryMode", category.defaultDeliveryMode, List.of("IMMEDIATE", "OPTIMIZED"));
+        requireOneOf("messageCategory", category.messageCategory, List.of(
+                "GENERAL", "MARKETING", "PROMOTION", "NEWSLETTER", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
+        ));
+        requireOneOf("priorityClass", category.priorityClass, List.of(
+                "LOW", "STANDARD", "HIGH", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
+        ));
+        requireOneOf("riskClass", category.riskClass, List.of("LOW", "MEDIUM", "HIGH", "CRITICAL", "REGULATED"));
+    }
+
+    private void requireOneOf(String field, String value, List<String> allowed) throws ValidationException {
+        if (value == null || !allowed.contains(value.trim().toUpperCase())) {
+            throw new ValidationException(field + " must be one of: " + String.join(", ", allowed));
+        }
+    }
+
+    private void applyCategoryDefaults(NotificationCategory category) {
+        if (category.defaultDeliveryMode == null || category.defaultDeliveryMode.isBlank()) {
+            category.defaultDeliveryMode = "OPTIMIZED";
+        } else {
+            category.defaultDeliveryMode = category.defaultDeliveryMode.trim().toUpperCase();
+        }
+
+        if (category.messageCategory == null || category.messageCategory.isBlank()) {
+            category.messageCategory = "GENERAL";
+        } else {
+            category.messageCategory = category.messageCategory.trim().toUpperCase();
+        }
+
+        if (category.priorityClass == null || category.priorityClass.isBlank()) {
+            category.priorityClass = "STANDARD";
+        } else {
+            category.priorityClass = category.priorityClass.trim().toUpperCase();
+        }
+
+        if (category.riskClass == null || category.riskClass.isBlank()) {
+            category.riskClass = "LOW";
+        } else {
+            category.riskClass = category.riskClass.trim().toUpperCase();
+        }
+
+        if (category.allowedChannels != null) {
+            category.allowedChannels = category.allowedChannels.stream()
+                    .filter(channel -> channel != null && !channel.isBlank())
+                    .map(channel -> channel.trim().toUpperCase())
+                    .distinct()
+                    .toList();
+        }
+
+        if (category.businessValue == null) {
+            category.businessValue = 5.0;
+        }
+        if (category.urgency == null) {
+            category.urgency = 0.4;
+        }
+        if (category.maxDelayHours == null) {
+            category.maxDelayHours = 24;
+        }
+        if (category.quietHoursRespect == null) {
+            category.quietHoursRespect = true;
+        }
+        if (category.active == null) {
+            category.active = true;
+        }
+    }
+
+    private String organizationId(APIGatewayV2HTTPEvent event) {
+        if (event != null && event.getHeaders() != null) {
+            String header = event.getHeaders().get("x-organization-id");
+            if (header == null) {
+                header = event.getHeaders().get("X-Organization-Id");
+            }
+            if (header != null && !header.isBlank()) {
+                return header.trim();
+            }
+        }
+        return "default";
+    }
+
+    private String organizationIdFromEvent(JsonNode event) {
+        String organizationId = text(event, "organizationId");
+        return organizationId == null || organizationId.isBlank() ? "default" : organizationId.trim();
+    }
+
+    private String text(JsonNode node, String field) {
+        if (node == null || !node.hasNonNull(field)) {
+            return null;
+        }
+        return node.get(field).asText(null);
+    }
+
+    private void putMissing(ObjectNode node, String field, String value) {
+        if (!node.hasNonNull(field) && value != null && !value.isBlank()) {
+            node.put(field, value);
+        }
+    }
+
+    private void putMissing(ObjectNode node, String field, Double value) {
+        if (!node.hasNonNull(field) && value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private void putMissing(ObjectNode node, String field, Integer value) {
+        if (!node.hasNonNull(field) && value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private void putMissing(ObjectNode node, String field, Boolean value) {
+        if (!node.hasNonNull(field) && value != null) {
+            node.put(field, value);
+        }
+    }
+
     /**
      * Extract userId from path like /v1/users/{userId}
      */
     private String extractUserId(String path) {
+        return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    private String extractPathId(String path) {
         return path.substring(path.lastIndexOf('/') + 1);
     }
 

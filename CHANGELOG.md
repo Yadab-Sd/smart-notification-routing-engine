@@ -2,6 +2,18 @@
 
 All notable changes to Smart Notification Routing Engine will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Notification category configuration API with create/list/get/update/delete endpoints
+- Category-based event enrichment for `notification.categoryId`
+- Dedicated organization-scoped category storage in the `NotificationCategories` DynamoDB table
+- Category policy defaults for delivery mode, channel policy, message category, priority, value, urgency, and scheduling window
+- Category identifiers on Attention Escrow decision and delivery records for future campaign/category reporting
+
+---
+
 ## [2.1.0] - 2026-06-20
 
 ### Major Features

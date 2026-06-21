@@ -106,6 +106,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
             ObjectNode responseNode = MAPPER.createObjectNode();
             responseNode.put("userId", req.getUserId());
+            if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+                responseNode.put("categoryId", req.getCategoryId());
+            }
             responseNode.put("hour", sendTime.bestHour);
             responseNode.put("probability", round(sendTime.bestScore));
             responseNode.put("sendNowHour", sendTime.sendNowHour);
@@ -485,6 +488,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("totalEvents", AttributeValue.builder().n(String.valueOf(stats.totalEvents)).build());
             item.put("totalClicks", AttributeValue.builder().n(String.valueOf(stats.totalClicks)).build());
             item.put("totalSends", AttributeValue.builder().n(String.valueOf(stats.totalSends)).build());
+            if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+                item.put("categoryId", AttributeValue.builder().s(req.getCategoryId()).build());
+            }
             item.put("messageCategory", AttributeValue.builder().s(messageCategory(req).name()).build());
             if (req.getNotificationType() != null && !req.getNotificationType().isBlank()) {
                 item.put("notificationType", AttributeValue.builder().s(req.getNotificationType()).build());
@@ -517,6 +523,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         schedulerPayload.put("metadata", req.getMetadata());
         schedulerPayload.put("attentionDecisionId", decisionId);
         schedulerPayload.put("sourceId", attention.sourceId);
+        schedulerPayload.put("categoryId", req.getCategoryId());
         schedulerPayload.put("notificationType", req.getNotificationType());
         schedulerPayload.put("messageCategory", messageCategory(req).name());
         schedulerPayload.put("priorityClass", req.getPriorityClass());
@@ -631,6 +638,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
         if (req.getTemplateId() != null && !req.getTemplateId().isBlank()) {
             return "template:" + req.getTemplateId();
+        }
+        if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+            return "category:" + req.getCategoryId();
         }
         return "category:" + messageCategory(req).name();
     }
@@ -850,6 +860,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         private Boolean schedule;
         private String channel;
         private String sourceId;
+        private String categoryId;
         private String campaignId;
         private String templateId;
         private String notificationType;
@@ -872,6 +883,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setChannel(String channel) { this.channel = channel; }
         public String getSourceId() { return sourceId; }
         public void setSourceId(String sourceId) { this.sourceId = sourceId; }
+        public String getCategoryId() { return categoryId; }
+        public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
         public String getCampaignId() { return campaignId; }
         public void setCampaignId(String campaignId) { this.campaignId = campaignId; }
         public String getTemplateId() { return templateId; }

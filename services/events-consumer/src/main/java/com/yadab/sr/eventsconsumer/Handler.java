@@ -234,9 +234,10 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
                 // Schedule notification via Decision Service (ML-optimized time)
                 log.log(String.format("Triggering optimized notification for user: %s", userId));
 
-                // Calculate 24-hour window (now to now+24h)
+                // Calculate delivery window. Category policy can narrow or widen this up to 48 hours.
                 long nowEpoch = Instant.now().getEpochSecond();
-                long endEpoch = nowEpoch + (24 * 3600);
+                int maxDelayHours = maxDelayHours(notification, event);
+                long endEpoch = nowEpoch + (maxDelayHours * 3600L);
 
                 Map<String, Object> payloadMap = notificationPayload(userId, event, notification, true);
                 payloadMap.put("windowStart", nowEpoch);
@@ -287,12 +288,14 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
 
         if (includeAttentionFields) {
             putText(payload, "sourceId", firstText(notification, event, "sourceId"));
+            putText(payload, "categoryId", firstText(notification, event, "categoryId"));
             putText(payload, "campaignId", firstText(notification, event, "campaignId"));
             putText(payload, "templateId", firstText(notification, event, "templateId"));
             putText(payload, "messageCategory", firstText(notification, event, "messageCategory"));
             putText(payload, "priorityClass", firstText(notification, event, "priorityClass"));
             putDouble(payload, "businessValue", firstNode(notification, event, "businessValue"));
             putDouble(payload, "urgency", firstNode(notification, event, "urgency"));
+            putInt(payload, "maxDelayHours", firstNode(notification, event, "maxDelayHours"));
         }
 
         return payload;
@@ -362,5 +365,19 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         if (value != null && value.isNumber()) {
             payload.put(field, value.asDouble());
         }
+    }
+
+    private static void putInt(Map<String, Object> payload, String field, JsonNode value) {
+        if (value != null && value.isInt()) {
+            payload.put(field, value.asInt());
+        }
+    }
+
+    private static int maxDelayHours(JsonNode notification, JsonNode event) {
+        JsonNode value = firstNode(notification, event, "maxDelayHours");
+        if (value == null || !value.isNumber()) {
+            return 24;
+        }
+        return Math.max(1, Math.min(48, value.asInt()));
     }
 }

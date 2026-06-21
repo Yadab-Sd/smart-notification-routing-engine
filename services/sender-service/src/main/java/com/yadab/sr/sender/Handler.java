@@ -214,6 +214,10 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             if (sourceId != null) {
                 item.put("sourceId", AttributeValue.builder().s(sourceId.toString()).build());
             }
+            Object categoryId = event.get("categoryId");
+            if (categoryId != null) {
+                item.put("categoryId", AttributeValue.builder().s(categoryId.toString()).build());
+            }
             Object notificationType = event.get("notificationType");
             if (notificationType != null) {
                 item.put("notificationType", AttributeValue.builder().s(notificationType.toString()).build());

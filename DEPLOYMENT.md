@@ -434,6 +434,8 @@ Wait 2-5 minutes for DNS propagation, then visit `https://yourdomain.com`
 | SR-Frontend | BucketName | S3 bucket for frontend files |
 | SR-Frontend | DistributionId | CloudFront distribution ID |
 | SR-Data | UserProfilesTableName | DynamoDB table for user profiles |
+| SR-Data | NotificationCategoriesTableName | DynamoDB table for organization notification category policies |
+| SR-Data | AttentionLedgerTableName | DynamoDB table for Attention Escrow decisions and delivery records |
 | SR-Data | EventsBucketName | S3 bucket for raw events |
 
 ---

@@ -15,6 +15,7 @@ export class DataStack extends Stack {
     public readonly userEvents: kinesis.Stream;
     public readonly profilesTable: ddb.Table;
     public readonly attentionTable: ddb.Table;
+    public readonly categoriesTable: ddb.Table;
     public readonly glueDb: glue.CfnDatabase;
     constructor(scope: Construct, id: string, { kmsKey, ...props }: Props){
         super(scope,id,props);
@@ -64,6 +65,18 @@ export class DataStack extends Stack {
             projectionType: ddb.ProjectionType.ALL
         });
 
+        this.categoriesTable = new ddb.Table(this,'NotificationCategories',{
+            partitionKey:{ name:'pk', type: ddb.AttributeType.STRING },
+            sortKey:{ name:'sk', type: ddb.AttributeType.STRING },
+            billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+            encryption: ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryptionKey: kmsKey,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy: RemovalPolicy.RETAIN
+        });
+
 
         this.glueDb = new glue.CfnDatabase(this,'GlueDb',{ catalogId: this.account, databaseInput:{ name:'sr_datacatalog' }});
 
@@ -102,6 +115,12 @@ export class DataStack extends Stack {
             value: this.attentionTable.tableName,
             description: 'DynamoDB table for attention escrow decisions and trust signals',
             exportName: `${this.stackName}-AttentionLedgerTableName`
+        });
+
+        new cdk.CfnOutput(this, 'NotificationCategoriesTableName', {
+            value: this.categoriesTable.tableName,
+            description: 'DynamoDB table for organization notification category policies',
+            exportName: `${this.stackName}-NotificationCategoriesTableName`
         });
     }
 }

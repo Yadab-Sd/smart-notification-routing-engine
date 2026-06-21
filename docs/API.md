@@ -144,6 +144,115 @@ Check API status (no auth required).
 
 Events may also include an optional `notification` object. This lets an existing application record an event and ask the routing engine to send a related message.
 
+### Notification Categories
+
+Categories are organization-defined notification policies. They are different from campaigns:
+
+- **Category**: reusable rules/defaults for a type of notification, such as appointment reminder, renewal reminder, learning nudge, or marketing offer.
+- **Campaign**: a specific initiative or message run, such as March renewal campaign or Spring enrollment reminder.
+
+Create categories first when you want API callers to send simpler events and let SNRE fill in policy defaults. Categories are stored independently from users in the `NotificationCategories` DynamoDB table and scoped by organization. Until full multi-tenant onboarding exists, the API uses organization `default`; callers may send `X-Organization-Id` to scope categories explicitly.
+
+Storage shape:
+
+- Table: `NotificationCategories`
+- Partition key: `pk = ORG#{organizationId}`
+- Sort key: `sk = CATEGORY#{categoryId}`
+- CloudFormation output: `SR-Data.NotificationCategoriesTableName`
+
+**POST /v1/categories** - Create category
+
+```bash
+curl -X POST $API_URL/v1/categories \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "categoryId": "appointment_reminder",
+    "displayName": "Appointment Reminder",
+    "description": "Reminder before a scheduled appointment",
+    "defaultDeliveryMode": "OPTIMIZED",
+    "allowedChannels": ["EMAIL", "SMS"],
+    "messageCategory": "TRANSACTIONAL",
+    "riskClass": "LOW",
+    "priorityClass": "STANDARD",
+    "businessValue": 7.0,
+    "urgency": 0.6,
+    "maxDelayHours": 24,
+    "quietHoursRespect": true,
+    "active": true
+  }'
+```
+
+**GET /v1/categories** - List categories
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" $API_URL/v1/categories
+```
+
+**GET /v1/categories/{categoryId}** - Get one category
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  $API_URL/v1/categories/appointment_reminder
+```
+
+**PUT /v1/categories/{categoryId}** - Replace category config
+
+```bash
+curl -X PUT $API_URL/v1/categories/appointment_reminder \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "displayName": "Appointment Reminder",
+    "defaultDeliveryMode": "OPTIMIZED",
+    "allowedChannels": ["EMAIL"],
+    "messageCategory": "TRANSACTIONAL",
+    "riskClass": "LOW",
+    "priorityClass": "STANDARD",
+    "businessValue": 7.0,
+    "urgency": 0.5,
+    "maxDelayHours": 12,
+    "active": true
+  }'
+```
+
+**DELETE /v1/categories/{categoryId}** - Delete category
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  $API_URL/v1/categories/appointment_reminder
+```
+
+When `/v1/events` includes `notification.categoryId`, Control Plane loads the category and fills missing notification fields. Request fields win over category defaults, which allows UI and API callers to override any category default for a specific notification. For example, an event may send only:
+
+```json
+{
+  "notification": {
+    "categoryId": "appointment_reminder",
+    "message": "Your appointment is tomorrow at 10 AM."
+  }
+}
+```
+
+SNRE enriches it internally with category defaults such as `deliveryMode`, `messageCategory`, `priorityClass`, `businessValue`, `urgency`, `maxDelayHours`, and channel policy before routing.
+
+To override one send while still keeping the category relationship:
+
+```json
+{
+  "notification": {
+    "categoryId": "appointment_reminder",
+    "message": "Your appointment is tomorrow at 10 AM.",
+    "priorityClass": "HIGH",
+    "urgency": 0.9,
+    "businessValue": 8.5
+  }
+}
+```
+
+Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` / `messageCategory` values such as `TRANSACTIONAL`, `SECURITY`, or `EMERGENCY`.
+
 **Event-triggered immediate notification**:
 ```json
 {
@@ -174,6 +283,7 @@ Events may also include an optional `notification` object. This lets an existing
     "cartId": "cart_456"
   },
   "notification": {
+    "categoryId": "cart_recovery",
     "deliveryMode": "OPTIMIZED",
     "channel": "EMAIL",
     "message": "You left something in your cart.",
@@ -196,6 +306,8 @@ Events may also include an optional `notification` object. This lets an existing
 - `OPTIMIZED`: invoke Decision Service; send-time model and Attention Escrow decide whether and when to schedule
 
 For backward compatibility, top-level `notificationType: "immediate"` and `notificationType: "optimized"` still work. New integrations should use `notification.deliveryMode`.
+
+`categoryId` is optional. If supplied, it must reference an active category created with `/v1/categories`. Category defaults are advisory: explicit event fields override category defaults.
 
 **Response 200**:
 ```json
