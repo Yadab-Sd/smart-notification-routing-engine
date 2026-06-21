@@ -7,6 +7,8 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 ### Added
 
 - Notification category configuration API with create/list/get/update/delete endpoints
+- Admin console page for creating, editing, and deleting notification categories
+- Send Event category selector with editable category-derived defaults
 - Category-based event enrichment for `notification.categoryId`
 - Dedicated organization-scoped category storage in the `NotificationCategories` DynamoDB table
 - Category policy defaults for delivery mode, channel policy, message category, priority, value, urgency, and scheduling window

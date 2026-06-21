@@ -153,6 +153,8 @@ Categories are organization-defined notification policies. They are different fr
 
 Create categories first when you want API callers to send simpler events and let SNRE fill in policy defaults. Categories are stored independently from users in the `NotificationCategories` DynamoDB table and scoped by organization. Until full multi-tenant onboarding exists, the API uses organization `default`; callers may send `X-Organization-Id` to scope categories explicitly.
 
+In the admin console, use **Messaging → Categories** to create and edit these policies. The **Send Event** page can then load a category, prefill the notification fields, and still let the admin override values for the specific send before submitting.
+
 Storage shape:
 
 - Table: `NotificationCategories`

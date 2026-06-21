@@ -17,6 +17,7 @@ import {
   Zap,
   Megaphone,
   FileText,
+  Layers3,
   Users,
   Key,
   ShieldCheck,
@@ -43,6 +44,7 @@ const navSections = [
     items: [
       { name: 'Send Event', href: '/events', icon: Zap },
       { name: 'Notifications', href: '/notifications', icon: Send },
+      { name: 'Categories', href: '/categories', icon: Layers3 },
       { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
       { name: 'Templates', href: '/templates', icon: FileText },
       { name: 'Users', href: '/users', icon: Users },
@@ -69,6 +71,7 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   '/attention': { title: 'Attention Escrow', subtitle: 'Review attention cost, value and gated notification decisions' },
   '/events': { title: 'Send Event', subtitle: 'Send notification events manually for testing' },
   '/notifications': { title: 'Notifications', subtitle: 'All scheduled, in-progress and sent notifications' },
+  '/categories': { title: 'Categories', subtitle: 'Reusable organization policies for notification routing' },
   '/campaigns': { title: 'Campaigns', subtitle: 'Group your notifications by business goal' },
   '/templates': { title: 'Templates', subtitle: 'Reusable templates for your notifications' },
   '/users': { title: 'Users', subtitle: 'Manage user profiles and track creation sources' },

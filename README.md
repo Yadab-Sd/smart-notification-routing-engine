@@ -40,6 +40,7 @@ Learns when each user is most likely to engage with notifications, then automati
 - **Ingestion**: React console/API clients → API Gateway + Cognito → Control Plane Lambda → Kinesis → S3 data lake + DynamoDB
 - **ML Pipeline**: Glue (Spark) → SageMaker (XGBoost) → Endpoint
 - **Attention Escrow**: Decision Lambda scores attention cost/value before scheduling
+- **Category Policies**: Admin console/API manages organization-specific notification defaults that remain overrideable per send
 - **Delivery**: EventBridge Scheduler → Sender Lambda → Email (SES) / SMS (SNS)
 - **Feedback**: SES configuration set → SNS bounce/complaint topics → SES Event Processor Lambda → suppression and audit tables
 
@@ -118,7 +119,10 @@ POST /v1/users
 # 2. Track events
 POST /v1/events
 
-# 3. Get optimal send time
+# 3. Optional: create reusable notification categories
+POST /v1/categories
+
+# 4. Get optimal send time
 POST /v1/decisions/preview
 
 # Response
