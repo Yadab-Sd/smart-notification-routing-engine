@@ -124,6 +124,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             responseNode.put("sourceTrustScore", round(attention.sourceTrustScore));
             responseNode.put("sourceId", attention.sourceId);
             responseNode.put("decisionId", decisionId);
+            putObject(responseNode, "categoryDefaults", req.getCategoryDefaults());
+            putObject(responseNode, "effectivePolicy", effectivePolicy(req));
+            putObject(responseNode, "policyOverrides", req.getPolicyOverrides());
+            responseNode.put("overrideCount", overrideCount(req.getPolicyOverrides()));
+            responseNode.put("overrideMagnitude", round(overrideMagnitude(req)));
             responseNode.put("scheduled", false);
 
             if (Boolean.TRUE.equals(req.getSchedule())) {
@@ -280,10 +285,13 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         putString(node, "attentionDecision", item, "attentionDecision");
         putString(node, "reason", item, "reason");
         putString(node, "createdAt", item, "createdAt");
+        putString(node, "categoryId", item, "categoryId");
         putNumber(node, "attentionCost", item, "attentionCost");
         putNumber(node, "attentionValue", item, "attentionValue");
         putNumber(node, "fatigueScore", item, "fatigueScore");
         putNumber(node, "sourceTrustScore", item, "sourceTrustScore");
+        putNumber(node, "overrideCount", item, "overrideCount");
+        putNumber(node, "overrideMagnitude", item, "overrideMagnitude");
         return node;
     }
 
@@ -502,6 +510,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("sendNowHour", AttributeValue.builder().n(String.valueOf(sendTime.sendNowHour)).build());
             item.put("sendNowProbability", AttributeValue.builder().n(String.format("%.4f", sendTime.sendNowScore)).build());
             item.put("scheduleRequested", AttributeValue.builder().bool(Boolean.TRUE.equals(req.getSchedule())).build());
+            item.put("overrideCount", AttributeValue.builder().n(String.valueOf(overrideCount(req.getPolicyOverrides()))).build());
+            item.put("overrideMagnitude", AttributeValue.builder().n(String.format("%.4f", overrideMagnitude(req))).build());
             item.put("createdAt", AttributeValue.builder().s(now).build());
             item.put("windowStart", AttributeValue.builder().n(String.valueOf(req.getWindowStart())).build());
             item.put("windowEnd", AttributeValue.builder().n(String.valueOf(req.getWindowEnd())).build());
@@ -518,6 +528,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("priorityClass", AttributeValue.builder().s(PriorityClass.from(req.getPriorityClass()).name()).build());
             item.put("channel", AttributeValue.builder().s(Channel.from(req.getChannel()).name()).build());
             item.put("reason", AttributeValue.builder().s(attention.reason).build());
+            putMapItem(item, "categoryDefaults", req.getCategoryDefaults());
+            putMapItem(item, "effectivePolicy", effectivePolicy(req));
+            putMapItem(item, "policyOverrides", req.getPolicyOverrides());
 
             dynamo.putItem(PutItemRequest.builder()
                     .tableName(attentionTable)
@@ -552,6 +565,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         schedulerPayload.put("notificationType", req.getNotificationType());
         schedulerPayload.put("messageCategory", messageCategory(req).name());
         schedulerPayload.put("priorityClass", req.getPriorityClass());
+        schedulerPayload.put("categoryDefaults", req.getCategoryDefaults());
+        schedulerPayload.put("effectivePolicy", effectivePolicy(req));
+        schedulerPayload.put("policyOverrides", req.getPolicyOverrides());
 
         Target target = Target.builder()
                 .arn(senderFunctionArn)
@@ -604,8 +620,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             return clamp(requestedUrgency, 0.0, 1.0);
         }
         return switch (priority) {
-            case EMERGENCY, SECURITY -> 1.0;
-            case TRANSACTIONAL, HIGH -> 0.8;
+            case EMERGENCY, CRITICAL -> 1.0;
+            case URGENT -> 0.9;
+            case HIGH -> 0.8;
             case STANDARD -> 0.45;
             case LOW -> 0.2;
         };
@@ -614,8 +631,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private double priorityBoost(PriorityClass priority) {
         return switch (priority) {
             case EMERGENCY -> 4.0;
-            case SECURITY -> 3.0;
-            case TRANSACTIONAL, HIGH -> 1.4;
+            case CRITICAL -> 3.0;
+            case URGENT -> 2.0;
+            case HIGH -> 1.4;
             case LOW -> -0.5;
             case STANDARD -> 0.0;
         };
@@ -635,8 +653,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
     private boolean isBypassPriority(PriorityClass priority) {
         return priority == PriorityClass.EMERGENCY
-                || priority == PriorityClass.SECURITY
-                || priority == PriorityClass.TRANSACTIONAL;
+                || priority == PriorityClass.CRITICAL;
     }
 
     private String sourceId(DecisionRequest req) {
@@ -670,6 +687,82 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
 
         return MessageCategory.GENERAL;
+    }
+
+    private Map<String, Object> effectivePolicy(DecisionRequest req) {
+        if (req.getEffectivePolicy() != null && !req.getEffectivePolicy().isEmpty()) {
+            return req.getEffectivePolicy();
+        }
+
+        Map<String, Object> policy = new LinkedHashMap<>();
+        if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+            policy.put("categoryId", req.getCategoryId());
+        }
+        policy.put("channel", Channel.from(req.getChannel()).name());
+        policy.put("messageCategory", messageCategory(req).name());
+        policy.put("priorityClass", PriorityClass.from(req.getPriorityClass()).name());
+        policy.put("businessValue", req.getBusinessValue() == null ? 1.0 : clamp(req.getBusinessValue(), 0.0, 10.0));
+        policy.put("urgency", req.getUrgency() == null ? null : clamp(req.getUrgency(), 0.0, 1.0));
+        return policy;
+    }
+
+    private int overrideCount(Map<String, Object> policyOverrides) {
+        if (policyOverrides == null || policyOverrides.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Object value : policyOverrides.values()) {
+            if (Boolean.TRUE.equals(value)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private double overrideMagnitude(DecisionRequest req) {
+        Map<String, Object> defaults = req.getCategoryDefaults();
+        Map<String, Object> effective = effectivePolicy(req);
+        if (defaults == null || defaults.isEmpty() || effective.isEmpty()) {
+            return 0.0;
+        }
+
+        double magnitude = 0.0;
+        magnitude += normalizedDifference(defaults.get("businessValue"), effective.get("businessValue"), 10.0);
+        magnitude += normalizedDifference(defaults.get("urgency"), effective.get("urgency"), 1.0);
+        magnitude += categoricalDifference(defaults.get("messageCategory"), effective.get("messageCategory"));
+        magnitude += categoricalDifference(defaults.get("priorityClass"), effective.get("priorityClass"));
+        magnitude += categoricalDifference(defaults.get("channel"), effective.get("channel"));
+        return magnitude;
+    }
+
+    private double normalizedDifference(Object baseline, Object actual, double divisor) {
+        Double base = asDouble(baseline);
+        Double value = asDouble(actual);
+        if (base == null || value == null || divisor <= 0.0) {
+            return 0.0;
+        }
+        return Math.min(1.0, Math.abs(value - base) / divisor);
+    }
+
+    private double categoricalDifference(Object baseline, Object actual) {
+        if (baseline == null || actual == null) {
+            return 0.0;
+        }
+        return String.valueOf(baseline).equalsIgnoreCase(String.valueOf(actual)) ? 0.0 : 1.0;
+    }
+
+    private Double asDouble(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Double.parseDouble(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static APIGatewayV2HTTPResponse response(int statusCode, String body) {
@@ -715,6 +808,50 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (value != null && value.n() != null) {
             node.put(outKey, Double.parseDouble(value.n()));
         }
+    }
+
+    private static void putObject(ObjectNode node, String outKey, Map<String, Object> value) {
+        if (value != null && !value.isEmpty()) {
+            node.set(outKey, MAPPER.valueToTree(value));
+        }
+    }
+
+    private static void putMapItem(Map<String, AttributeValue> item, String key, Map<String, Object> value) {
+        if (value != null && !value.isEmpty()) {
+            item.put(key, toAttributeValue(value));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AttributeValue toAttributeValue(Object value) {
+        if (value == null) {
+            return AttributeValue.builder().nul(true).build();
+        }
+        if (value instanceof String text) {
+            return AttributeValue.builder().s(text).build();
+        }
+        if (value instanceof Number number) {
+            return AttributeValue.builder().n(String.valueOf(number)).build();
+        }
+        if (value instanceof Boolean bool) {
+            return AttributeValue.builder().bool(bool).build();
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, AttributeValue> values = new LinkedHashMap<>();
+            map.forEach((entryKey, entryValue) -> {
+                if (entryKey != null && entryValue != null) {
+                    values.put(String.valueOf(entryKey), toAttributeValue(entryValue));
+                }
+            });
+            return AttributeValue.builder().m(values).build();
+        }
+        if (value instanceof List<?> list) {
+            return AttributeValue.builder().l(list.stream()
+                    .filter(entry -> entry != null)
+                    .map(Handler::toAttributeValue)
+                    .toList()).build();
+        }
+        return AttributeValue.builder().s(String.valueOf(value)).build();
     }
 
     private static String trimToNull(String value) {
@@ -804,11 +941,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         LOW,           // Nice-to-have message; requires a wider value-over-cost margin.
         STANDARD,      // Normal message; default priority when caller does not specify one.
         HIGH,          // Important but not mandatory; receives urgency and value boost.
-        TRANSACTIONAL, // Must-reach user-requested update; bypasses the attention budget.
-        SECURITY,      // Security-critical alert; bypasses the attention budget.
+        URGENT,        // Time-sensitive message; small delay is acceptable if attention cost is high.
+        CRITICAL,      // Must-reach-soon message; bypasses the normal attention budget.
         EMERGENCY;     // Emergency or safety alert; bypasses the attention budget.
 
         static PriorityClass from(String value) {
+            if ("TRANSACTIONAL".equalsIgnoreCase(value) || "SECURITY".equalsIgnoreCase(value)) {
+                return CRITICAL;
+            }
             return enumValue(value, PriorityClass.class, STANDARD);
         }
     }
@@ -887,6 +1027,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         private Double urgency;
         private String message;
         private Map<String, Object> metadata;
+        private Map<String, Object> categoryDefaults;
+        private Map<String, Object> effectivePolicy;
+        private Map<String, Object> policyOverrides;
 
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
@@ -920,5 +1063,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setMessage(String message) { this.message = message; }
         public Map<String, Object> getMetadata() { return metadata; }
         public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+        public Map<String, Object> getCategoryDefaults() { return categoryDefaults; }
+        public void setCategoryDefaults(Map<String, Object> categoryDefaults) { this.categoryDefaults = categoryDefaults; }
+        public Map<String, Object> getEffectivePolicy() { return effectivePolicy; }
+        public void setEffectivePolicy(Map<String, Object> effectivePolicy) { this.effectivePolicy = effectivePolicy; }
+        public Map<String, Object> getPolicyOverrides() { return policyOverrides; }
+        public void setPolicyOverrides(Map<String, Object> policyOverrides) { this.policyOverrides = policyOverrides; }
     }
 }

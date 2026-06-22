@@ -32,7 +32,7 @@ const messageCategories: MessageCategory[] = [
   'SECURITY',
   'EMERGENCY',
 ]
-const priorityClasses: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'TRANSACTIONAL', 'SECURITY', 'EMERGENCY']
+const priorityClasses: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'URGENT', 'CRITICAL', 'EMERGENCY']
 const riskClasses: RiskClass[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'REGULATED']
 
 const emptyCategory: NotificationCategory = {

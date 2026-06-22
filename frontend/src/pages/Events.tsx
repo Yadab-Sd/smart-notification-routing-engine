@@ -50,8 +50,8 @@ const priorityOptions: PriorityClass[] = [
   'LOW',
   'STANDARD',
   'HIGH',
-  'TRANSACTIONAL',
-  'SECURITY',
+  'URGENT',
+  'CRITICAL',
   'EMERGENCY',
 ]
 
@@ -540,12 +540,17 @@ const Events = () => {
                         className="select"
                         value={formData.messageCategory}
                         onChange={(e) => setFormData({ ...formData, messageCategory: e.target.value as MessageCategory })}
-                        disabled={sending}
+                        disabled={sending || Boolean(selectedCategory)}
                       >
                         {categoryOptions.map((value) => (
                           <option key={value} value={value}>{value}</option>
                         ))}
                       </select>
+                      {selectedCategory && (
+                        <div className="text-xs text-slate-500 mt-1">
+                          Message category comes from the configured category identity.
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="label">Priority Class</label>

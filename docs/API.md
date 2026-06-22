@@ -255,7 +255,15 @@ To override one send while still keeping the category relationship:
 }
 ```
 
-Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` / `messageCategory` values such as `TRANSACTIONAL`, `SECURITY`, or `EMERGENCY`.
+Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` values such as `URGENT`, `CRITICAL`, or `EMERGENCY`, combined with the correct `messageCategory`.
+
+For auditability and future model training, category-based events are enriched before routing with:
+
+- `categoryDefaults`: the category policy configured by the organization
+- `effectivePolicy`: the final policy used for this specific send or preview
+- `policyOverrides`: boolean flags showing which category defaults were explicitly changed
+
+Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude`. This prevents future Attention Escrow training from blaming the whole category when a manually overridden send causes fatigue, unsubscribe, or complaint risk.
 
 **Event-triggered immediate notification**:
 ```json
@@ -410,8 +418,8 @@ Attention Escrow fields are optional:
 | `LOW` | Nice-to-have message; requires stronger value to send |
 | `STANDARD` | Normal message; default priority |
 | `HIGH` | Important but not mandatory |
-| `TRANSACTIONAL` | Must-reach user-requested update |
-| `SECURITY` | Security-critical alert |
+| `URGENT` | Time-sensitive message; small delay allowed |
+| `CRITICAL` | Must-reach-soon message; bypasses the normal attention budget |
 | `EMERGENCY` | Emergency or safety alert |
 
 `businessValue` is the sender-side value of this message from `0.0` to `10.0`. `urgency` is the time sensitivity from `0.0` to `1.0`; use it only when waiting would noticeably reduce usefulness.
@@ -436,7 +444,27 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   "fatigueScore": 0.33,
   "sourceTrustScore": 0.75,
   "sourceId": "campaign:abandoned_cart",
+  "categoryId": "appointment_reminder",
   "decisionId": "attn_abc123",
+  "categoryDefaults": {
+    "messageCategory": "TRANSACTIONAL",
+    "priorityClass": "STANDARD",
+    "businessValue": 7.0,
+    "urgency": 0.6
+  },
+  "effectivePolicy": {
+    "messageCategory": "TRANSACTIONAL",
+    "priorityClass": "HIGH",
+    "businessValue": 8.5,
+    "urgency": 0.9
+  },
+  "policyOverrides": {
+    "priorityClass": true,
+    "businessValue": true,
+    "urgency": true
+  },
+  "overrideCount": 3,
+  "overrideMagnitude": 0.78,
   "scheduled": false
 }
 ```

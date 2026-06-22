@@ -16,8 +16,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import { apiClient } from '@/api/client'
+import { listCategories } from '@/api/categories'
 import { getAttentionSummary, previewDecision, scheduleDecision } from '@/api/decisions'
-import type { AttentionSummaryResponse, DecisionResponse, MessageCategory, PriorityClass } from '@/types'
+import type { AttentionSummaryResponse, DecisionResponse, MessageCategory, NotificationCategory, PriorityClass } from '@/types'
 
 type Channel = 'AUTO' | 'EMAIL' | 'SMS' | 'PUSH'
 
@@ -73,7 +74,7 @@ const decisionRows: DecisionRow[] = [
     sourceId: 'template:login_alert',
     channel: 'SMS',
     messageCategory: 'SECURITY',
-    priorityClass: 'SECURITY',
+    priorityClass: 'CRITICAL',
     attentionDecision: 'SEND',
     attentionCost: 1.2,
     attentionValue: 8.8,
@@ -84,7 +85,7 @@ const decisionRows: DecisionRow[] = [
   },
 ]
 
-const categories: MessageCategory[] = [
+const messageCategories: MessageCategory[] = [
   'GENERAL',
   'MARKETING',
   'PROMOTION',
@@ -94,7 +95,7 @@ const categories: MessageCategory[] = [
   'EMERGENCY',
 ]
 
-const priorities: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'TRANSACTIONAL', 'SECURITY', 'EMERGENCY']
+const priorities: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'URGENT', 'CRITICAL', 'EMERGENCY']
 const channels: Channel[] = ['AUTO', 'EMAIL', 'SMS', 'PUSH']
 const INITIAL_TABLE_ROWS = 10
 
@@ -143,6 +144,9 @@ const Attention = () => {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState('')
   const [summaryData, setSummaryData] = useState<AttentionSummaryResponse | null>(null)
+  const [notificationCategories, setNotificationCategories] = useState<NotificationCategory[]>([])
+  const [categoryLoadError, setCategoryLoadError] = useState('')
+  const [showPolicyChanges, setShowPolicyChanges] = useState(false)
   const [showAllRows, setShowAllRows] = useState(false)
   const [filters, setFilters] = useState({
     sourceId: '',
@@ -151,6 +155,7 @@ const Attention = () => {
   })
   const [form, setForm] = useState({
     userId: 'pilot_user_3',
+    categoryId: '',
     sourceId: 'campaign:abandoned_cart',
     channel: 'EMAIL' as Channel,
     messageCategory: 'MARKETING' as MessageCategory,
@@ -161,6 +166,90 @@ const Attention = () => {
     subject: 'Complete your order',
   })
   const [deliveryWindow, setDeliveryWindow] = useState(defaultDeliveryWindow)
+
+  const selectedCategory = useMemo(
+    () => notificationCategories.find((category) => category.categoryId === form.categoryId),
+    [notificationCategories, form.categoryId]
+  )
+
+  const categoryDefaults = useMemo(() => {
+    if (!selectedCategory) return undefined
+    return {
+      categoryId: selectedCategory.categoryId,
+      deliveryMode: selectedCategory.defaultDeliveryMode,
+      allowedChannels: selectedCategory.allowedChannels,
+      messageCategory: selectedCategory.messageCategory,
+      riskClass: selectedCategory.riskClass,
+      priorityClass: selectedCategory.priorityClass,
+      businessValue: selectedCategory.businessValue,
+      urgency: selectedCategory.urgency,
+      maxDelayHours: selectedCategory.maxDelayHours,
+      quietHoursRespect: selectedCategory.quietHoursRespect,
+    }
+  }, [selectedCategory])
+
+  const effectivePolicy = useMemo(() => ({
+    categoryId: form.categoryId || undefined,
+    channel: form.channel,
+    messageCategory: form.messageCategory,
+    priorityClass: form.priorityClass,
+    businessValue: form.businessValue,
+    urgency: form.urgency,
+  }), [form.categoryId, form.channel, form.messageCategory, form.priorityClass, form.businessValue, form.urgency])
+
+  const policyOverrides = useMemo(() => {
+    if (!selectedCategory) return undefined
+    const overrides: Record<string, boolean> = {
+      channel: selectedCategory.allowedChannels?.length === 1
+        ? selectedCategory.allowedChannels[0] !== form.channel
+        : false,
+      priorityClass: selectedCategory.priorityClass !== form.priorityClass,
+      businessValue: Math.abs(selectedCategory.businessValue - form.businessValue) > 0.001,
+      urgency: Math.abs(selectedCategory.urgency - form.urgency) > 0.001,
+    }
+    return overrides
+  }, [selectedCategory, form.channel, form.messageCategory, form.priorityClass, form.businessValue, form.urgency])
+
+  const overrideCount = useMemo(
+    () => Object.values(policyOverrides || {}).filter(Boolean).length,
+    [policyOverrides]
+  )
+
+  const categoryPolicyDiffs = useMemo(() => {
+    if (!selectedCategory || !policyOverrides) return []
+
+    const rows = [
+      {
+        key: 'channel',
+        label: 'Channel',
+        defaultValue: selectedCategory.allowedChannels?.length === 1 ? selectedCategory.allowedChannels[0] : 'Any allowed',
+        currentValue: form.channel,
+      },
+      {
+        key: 'priorityClass',
+        label: 'Priority',
+        defaultValue: selectedCategory.priorityClass,
+        currentValue: form.priorityClass,
+      },
+      {
+        key: 'businessValue',
+        label: 'Business value',
+        defaultValue: selectedCategory.businessValue.toFixed(1),
+        currentValue: form.businessValue.toFixed(1),
+      },
+      {
+        key: 'urgency',
+        label: 'Urgency',
+        defaultValue: selectedCategory.urgency.toFixed(1),
+        currentValue: form.urgency.toFixed(1),
+      },
+    ]
+
+    return rows.map((row) => ({
+      ...row,
+      changed: Boolean(policyOverrides[row.key]),
+    }))
+  }, [selectedCategory, policyOverrides, form.channel, form.priorityClass, form.businessValue, form.urgency])
 
   useEffect(() => {
     if (!result) return
@@ -193,6 +282,40 @@ const Attention = () => {
     loadSummary()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await listCategories()
+        setNotificationCategories(data.categories.filter((category) => category.active !== false))
+        setCategoryLoadError('')
+      } catch (err: any) {
+        const status = err.response?.status
+        const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Unable to load categories'
+        setCategoryLoadError(status ? `HTTP ${status}: ${message}` : message)
+      }
+    }
+    loadCategories()
+  }, [])
+
+  const applyCategory = (categoryId: string) => {
+    const category = notificationCategories.find((item) => item.categoryId === categoryId)
+    if (!category) {
+      setForm({ ...form, categoryId })
+      return
+    }
+
+    setForm({
+      ...form,
+      categoryId,
+      channel: category.allowedChannels?.[0] || form.channel,
+      messageCategory: category.messageCategory,
+      priorityClass: category.priorityClass,
+      businessValue: category.businessValue,
+      urgency: category.urgency,
+      sourceId: form.sourceId || `category:${category.categoryId}`,
+    })
+  }
 
   const rows = useMemo<DecisionRow[]>(() => {
     if (summaryData) {
@@ -291,12 +414,16 @@ const Attention = () => {
     windowEnd: epochSecondsFromLocalInput(deliveryWindow.end),
     channel: form.channel,
     sourceId: form.sourceId,
+    categoryId: form.categoryId || undefined,
     messageCategory: form.messageCategory,
     priorityClass: form.priorityClass,
     businessValue: form.businessValue,
     urgency: form.urgency,
     message: form.message,
     metadata: form.subject ? { subject: form.subject } : undefined,
+    categoryDefaults,
+    effectivePolicy,
+    policyOverrides,
   })
 
   const runDecision = async (mode: 'preview' | 'schedule') => {
@@ -347,10 +474,14 @@ const Attention = () => {
           channel: form.channel === 'AUTO' ? undefined : form.channel,
           message: form.message,
           sourceId: form.sourceId,
+          categoryId: form.categoryId || undefined,
           messageCategory: form.messageCategory,
           priorityClass: form.priorityClass,
           businessValue: form.businessValue,
           urgency: form.urgency,
+          categoryDefaults,
+          effectivePolicy,
+          policyOverrides,
           metadata: form.subject ? { subject: form.subject } : undefined,
         },
       })
@@ -595,61 +726,158 @@ const Attention = () => {
                   onChange={(e) => setForm({ ...form, sourceId: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Channel</label>
-                  <select
-                    className="select"
-                    value={form.channel}
-                    onChange={(e) => setForm({ ...form, channel: e.target.value as Channel })}
-                  >
-                    {channels.map((channel) => <option key={channel}>{channel}</option>)}
-                  </select>
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Category Policy</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Select a configured category, then adjust scoring policy for this decision.
+                    </div>
+                  </div>
+                  {selectedCategory && (
+                    <span className={`badge ${overrideCount > 0 ? 'badge-warning text-nowrap' : 'badge-success'}`}>
+                      {overrideCount > 0 ? `${overrideCount} override${overrideCount === 1 ? '' : 's'}` : 'Defaults'}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <label className="label">Priority</label>
-                  <select
-                    className="select"
-                    value={form.priorityClass}
-                    onChange={(e) => setForm({ ...form, priorityClass: e.target.value as PriorityClass })}
-                  >
-                    {priorities.map((priority) => <option key={priority}>{priority}</option>)}
-                  </select>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Configured Category</label>
+                    <select
+                      className="select"
+                      value={form.categoryId}
+                      onChange={(e) => applyCategory(e.target.value)}
+                    >
+                      <option value="">No category preset</option>
+                      {notificationCategories.map((category) => (
+                        <option key={category.categoryId} value={category.categoryId}>
+                          {category.displayName || category.categoryId}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {selectedCategory
+                        ? `Category ID: ${selectedCategory.categoryId}`
+                        : categoryLoadError || 'Optional: choose an organization category preset.'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Message Category</label>
+                    <select
+                      className="select"
+                      value={form.messageCategory}
+                      disabled={Boolean(selectedCategory)}
+                      onChange={(e) => setForm({ ...form, messageCategory: e.target.value as MessageCategory })}
+                    >
+                      {messageCategories.map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                    {selectedCategory && (
+                      <div className="text-xs text-slate-500 mt-1">
+                        Locked to the configured category identity.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Channel</label>
+                      <select
+                        className="select"
+                        value={form.channel}
+                        onChange={(e) => setForm({ ...form, channel: e.target.value as Channel })}
+                      >
+                        {channels.map((channel) => <option key={channel}>{channel}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Priority</label>
+                      <select
+                        className="select"
+                        value={form.priorityClass}
+                        onChange={(e) => setForm({ ...form, priorityClass: e.target.value as PriorityClass })}
+                      >
+                        {priorities.map((priority) => <option key={priority}>{priority}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Business Value: {form.businessValue.toFixed(1)}</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={form.businessValue}
+                      onChange={(e) => setForm({ ...form, businessValue: Number(e.target.value) })}
+                      className="w-full accent-primary-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Urgency: {form.urgency.toFixed(1)}</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={form.urgency}
+                      onChange={(e) => setForm({ ...form, urgency: Number(e.target.value) })}
+                      className="w-full accent-primary-600"
+                    />
+                  </div>
+
+                  {selectedCategory && (
+                    <div className={`border rounded-lg p-3 text-sm ${overrideCount > 0 ? 'border-warning-200 bg-warning-50' : 'border-success-200 bg-success-50'}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className={`font-semibold ${overrideCount > 0 ? 'text-warning-800' : 'text-success-800'}`}>
+                            {overrideCount > 0 ? `${overrideCount} category override${overrideCount === 1 ? '' : 's'} active` : 'Using category defaults'}
+                          </div>
+                          <div className="text-xs text-slate-600 mt-1">
+                            Stored in AttentionLedger for future training attribution.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-ghost text-xs"
+                          onClick={() => setShowPolicyChanges(!showPolicyChanges)}
+                        >
+                          {showPolicyChanges ? 'Hide changes' : 'View changes'}
+                        </button>
+                      </div>
+                      {showPolicyChanges && (
+                        <div className="mt-3 space-y-2">
+                          {categoryPolicyDiffs.map((row) => (
+                            <div
+                              key={row.key}
+                              className={`rounded-md border px-3 py-2 ${row.changed ? 'border-warning-200 bg-white' : 'border-slate-200 bg-white/70'}`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium text-slate-800">{row.label}</span>
+                                <span className={`badge ${row.changed ? 'badge-warning' : 'badge-neutral'}`}>
+                                  {row.changed ? 'Changed' : 'Default'}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                                <div>
+                                  <div className="text-slate-500">Category default</div>
+                                  <div className="font-mono text-slate-800">{row.defaultValue}</div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500">Current decision</div>
+                                  <div className={`font-mono ${row.changed ? 'text-warning-800' : 'text-slate-800'}`}>{row.currentValue}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div>
-                <label className="label">Category</label>
-                <select
-                  className="select"
-                  value={form.messageCategory}
-                  onChange={(e) => setForm({ ...form, messageCategory: e.target.value as MessageCategory })}
-                >
-                  {categories.map((category) => <option key={category}>{category}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Business Value: {form.businessValue.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="0.5"
-                  value={form.businessValue}
-                  onChange={(e) => setForm({ ...form, businessValue: Number(e.target.value) })}
-                  className="w-full accent-primary-600"
-                />
-              </div>
-              <div>
-                <label className="label">Urgency: {form.urgency.toFixed(1)}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={form.urgency}
-                  onChange={(e) => setForm({ ...form, urgency: Number(e.target.value) })}
-                  className="w-full accent-primary-600"
-                />
               </div>
               <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
                 <div className="flex items-center justify-between gap-3 mb-3">
@@ -856,7 +1084,7 @@ const Attention = () => {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-b border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border-b border-slate-100">
               <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
                 <div className="text-xs text-slate-500">Best-hour click probability</div>
                 <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.probability)}</div>
@@ -877,6 +1105,13 @@ const Attention = () => {
                 <div className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                   <TrendingUp size={20} className="text-success-600" />
                   {probabilityPointDelta(result.probability, result.sendNowProbability) ?? '-'} pts
+                </div>
+              </div>
+              <div className="p-5 border-t md:border-t-0 md:border-l border-slate-100">
+                <div className="text-xs text-slate-500">Category overrides</div>
+                <div className="text-2xl font-bold text-slate-900">{result.overrideCount ?? 0}</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {result.categoryId ? result.categoryId : 'No configured category'}
                 </div>
               </div>
             </div>
