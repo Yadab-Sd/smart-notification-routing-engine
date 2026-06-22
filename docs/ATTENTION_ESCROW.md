@@ -556,7 +556,7 @@ Decision Service invokes SageMaker send-time endpoint
         |
 Attention Gate calculates cost, value, fatigue, trust
         |
-Decision is written to AttentionLedger
+Decision is written to AttentionLedger for schedule/event-driven sends
         |
 If SEND:
     EventBridge Scheduler invokes Sender Service
@@ -567,6 +567,8 @@ If DEFER:
     No schedule is created
     Decision response explains why
 ```
+
+`/v1/decisions/preview` runs the same scoring and Attention Gate logic, but it is a simulation by default. It returns `previewOnly: true` and does not write an `ATTENTION_DECISION` record unless the caller sends `auditPreview: true`.
 
 For event-triggered optimized sends, the flow starts one step earlier:
 

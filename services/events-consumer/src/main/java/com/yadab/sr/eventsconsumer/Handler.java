@@ -296,9 +296,7 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
             putDouble(payload, "businessValue", firstNode(notification, event, "businessValue"));
             putDouble(payload, "urgency", firstNode(notification, event, "urgency"));
             putInt(payload, "maxDelayHours", firstNode(notification, event, "maxDelayHours"));
-            putObject(payload, "categoryDefaults", firstNode(notification, event, "categoryDefaults"));
-            putObject(payload, "effectivePolicy", firstNode(notification, event, "effectivePolicy"));
-            putObject(payload, "policyOverrides", firstNode(notification, event, "policyOverrides"));
+            putAttentionPolicyAudit(payload, notification, event);
         }
 
         return payload;
@@ -380,6 +378,23 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         if (value != null && value.isObject()) {
             payload.put(field, MAPPER.convertValue(value, Map.class));
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void putAttentionPolicyAudit(Map<String, Object> payload, JsonNode notification, JsonNode event) {
+        Map<String, Object> audit = new LinkedHashMap<>();
+        putObject(audit, "categoryDefaults", firstNode(notification, event, "categoryDefaults"));
+        putObject(audit, "effectivePolicy", firstNode(notification, event, "effectivePolicy"));
+        putObject(audit, "policyOverrides", firstNode(notification, event, "policyOverrides"));
+        if (audit.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> metadata = payload.get("metadata") instanceof Map<?, ?> existing
+                ? new LinkedHashMap<>((Map<String, Object>) existing)
+                : new LinkedHashMap<>();
+        metadata.put("attentionPolicyAudit", audit);
+        payload.put("metadata", metadata);
     }
 
     private static int maxDelayHours(JsonNode notification, JsonNode event) {

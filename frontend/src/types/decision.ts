@@ -3,6 +3,7 @@ export interface DecisionRequest {
   windowStart: number // Unix epoch seconds
   windowEnd: number // Unix epoch seconds
   schedule?: boolean
+  auditPreview?: boolean
   channel?: 'AUTO' | 'EMAIL' | 'SMS' | 'PUSH'
   sourceId?: string
   categoryId?: string
@@ -42,6 +43,7 @@ export interface DecisionResponse {
   policyOverrides?: Record<string, boolean>
   overrideCount?: number
   overrideMagnitude?: number
+  previewOnly?: boolean
   scheduled?: boolean
   scheduleId?: string
   scheduledTime?: string
