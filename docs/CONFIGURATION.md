@@ -309,23 +309,21 @@ const controlPlane = new lambda.Function(this, 'ControlPlaneFn', {
 - Steady: 10000 requests/second
 
 **CORS**:
-- Allowed origins: localhost:3000, localhost:5173
+- Local origins are included automatically: localhost:3000, localhost:5173
 - Allowed methods: GET, POST, PUT, DELETE, OPTIONS
-- Allowed headers: Content-Type, Authorization
+- Allowed headers: Content-Type, Authorization, X-Organization-Id
 
-To add production origin:
+To add production origins, configure `infra/cdk/.env`:
 
-```typescript
-// infra/cdk/lib/compute-stack.ts
-const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
-    corsPreflight: {
-        allowOrigins: [
-            'http://localhost:5173',
-            'https://yourdomain.com',  // Add production URL
-        ],
-        // ...
-    }
-});
+```bash
+# Automatically adds https://yourdomain.com
+CUSTOM_DOMAIN=yourdomain.com
+```
+
+Then redeploy Compute:
+
+```bash
+./scripts/deploy-infra.sh SR-Compute
 ```
 
 ---

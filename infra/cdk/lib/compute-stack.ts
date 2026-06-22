@@ -9,11 +9,27 @@ import {HttpJwtAuthorizer} from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import {HttpLambdaIntegration} from "aws-cdk-lib/aws-apigatewayv2-integrations";
 
 
-interface Props extends StackProps { vpc: ec2.IVpc, kmsKey: kms.IKey, data: DataStack, identity: any, messaging?: MessagingStack }
+interface Props extends StackProps {
+    vpc: ec2.IVpc,
+    kmsKey: kms.IKey,
+    data: DataStack,
+    identity: any,
+    messaging?: MessagingStack,
+    frontendUrl?: string,
+}
 
 export class ComputeStack extends Stack {
-    constructor(scope: Construct, id: string, { vpc, kmsKey, data, identity, messaging, ...props }: Props){
+    constructor(scope: Construct, id: string, { vpc, kmsKey, data, identity, messaging, frontendUrl, ...props }: Props){
         super(scope,id,props);
+
+        const corsAllowedOrigins = [
+            'http://localhost:5173',
+            'http://127.0.0.1:5173',
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            ...(frontendUrl ? [frontendUrl] : []),
+            ...(process.env.CUSTOM_DOMAIN ? [`https://${process.env.CUSTOM_DOMAIN}`] : []),
+        ].filter((origin, index, origins) => origins.indexOf(origin) === index);
 
         // Lambda: controlPlane (Java zip you will build at services/control-plane)
         const controlPlane = new lambda.Function(this,'ControlPlaneFn',{
@@ -154,15 +170,7 @@ export class ComputeStack extends Stack {
         // API HTTP API with CORS configuration
         const httpApi = new apigwv2.HttpApi(this,'HttpApi',{
             corsPreflight: {
-                allowOrigins: [
-                    'http://localhost:5173', // Vite dev server
-                    'http://127.0.0.1:5173', // Vite dev server when bound to loopback IP
-                    'http://localhost:3000', // Alternative dev port
-                    'http://127.0.0.1:3000', // Alternative dev port when bound to loopback IP
-                    'https://dgp44tqg8encf.cloudfront.net', // CloudFront distribution (temporary)
-                    'https://intelligent-routing.com', // Custom domain
-                    'https://dgp44tqg8encf.cloudfront.net/', // CloudFront URL will be added after deployment
-                ],
+                allowOrigins: corsAllowedOrigins,
                 allowMethods: [
                     apigwv2.CorsHttpMethod.GET,
                     apigwv2.CorsHttpMethod.POST,
@@ -176,6 +184,7 @@ export class ComputeStack extends Stack {
                     'X-Amz-Date',
                     'X-Api-Key',
                     'X-Amz-Security-Token',
+                    'X-Organization-Id',
                 ],
                 allowCredentials: true,
                 maxAge: cdk.Duration.days(1),

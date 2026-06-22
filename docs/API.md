@@ -153,6 +153,10 @@ Categories are organization-defined notification policies. They are different fr
 
 Create categories first when you want API callers to send simpler events and let SNRE fill in policy defaults. Categories are stored independently from users in the `NotificationCategories` DynamoDB table and scoped by organization. Until full multi-tenant onboarding exists, the API uses organization `default`; callers may send `X-Organization-Id` to scope categories explicitly.
 
+In the admin console, use **Messaging → Categories** to create and edit these policies. The **Send Event** page can then load a category, prefill the notification fields, and still let the admin override values for the specific send before submitting.
+
+The **Attention Escrow** page is a decision workbench: choose a delivery window, preview first, then schedule the recommended time, send immediately, or adjust inputs and preview again. The default UI window is the next 24 hours, but admins can choose today, tomorrow, next 48 hours, or a custom local date/time range.
+
 Storage shape:
 
 - Table: `NotificationCategories`
@@ -251,7 +255,15 @@ To override one send while still keeping the category relationship:
 }
 ```
 
-Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` / `messageCategory` values such as `TRANSACTIONAL`, `SECURITY`, or `EMERGENCY`.
+Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` values such as `URGENT`, `CRITICAL`, or `EMERGENCY`, combined with the correct `messageCategory`.
+
+For auditability and future model training, category-based events are enriched before routing with:
+
+- `categoryDefaults`: the category policy configured by the organization
+- `effectivePolicy`: the final policy used for this specific send or preview
+- `policyOverrides`: boolean flags showing which category defaults were explicitly changed
+
+Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude`. This prevents future Attention Escrow training from blaming the whole category when a manually overridden send causes fatigue, unsubscribe, or complaint risk.
 
 **Event-triggered immediate notification**:
 ```json
@@ -406,8 +418,8 @@ Attention Escrow fields are optional:
 | `LOW` | Nice-to-have message; requires stronger value to send |
 | `STANDARD` | Normal message; default priority |
 | `HIGH` | Important but not mandatory |
-| `TRANSACTIONAL` | Must-reach user-requested update |
-| `SECURITY` | Security-critical alert |
+| `URGENT` | Time-sensitive message; small delay allowed |
+| `CRITICAL` | Must-reach-soon message; bypasses the normal attention budget |
 | `EMERGENCY` | Emergency or safety alert |
 
 `businessValue` is the sender-side value of this message from `0.0` to `10.0`. `urgency` is the time sensitivity from `0.0` to `1.0`; use it only when waiting would noticeably reduce usefulness.
@@ -420,9 +432,10 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-12T14:00:00Z",
+  "sendNowTime": "2026-06-12T10:37:24Z",
   "sendNowHour": 10,
   "sendNowProbability": 0.41,
-  "recommendedSendTime": "2026-06-12T14:00Z",
   "attentionDecision": "SEND",
   "attentionCost": 2.4,
   "attentionValue": 5.9,
@@ -431,12 +444,32 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   "fatigueScore": 0.33,
   "sourceTrustScore": 0.75,
   "sourceId": "campaign:abandoned_cart",
+  "categoryId": "appointment_reminder",
   "decisionId": "attn_abc123",
+  "categoryDefaults": {
+    "messageCategory": "TRANSACTIONAL",
+    "priorityClass": "STANDARD",
+    "businessValue": 7.0,
+    "urgency": 0.6
+  },
+  "effectivePolicy": {
+    "messageCategory": "TRANSACTIONAL",
+    "priorityClass": "HIGH",
+    "businessValue": 8.5,
+    "urgency": 0.9
+  },
+  "policyOverrides": {
+    "priorityClass": true,
+    "businessValue": true,
+    "urgency": true
+  },
+  "overrideCount": 3,
+  "overrideMagnitude": 0.78,
   "scheduled": false
 }
 ```
 
-`probability` is the model score for the recommended hour. `sendNowProbability` is the model score for the current hour at request time. `recommendedSendTime` shows the timestamp that would be used if the caller schedules this decision.
+`recommendedSendTime` is the actual UTC timestamp chosen inside `windowStart`/`windowEnd`. `probability` is the model score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the model score for that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
 **POST /v1/decisions/schedule** - Schedule notification
 
@@ -466,6 +499,10 @@ Attention Escrow runs before scheduling. If the decision is `DEFER`, no EventBri
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-12T14:00:00Z",
+  "sendNowTime": "2026-06-12T10:37:24Z",
+  "sendNowHour": 10,
+  "sendNowProbability": 0.41,
   "attentionDecision": "SEND",
   "attentionCost": 2.1,
   "attentionValue": 6.8,

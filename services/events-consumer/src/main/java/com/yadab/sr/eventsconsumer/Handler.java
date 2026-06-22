@@ -296,6 +296,9 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
             putDouble(payload, "businessValue", firstNode(notification, event, "businessValue"));
             putDouble(payload, "urgency", firstNode(notification, event, "urgency"));
             putInt(payload, "maxDelayHours", firstNode(notification, event, "maxDelayHours"));
+            putObject(payload, "categoryDefaults", firstNode(notification, event, "categoryDefaults"));
+            putObject(payload, "effectivePolicy", firstNode(notification, event, "effectivePolicy"));
+            putObject(payload, "policyOverrides", firstNode(notification, event, "policyOverrides"));
         }
 
         return payload;
@@ -370,6 +373,12 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
     private static void putInt(Map<String, Object> payload, String field, JsonNode value) {
         if (value != null && value.isInt()) {
             payload.put(field, value.asInt());
+        }
+    }
+
+    private static void putObject(Map<String, Object> payload, String field, JsonNode value) {
+        if (value != null && value.isObject()) {
+            payload.put(field, MAPPER.convertValue(value, Map.class));
         }
     }
 

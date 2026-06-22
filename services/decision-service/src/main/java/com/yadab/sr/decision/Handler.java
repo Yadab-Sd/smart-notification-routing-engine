@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -44,7 +45,7 @@ import java.util.UUID;
 /**
  * Decision Lambda.
  *
- * Stage 1: existing SageMaker send-time model finds the best hour.
+ * Stage 1: existing SageMaker send-time model scores UTC hour buckets inside the requested window.
  * Stage 2: Attention Escrow gate decides whether that message deserves to spend attention now.
  */
 public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
@@ -111,9 +112,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             }
             responseNode.put("hour", sendTime.bestHour);
             responseNode.put("probability", round(sendTime.bestScore));
+            responseNode.put("recommendedSendTime", sendTime.recommendedTime.toString());
+            responseNode.put("sendNowTime", sendTime.sendNowTime.toString());
             responseNode.put("sendNowHour", sendTime.sendNowHour);
             responseNode.put("sendNowProbability", round(sendTime.sendNowScore));
-            responseNode.put("recommendedSendTime", recommendedSendTime(sendTime.bestHour));
             responseNode.put("attentionDecision", attention.decision);
             responseNode.put("attentionCost", round(attention.cost));
             responseNode.put("attentionValue", round(attention.value));
@@ -123,6 +125,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             responseNode.put("sourceTrustScore", round(attention.sourceTrustScore));
             responseNode.put("sourceId", attention.sourceId);
             responseNode.put("decisionId", decisionId);
+            putObject(responseNode, "categoryDefaults", req.getCategoryDefaults());
+            putObject(responseNode, "effectivePolicy", effectivePolicy(req));
+            putObject(responseNode, "policyOverrides", req.getPolicyOverrides());
+            responseNode.put("overrideCount", overrideCount(req.getPolicyOverrides()));
+            responseNode.put("overrideMagnitude", round(overrideMagnitude(req)));
             responseNode.put("scheduled", false);
 
             if (Boolean.TRUE.equals(req.getSchedule())) {
@@ -279,10 +286,13 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         putString(node, "attentionDecision", item, "attentionDecision");
         putString(node, "reason", item, "reason");
         putString(node, "createdAt", item, "createdAt");
+        putString(node, "categoryId", item, "categoryId");
         putNumber(node, "attentionCost", item, "attentionCost");
         putNumber(node, "attentionValue", item, "attentionValue");
         putNumber(node, "fatigueScore", item, "fatigueScore");
         putNumber(node, "sourceTrustScore", item, "sourceTrustScore");
+        putNumber(node, "overrideCount", item, "overrideCount");
+        putNumber(node, "overrideMagnitude", item, "overrideMagnitude");
         return node;
     }
 
@@ -295,6 +305,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
         if (req.getWindowEnd() <= req.getWindowStart()) {
             return "windowEnd must be after windowStart";
+        }
+        if (!Instant.ofEpochSecond(req.getWindowEnd()).isAfter(Instant.now())) {
+            return "windowEnd must be in the future";
         }
         long hours = ChronoUnit.HOURS.between(
                 Instant.ofEpochSecond(req.getWindowStart()),
@@ -331,40 +344,52 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private SendTimeResult findBestSendTime(DecisionRequest req, UserStats stats, Context context) throws Exception {
         Instant startTs = Instant.ofEpochSecond(req.getWindowStart());
         Instant endTs = Instant.ofEpochSecond(req.getWindowEnd());
+        Instant sendNowTime = Instant.now();
 
-        int sendNowHour = startTs.atZone(ZoneOffset.UTC).getHour();
-        double sendNowScore = 0.0;
-        boolean sendNowCaptured = false;
-        int bestHour = -1;
-        double bestScore = -1.0;
+        int sendNowHour = sendNowTime.atZone(ZoneOffset.UTC).getHour();
+        double sendNowScore = scoreHour(sendNowHour, stats, context);
 
-        for (Instant ts = startTs; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
+        Instant optimizedStart = startTs.isAfter(sendNowTime) ? startTs : sendNowTime;
+        int bestHour = optimizedStart.atZone(ZoneOffset.UTC).getHour();
+        double bestScore = scoreHour(bestHour, stats, context);
+        Instant bestTime = optimizedStart;
+
+        Instant firstFutureSlot = optimizedStart.truncatedTo(ChronoUnit.HOURS).plus(1, ChronoUnit.HOURS);
+        for (Instant ts = firstFutureSlot; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
             int hour = ts.atZone(ZoneOffset.UTC).getHour();
-            int sendsCountHour = Math.max(0, stats.totalSends / 24);
-            String csvRow = String.format("%d,%.4f,%d", hour, stats.clickRate(), sendsCountHour);
-
-            context.getLogger().log("SageMaker Input: " + csvRow);
-            InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
-                    .endpointName(sageMakerEndpoint)
-                    .contentType("text/csv")
-                    .body(SdkBytes.fromUtf8String(csvRow))
-                    .build());
-
-            double score = parseScore(invokeRes.body().asUtf8String());
-            context.getLogger().log("Score: " + score);
-
-            if (!sendNowCaptured) {
-                sendNowScore = score;
-                sendNowCaptured = true;
-            }
+            double score = scoreHour(hour, stats, context);
 
             if (score > bestScore) {
                 bestScore = score;
                 bestHour = hour;
+                bestTime = ts;
             }
         }
 
-        return new SendTimeResult(bestHour, Math.max(0.0, bestScore), sendNowHour, Math.max(0.0, sendNowScore));
+        return new SendTimeResult(
+                bestHour,
+                Math.max(0.0, bestScore),
+                bestTime,
+                sendNowHour,
+                Math.max(0.0, sendNowScore),
+                sendNowTime
+        );
+    }
+
+    private double scoreHour(int hour, UserStats stats, Context context) throws Exception {
+        int sendsCountHour = Math.max(0, stats.totalSends / 24);
+        String csvRow = String.format("%d,%.4f,%d", hour, stats.clickRate(), sendsCountHour);
+
+        context.getLogger().log("SageMaker Input: " + csvRow);
+        InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
+                .endpointName(sageMakerEndpoint)
+                .contentType("text/csv")
+                .body(SdkBytes.fromUtf8String(csvRow))
+                .build());
+
+        double score = parseScore(invokeRes.body().asUtf8String());
+        context.getLogger().log("Score: " + score);
+        return score;
     }
 
     private double parseScore(String resultStr) throws Exception {
@@ -481,7 +506,13 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("sourceTrustScore", AttributeValue.builder().n(String.format("%.4f", attention.sourceTrustScore)).build());
             item.put("bestHour", AttributeValue.builder().n(String.valueOf(sendTime.bestHour)).build());
             item.put("probability", AttributeValue.builder().n(String.format("%.4f", sendTime.bestScore)).build());
+            item.put("recommendedSendTime", AttributeValue.builder().s(sendTime.recommendedTime.toString()).build());
+            item.put("sendNowTime", AttributeValue.builder().s(sendTime.sendNowTime.toString()).build());
+            item.put("sendNowHour", AttributeValue.builder().n(String.valueOf(sendTime.sendNowHour)).build());
+            item.put("sendNowProbability", AttributeValue.builder().n(String.format("%.4f", sendTime.sendNowScore)).build());
             item.put("scheduleRequested", AttributeValue.builder().bool(Boolean.TRUE.equals(req.getSchedule())).build());
+            item.put("overrideCount", AttributeValue.builder().n(String.valueOf(overrideCount(req.getPolicyOverrides()))).build());
+            item.put("overrideMagnitude", AttributeValue.builder().n(String.format("%.4f", overrideMagnitude(req))).build());
             item.put("createdAt", AttributeValue.builder().s(now).build());
             item.put("windowStart", AttributeValue.builder().n(String.valueOf(req.getWindowStart())).build());
             item.put("windowEnd", AttributeValue.builder().n(String.valueOf(req.getWindowEnd())).build());
@@ -498,6 +529,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("priorityClass", AttributeValue.builder().s(PriorityClass.from(req.getPriorityClass()).name()).build());
             item.put("channel", AttributeValue.builder().s(Channel.from(req.getChannel()).name()).build());
             item.put("reason", AttributeValue.builder().s(attention.reason).build());
+            putMapItem(item, "categoryDefaults", req.getCategoryDefaults());
+            putMapItem(item, "effectivePolicy", effectivePolicy(req));
+            putMapItem(item, "policyOverrides", req.getPolicyOverrides());
 
             dynamo.putItem(PutItemRequest.builder()
                     .tableName(attentionTable)
@@ -511,7 +545,12 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     }
 
     private ScheduleResult scheduleSend(DecisionRequest req, SendTimeResult sendTime, String decisionId, AttentionDecision attention) throws Exception {
-        ZonedDateTime targetTime = nextUtcHour(sendTime.bestHour);
+        Instant scheduleInstant = sendTime.recommendedTime;
+        Instant minimumScheduleTime = Instant.now().plus(1, ChronoUnit.MINUTES);
+        if (!scheduleInstant.isAfter(minimumScheduleTime)) {
+            scheduleInstant = minimumScheduleTime;
+        }
+        ZonedDateTime targetTime = scheduleInstant.atZone(ZoneOffset.UTC);
 
         String scheduleExpression = "at(" + targetTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")) + ")";
         String scheduleName = "send-" + UUID.randomUUID();
@@ -527,6 +566,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         schedulerPayload.put("notificationType", req.getNotificationType());
         schedulerPayload.put("messageCategory", messageCategory(req).name());
         schedulerPayload.put("priorityClass", req.getPriorityClass());
+        schedulerPayload.put("categoryDefaults", req.getCategoryDefaults());
+        schedulerPayload.put("effectivePolicy", effectivePolicy(req));
+        schedulerPayload.put("policyOverrides", req.getPolicyOverrides());
 
         Target target = Target.builder()
                 .arn(senderFunctionArn)
@@ -537,29 +579,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         scheduler.createSchedule(CreateScheduleRequest.builder()
                 .name(scheduleName)
                 .scheduleExpression(scheduleExpression)
+                .scheduleExpressionTimezone("UTC")
                 .flexibleTimeWindow(FlexibleTimeWindow.builder()
                         .mode(FlexibleTimeWindowMode.OFF)
                         .build())
                 .target(target)
                 .build());
 
-        return new ScheduleResult(scheduleName, targetTime.toString());
-    }
-
-    private String recommendedSendTime(int bestHour) {
-        if (bestHour < 0) {
-            return null;
-        }
-        return nextUtcHour(bestHour).toString();
-    }
-
-    private ZonedDateTime nextUtcHour(int hour) {
-        ZonedDateTime nowUtc = ZonedDateTime.now(ZoneOffset.UTC);
-        ZonedDateTime targetTime = nowUtc.withHour(hour).withMinute(0).withSecond(0).withNano(0);
-        if (!targetTime.isAfter(nowUtc)) {
-            targetTime = targetTime.plusDays(1);
-        }
-        return targetTime;
+        return new ScheduleResult(scheduleName, scheduleInstant.toString());
     }
 
     private double fatigueScore(UserStats stats) {
@@ -594,8 +621,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             return clamp(requestedUrgency, 0.0, 1.0);
         }
         return switch (priority) {
-            case EMERGENCY, SECURITY -> 1.0;
-            case TRANSACTIONAL, HIGH -> 0.8;
+            case EMERGENCY, CRITICAL -> 1.0;
+            case URGENT -> 0.9;
+            case HIGH -> 0.8;
             case STANDARD -> 0.45;
             case LOW -> 0.2;
         };
@@ -604,8 +632,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private double priorityBoost(PriorityClass priority) {
         return switch (priority) {
             case EMERGENCY -> 4.0;
-            case SECURITY -> 3.0;
-            case TRANSACTIONAL, HIGH -> 1.4;
+            case CRITICAL -> 3.0;
+            case URGENT -> 2.0;
+            case HIGH -> 1.4;
             case LOW -> -0.5;
             case STANDARD -> 0.0;
         };
@@ -625,8 +654,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
     private boolean isBypassPriority(PriorityClass priority) {
         return priority == PriorityClass.EMERGENCY
-                || priority == PriorityClass.SECURITY
-                || priority == PriorityClass.TRANSACTIONAL;
+                || priority == PriorityClass.CRITICAL;
     }
 
     private String sourceId(DecisionRequest req) {
@@ -660,6 +688,82 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
 
         return MessageCategory.GENERAL;
+    }
+
+    private Map<String, Object> effectivePolicy(DecisionRequest req) {
+        if (req.getEffectivePolicy() != null && !req.getEffectivePolicy().isEmpty()) {
+            return req.getEffectivePolicy();
+        }
+
+        Map<String, Object> policy = new LinkedHashMap<>();
+        if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+            policy.put("categoryId", req.getCategoryId());
+        }
+        policy.put("channel", Channel.from(req.getChannel()).name());
+        policy.put("messageCategory", messageCategory(req).name());
+        policy.put("priorityClass", PriorityClass.from(req.getPriorityClass()).name());
+        policy.put("businessValue", req.getBusinessValue() == null ? 1.0 : clamp(req.getBusinessValue(), 0.0, 10.0));
+        policy.put("urgency", req.getUrgency() == null ? null : clamp(req.getUrgency(), 0.0, 1.0));
+        return policy;
+    }
+
+    private int overrideCount(Map<String, Object> policyOverrides) {
+        if (policyOverrides == null || policyOverrides.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Object value : policyOverrides.values()) {
+            if (Boolean.TRUE.equals(value)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private double overrideMagnitude(DecisionRequest req) {
+        Map<String, Object> defaults = req.getCategoryDefaults();
+        Map<String, Object> effective = effectivePolicy(req);
+        if (defaults == null || defaults.isEmpty() || effective.isEmpty()) {
+            return 0.0;
+        }
+
+        double magnitude = 0.0;
+        magnitude += normalizedDifference(defaults.get("businessValue"), effective.get("businessValue"), 10.0);
+        magnitude += normalizedDifference(defaults.get("urgency"), effective.get("urgency"), 1.0);
+        magnitude += categoricalDifference(defaults.get("messageCategory"), effective.get("messageCategory"));
+        magnitude += categoricalDifference(defaults.get("priorityClass"), effective.get("priorityClass"));
+        magnitude += categoricalDifference(defaults.get("channel"), effective.get("channel"));
+        return magnitude;
+    }
+
+    private double normalizedDifference(Object baseline, Object actual, double divisor) {
+        Double base = asDouble(baseline);
+        Double value = asDouble(actual);
+        if (base == null || value == null || divisor <= 0.0) {
+            return 0.0;
+        }
+        return Math.min(1.0, Math.abs(value - base) / divisor);
+    }
+
+    private double categoricalDifference(Object baseline, Object actual) {
+        if (baseline == null || actual == null) {
+            return 0.0;
+        }
+        return String.valueOf(baseline).equalsIgnoreCase(String.valueOf(actual)) ? 0.0 : 1.0;
+    }
+
+    private Double asDouble(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Double.parseDouble(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static APIGatewayV2HTTPResponse response(int statusCode, String body) {
@@ -707,6 +811,50 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private static void putObject(ObjectNode node, String outKey, Map<String, Object> value) {
+        if (value != null && !value.isEmpty()) {
+            node.set(outKey, MAPPER.valueToTree(value));
+        }
+    }
+
+    private static void putMapItem(Map<String, AttributeValue> item, String key, Map<String, Object> value) {
+        if (value != null && !value.isEmpty()) {
+            item.put(key, toAttributeValue(value));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AttributeValue toAttributeValue(Object value) {
+        if (value == null) {
+            return AttributeValue.builder().nul(true).build();
+        }
+        if (value instanceof String text) {
+            return AttributeValue.builder().s(text).build();
+        }
+        if (value instanceof Number number) {
+            return AttributeValue.builder().n(String.valueOf(number)).build();
+        }
+        if (value instanceof Boolean bool) {
+            return AttributeValue.builder().bool(bool).build();
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, AttributeValue> values = new LinkedHashMap<>();
+            map.forEach((entryKey, entryValue) -> {
+                if (entryKey != null && entryValue != null) {
+                    values.put(String.valueOf(entryKey), toAttributeValue(entryValue));
+                }
+            });
+            return AttributeValue.builder().m(values).build();
+        }
+        if (value instanceof List<?> list) {
+            return AttributeValue.builder().l(list.stream()
+                    .filter(entry -> entry != null)
+                    .map(Handler::toAttributeValue)
+                    .toList()).build();
+        }
+        return AttributeValue.builder().s(String.valueOf(value)).build();
+    }
+
     private static String trimToNull(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -738,7 +886,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return value == null ? "Internal server error" : value.replace("\"", "'");
     }
 
-    private record SendTimeResult(int bestHour, double bestScore, int sendNowHour, double sendNowScore) {}
+    private record SendTimeResult(
+            int bestHour,
+            double bestScore,
+            Instant recommendedTime,
+            int sendNowHour,
+            double sendNowScore,
+            Instant sendNowTime
+    ) {}
 
     private record ScheduleResult(String scheduleName, String scheduledTime) {}
 
@@ -787,11 +942,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         LOW,           // Nice-to-have message; requires a wider value-over-cost margin.
         STANDARD,      // Normal message; default priority when caller does not specify one.
         HIGH,          // Important but not mandatory; receives urgency and value boost.
-        TRANSACTIONAL, // Must-reach user-requested update; bypasses the attention budget.
-        SECURITY,      // Security-critical alert; bypasses the attention budget.
+        URGENT,        // Time-sensitive message; small delay is acceptable if attention cost is high.
+        CRITICAL,      // Must-reach-soon message; bypasses the normal attention budget.
         EMERGENCY;     // Emergency or safety alert; bypasses the attention budget.
 
         static PriorityClass from(String value) {
+            if ("TRANSACTIONAL".equalsIgnoreCase(value) || "SECURITY".equalsIgnoreCase(value)) {
+                return CRITICAL;
+            }
             return enumValue(value, PriorityClass.class, STANDARD);
         }
     }
@@ -853,6 +1011,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class DecisionRequest {
         private String userId;
         private long windowStart;
@@ -870,6 +1029,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         private Double urgency;
         private String message;
         private Map<String, Object> metadata;
+        private Map<String, Object> categoryDefaults;
+        private Map<String, Object> effectivePolicy;
+        private Map<String, Object> policyOverrides;
 
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
@@ -903,5 +1065,26 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setMessage(String message) { this.message = message; }
         public Map<String, Object> getMetadata() { return metadata; }
         public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+        public Map<String, Object> getCategoryDefaults() {
+            return categoryDefaults != null ? categoryDefaults : policyAuditMap("categoryDefaults");
+        }
+        public void setCategoryDefaults(Map<String, Object> categoryDefaults) { this.categoryDefaults = categoryDefaults; }
+        public Map<String, Object> getEffectivePolicy() {
+            return effectivePolicy != null ? effectivePolicy : policyAuditMap("effectivePolicy");
+        }
+        public void setEffectivePolicy(Map<String, Object> effectivePolicy) { this.effectivePolicy = effectivePolicy; }
+        public Map<String, Object> getPolicyOverrides() {
+            return policyOverrides != null ? policyOverrides : policyAuditMap("policyOverrides");
+        }
+        public void setPolicyOverrides(Map<String, Object> policyOverrides) { this.policyOverrides = policyOverrides; }
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> policyAuditMap(String key) {
+            if (metadata == null || !(metadata.get("attentionPolicyAudit") instanceof Map<?, ?> audit)) {
+                return null;
+            }
+            Object value = audit.get(key);
+            return value instanceof Map<?, ?> ? (Map<String, Object>) value : null;
+        }
     }
 }

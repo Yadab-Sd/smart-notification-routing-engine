@@ -676,6 +676,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         ObjectNode enrichedEvent = event.deepCopy();
         putMissing(enrichedEvent, "organizationId", category.organizationId);
         ObjectNode notification = (ObjectNode) enrichedEvent.get("notification");
+        ObjectNode originalNotification = notification.deepCopy();
         putMissing(notification, "categoryId", category.categoryId);
         putMissing(notification, "deliveryMode", category.defaultDeliveryMode);
         putMissing(notification, "messageCategory", category.messageCategory);
@@ -699,7 +700,64 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             }
         }
 
+        notification.set("categoryDefaults", categoryDefaultsNode(category));
+        notification.set("effectivePolicy", effectivePolicyNode(notification));
+        notification.set("policyOverrides", policyOverridesNode(originalNotification, category, notification));
+
         return mapper.writeValueAsString(enrichedEvent);
+    }
+
+    private ObjectNode categoryDefaultsNode(NotificationCategory category) {
+        ObjectNode defaults = mapper.createObjectNode();
+        putIfPresent(defaults, "categoryId", category.categoryId);
+        putIfPresent(defaults, "deliveryMode", category.defaultDeliveryMode);
+        putIfPresent(defaults, "messageCategory", category.messageCategory);
+        putIfPresent(defaults, "priorityClass", category.priorityClass);
+        putIfPresent(defaults, "businessValue", category.businessValue);
+        putIfPresent(defaults, "urgency", category.urgency);
+        putIfPresent(defaults, "riskClass", category.riskClass);
+        putIfPresent(defaults, "maxDelayHours", category.maxDelayHours);
+        putIfPresent(defaults, "quietHoursRespect", category.quietHoursRespect);
+        if (category.allowedChannels != null && !category.allowedChannels.isEmpty()) {
+            defaults.putPOJO("allowedChannels", category.allowedChannels);
+        }
+        return defaults;
+    }
+
+    private ObjectNode effectivePolicyNode(ObjectNode notification) {
+        ObjectNode effective = mapper.createObjectNode();
+        copyIfPresent(notification, effective, "categoryId");
+        copyIfPresent(notification, effective, "deliveryMode");
+        copyIfPresent(notification, effective, "channel");
+        copyIfPresent(notification, effective, "messageCategory");
+        copyIfPresent(notification, effective, "priorityClass");
+        copyIfPresent(notification, effective, "businessValue");
+        copyIfPresent(notification, effective, "urgency");
+        copyIfPresent(notification, effective, "riskClass");
+        copyIfPresent(notification, effective, "maxDelayHours");
+        copyIfPresent(notification, effective, "quietHoursRespect");
+        return effective;
+    }
+
+    private ObjectNode policyOverridesNode(ObjectNode originalNotification, NotificationCategory category, ObjectNode notification) {
+        ObjectNode overrides = mapper.createObjectNode();
+        markOverride(overrides, originalNotification, "deliveryMode", category.defaultDeliveryMode);
+        markOverride(overrides, originalNotification, "messageCategory", category.messageCategory);
+        markOverride(overrides, originalNotification, "priorityClass", category.priorityClass);
+        markOverride(overrides, originalNotification, "businessValue", category.businessValue);
+        markOverride(overrides, originalNotification, "urgency", category.urgency);
+        markOverride(overrides, originalNotification, "riskClass", category.riskClass);
+        markOverride(overrides, originalNotification, "maxDelayHours", category.maxDelayHours);
+        markOverride(overrides, originalNotification, "quietHoursRespect", category.quietHoursRespect);
+
+        if (originalNotification.hasNonNull("channel")) {
+            boolean explicitChannelOverridesDefault = category.allowedChannels != null
+                    && category.allowedChannels.size() == 1
+                    && !category.allowedChannels.get(0).equalsIgnoreCase(text(notification, "channel"));
+            overrides.put("channel", explicitChannelOverridesDefault);
+        }
+
+        return overrides;
     }
 
     /**
@@ -906,7 +964,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 "GENERAL", "MARKETING", "PROMOTION", "NEWSLETTER", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
         ));
         requireOneOf("priorityClass", category.priorityClass, List.of(
-                "LOW", "STANDARD", "HIGH", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
+                "LOW", "STANDARD", "HIGH", "URGENT", "CRITICAL", "EMERGENCY"
         ));
         requireOneOf("riskClass", category.riskClass, List.of("LOW", "MEDIUM", "HIGH", "CRITICAL", "REGULATED"));
     }
@@ -1013,6 +1071,64 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private void putMissing(ObjectNode node, String field, Boolean value) {
         if (!node.hasNonNull(field) && value != null) {
             node.put(field, value);
+        }
+    }
+
+    private void putIfPresent(ObjectNode node, String field, String value) {
+        if (value != null && !value.isBlank()) {
+            node.put(field, value);
+        }
+    }
+
+    private void putIfPresent(ObjectNode node, String field, Double value) {
+        if (value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private void putIfPresent(ObjectNode node, String field, Integer value) {
+        if (value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private void putIfPresent(ObjectNode node, String field, Boolean value) {
+        if (value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private void copyIfPresent(ObjectNode source, ObjectNode target, String field) {
+        if (source.hasNonNull(field)) {
+            target.set(field, source.get(field));
+        }
+    }
+
+    private void markOverride(ObjectNode overrides, ObjectNode originalNotification, String field, String defaultValue) {
+        if (originalNotification.hasNonNull(field)) {
+            String requested = originalNotification.get(field).asText("");
+            overrides.put(field, defaultValue == null || !requested.equalsIgnoreCase(defaultValue));
+        }
+    }
+
+    private void markOverride(ObjectNode overrides, ObjectNode originalNotification, String field, Double defaultValue) {
+        if (originalNotification.hasNonNull(field)) {
+            double requested = originalNotification.get(field).asDouble();
+            overrides.put(field, defaultValue == null || Math.abs(requested - defaultValue) > 0.0001);
+        }
+    }
+
+    private void markOverride(ObjectNode overrides, ObjectNode originalNotification, String field, Integer defaultValue) {
+        if (originalNotification.hasNonNull(field)) {
+            int requested = originalNotification.get(field).asInt();
+            overrides.put(field, defaultValue == null || requested != defaultValue);
+        }
+    }
+
+    private void markOverride(ObjectNode overrides, ObjectNode originalNotification, String field, Boolean defaultValue) {
+        if (originalNotification.hasNonNull(field)) {
+            boolean requested = originalNotification.get(field).asBoolean();
+            overrides.put(field, defaultValue == null || requested != defaultValue);
         }
     }
 

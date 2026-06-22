@@ -14,3 +14,10 @@ export type {
   HourlyHeatmapData,
   MLTrainingData,
 } from './analytics'
+export type {
+  CategoryListResponse,
+  DeliveryMode,
+  NotificationCategory,
+  NotificationChannel,
+  RiskClass,
+} from './category'

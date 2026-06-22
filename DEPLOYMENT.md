@@ -99,6 +99,25 @@ This `.env` file persists your configuration across terminal sessions. You only 
    
    **This persists across terminal sessions!** No need to re-export every time.
 
+### Browser CORS Origins
+
+API Gateway only accepts browser requests from configured origins. Local development origins are included automatically:
+
+- `http://localhost:5173`
+- `http://127.0.0.1:5173`
+- `http://localhost:3000`
+- `http://127.0.0.1:3000`
+
+The generated CloudFront frontend URL is included automatically by CDK during deployment, so first-time adopters do not need to copy the CloudFront URL into CORS settings.
+
+If you set `CUSTOM_DOMAIN=yourdomain.com`, CDK automatically adds `https://yourdomain.com` to API Gateway CORS.
+
+After changing CORS origins:
+
+```bash
+./scripts/deploy-infra.sh SR-Compute
+```
+
 5. **Deploy frontend** (will use custom domain):
    ```bash
    cd infra/cdk
@@ -180,9 +199,9 @@ npx cdk deploy --all --require-approval never
 # Or deploy individually:
 npx cdk deploy SR-Network SR-Security SR-Data SR-Identity
 npx cdk deploy SR-Messaging
+npx cdk deploy SR-Frontend
 npx cdk deploy SR-Compute
 npx cdk deploy SR-ML
-npx cdk deploy SR-Frontend
 ```
 
 **Deployment time:** 15-20 minutes

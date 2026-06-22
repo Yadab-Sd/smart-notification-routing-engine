@@ -5,6 +5,7 @@ export interface DecisionRequest {
   schedule?: boolean
   channel?: 'AUTO' | 'EMAIL' | 'SMS' | 'PUSH'
   sourceId?: string
+  categoryId?: string
   campaignId?: string
   templateId?: string
   messageCategory?: MessageCategory
@@ -13,12 +14,16 @@ export interface DecisionRequest {
   urgency?: number // 0.0-1.0
   message?: string
   metadata?: Record<string, unknown>
+  categoryDefaults?: Record<string, unknown>
+  effectivePolicy?: Record<string, unknown>
+  policyOverrides?: Record<string, boolean>
 }
 
 export interface DecisionResponse {
   userId?: string
   hour: number // 0-23
   probability: number // 0-1
+  sendNowTime?: string
   sendNowHour?: number // 0-23
   sendNowProbability?: number // 0-1
   recommendedSendTime?: string
@@ -30,7 +35,13 @@ export interface DecisionResponse {
   fatigueScore?: number
   sourceTrustScore?: number
   sourceId?: string
+  categoryId?: string
   decisionId?: string
+  categoryDefaults?: Record<string, unknown>
+  effectivePolicy?: Record<string, unknown>
+  policyOverrides?: Record<string, boolean>
+  overrideCount?: number
+  overrideMagnitude?: number
   scheduled?: boolean
   scheduleId?: string
   scheduledTime?: string
@@ -89,6 +100,6 @@ export type PriorityClass =
   | 'LOW'
   | 'STANDARD'
   | 'HIGH'
-  | 'TRANSACTIONAL'
-  | 'SECURITY'
+  | 'URGENT'
+  | 'CRITICAL'
   | 'EMERGENCY'

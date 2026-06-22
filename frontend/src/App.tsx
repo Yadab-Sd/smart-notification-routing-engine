@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Analytics from './pages/Analytics'
 import Attention from './pages/Attention'
 import Notifications from './pages/Notifications'
+import Categories from './pages/Categories'
 import Campaigns from './pages/Campaigns'
 import Templates from './pages/Templates'
 import Audience from './pages/Audience'
@@ -47,6 +48,7 @@ function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/attention" element={<Attention />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/categories" element={<Categories />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/audience" element={<Audience />} />

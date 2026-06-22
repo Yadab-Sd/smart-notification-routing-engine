@@ -61,7 +61,7 @@ Examples:
 {
   "sourceId": "type:SECURITY",
   "messageCategory": "SECURITY",
-  "priorityClass": "SECURITY"
+  "priorityClass": "CRITICAL"
 }
 ```
 
@@ -97,13 +97,35 @@ Attributes:
   "bestHour": 14,
   "probability": 0.73,
   "scheduleRequested": true,
+  "categoryId": "appointment_reminder",
   "messageCategory": "MARKETING",
   "priorityClass": "LOW",
   "channel": "EMAIL",
+  "categoryDefaults": {
+    "messageCategory": "MARKETING",
+    "priorityClass": "LOW",
+    "businessValue": 6.0,
+    "urgency": 0.3
+  },
+  "effectivePolicy": {
+    "messageCategory": "MARKETING",
+    "priorityClass": "STANDARD",
+    "businessValue": 8.0,
+    "urgency": 0.6
+  },
+  "policyOverrides": {
+    "priorityClass": true,
+    "businessValue": true,
+    "urgency": true
+  },
+  "overrideCount": 3,
+  "overrideMagnitude": 0.9,
   "reason": "Predicted value exceeds attention cost",
   "createdAt": "2026-06-19T07:00:00Z"
 }
 ```
+
+`categoryDefaults`, `effectivePolicy`, and `policyOverrides` are stored together so future model training can separate category identity from manual admin overrides. This prevents the model from falsely learning that an entire category is unsafe when a high-risk override caused fatigue, unsubscribe, spam, or complaint signals.
 
 ### Delivery Attempt Record
 
@@ -241,8 +263,8 @@ Priority boosts:
 
 ```text
 EMERGENCY     = +4.0
-SECURITY      = +3.0
-TRANSACTIONAL = +1.4
+CRITICAL      = +3.0
+URGENT        = +2.0
 HIGH          = +1.4
 STANDARD      =  0.0
 LOW           = -0.5
@@ -251,7 +273,7 @@ LOW           = -0.5
 ### Gate Decision
 
 ```text
-if priorityClass in [EMERGENCY, SECURITY, TRANSACTIONAL]:
+if priorityClass in [EMERGENCY, CRITICAL]:
     SEND
 else if attentionValue >= attentionCost + attentionMargin:
     SEND
@@ -322,8 +344,8 @@ Field guidance:
 | `LOW` | Nice-to-have message; requires a wider value-over-cost margin |
 | `STANDARD` | Normal message; default priority when caller does not specify one |
 | `HIGH` | Important but not mandatory; receives urgency and value boost |
-| `TRANSACTIONAL` | Must-reach user-requested update; bypasses the attention budget |
-| `SECURITY` | Security-critical alert; bypasses the attention budget |
+| `URGENT` | Time-sensitive message; small delay is acceptable if attention cost is high |
+| `CRITICAL` | Must-reach-soon message; bypasses the normal attention budget |
 | `EMERGENCY` | Emergency or safety alert; bypasses the attention budget |
 
 `businessValue` is the organization's declared value for sending this message now. `urgency` is how fast the message loses usefulness if delayed.
@@ -459,7 +481,7 @@ label,hour,channel,messageCategory,priorityClass,businessValue,urgency,sendTimeP
 Runtime collaboration:
 
 ```text
-Existing send-time model -> predicts best hour and engagement probability
+Existing send-time model -> scores UTC hour buckets inside the requested window
 Future attention model   -> predicts negative/wasted-attention risk
 Attention Gate           -> combines value, cost, urgency, and policy
 ```
@@ -484,9 +506,10 @@ Do not train this model until enough outcome data exists in `AttentionLedger` an
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "recommendedSendTime": "2026-06-19T14:00:00Z",
+  "sendNowTime": "2026-06-19T10:37:24Z",
   "sendNowHour": 10,
   "sendNowProbability": 0.41,
-  "recommendedSendTime": "2026-06-19T14:00Z",
   "attentionDecision": "SEND",
   "attentionCost": 2.4,
   "attentionValue": 5.9,
@@ -498,11 +521,11 @@ Do not train this model until enough outcome data exists in `AttentionLedger` an
   "decisionId": "attn_...",
   "scheduled": true,
   "scheduleId": "send-...",
-  "scheduledTime": "2026-06-19T14:00Z"
+  "scheduledTime": "2026-06-19T14:00:00Z"
 }
 ```
 
-`probability` is the predicted score for the recommended hour. `sendNowProbability` is the predicted score for sending in the current UTC hour. `recommendedSendTime` lets the UI show what time would be scheduled before the user clicks Schedule.
+`recommendedSendTime` is the actual UTC timestamp selected inside the requested delivery window. `probability` is the predicted score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the predicted score for sending in that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
 If the message is deferred:
 

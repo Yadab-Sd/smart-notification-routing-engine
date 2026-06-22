@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Layout from '@/components/common/Layout'
 import {
   AlertCircle,
@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Copy,
   Loader2,
+  Layers3,
   Mail,
   MessageSquare,
   Send,
@@ -15,7 +16,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ENV } from '@/config/env'
-import type { MessageCategory, PriorityClass } from '@/types'
+import { listCategories } from '@/api/categories'
+import type { MessageCategory, NotificationCategory, PriorityClass } from '@/types'
 
 const API_ENDPOINT = ENV.API_URL
 
@@ -48,8 +50,8 @@ const priorityOptions: PriorityClass[] = [
   'LOW',
   'STANDARD',
   'HIGH',
-  'TRANSACTIONAL',
-  'SECURITY',
+  'URGENT',
+  'CRITICAL',
   'EMERGENCY',
 ]
 
@@ -57,10 +59,13 @@ const Events = () => {
   const { getIdToken } = useAuth()
   const [sending, setSending] = useState(false)
   const [eventLogs, setEventLogs] = useState<EventLog[]>([])
+  const [categories, setCategories] = useState<NotificationCategory[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [error, setError] = useState('')
 
   const [formData, setFormData] = useState({
+    categoryId: '',
     userId: 'pilot_user_1',
     email: '',
     phone: '',
@@ -76,10 +81,57 @@ const Events = () => {
     priorityClass: 'LOW' as PriorityClass,
     businessValue: 6,
     urgency: 0.3,
+    maxDelayHours: 24,
   })
 
   const shouldSendNotification = formData.deliveryMode !== 'ANALYTICS_ONLY'
   const isOptimized = formData.deliveryMode === 'OPTIMIZED'
+  const selectedCategory = categories.find((category) => category.categoryId === formData.categoryId)
+  const selectableChannels = useMemo(() => {
+    const categoryChannels = selectedCategory?.allowedChannels?.filter((channel) => channel !== 'AUTO') as Channel[] | undefined
+    return categoryChannels && categoryChannels.length > 0 ? categoryChannels : (['EMAIL', 'SMS', 'PUSH'] as Channel[])
+  }, [selectedCategory])
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoriesLoading(true)
+      try {
+        const data = await listCategories()
+        setCategories((data.categories || []).filter((category) => category.active !== false))
+      } catch (err) {
+        console.warn('Unable to load notification categories', err)
+      } finally {
+        setCategoriesLoading(false)
+      }
+    }
+    loadCategories()
+  }, [])
+
+  const applyCategory = (categoryId: string) => {
+    const category = categories.find((item) => item.categoryId === categoryId)
+    if (!category) {
+      setFormData({ ...formData, categoryId })
+      return
+    }
+
+    const allowedChannels = category.allowedChannels?.filter((channel) => channel !== 'AUTO') as Channel[] | undefined
+    const nextChannel = allowedChannels?.includes(formData.channel)
+      ? formData.channel
+      : allowedChannels?.[0] || formData.channel
+
+    setFormData({
+      ...formData,
+      categoryId,
+      deliveryMode: category.defaultDeliveryMode,
+      channel: nextChannel,
+      messageCategory: category.messageCategory,
+      priorityClass: category.priorityClass,
+      businessValue: category.businessValue,
+      urgency: category.urgency,
+      maxDelayHours: category.maxDelayHours,
+      sourceId: formData.sourceId || `category:${category.categoryId}`,
+    })
+  }
 
   const eventPayload = useMemo(() => {
     const payload: Record<string, unknown> = {
@@ -97,6 +149,7 @@ const Events = () => {
         channel: formData.channel,
         message: formData.message.trim(),
       }
+      if (formData.categoryId.trim()) notification.categoryId = formData.categoryId.trim()
 
       const metadata: Record<string, unknown> = {}
       if (formData.subject.trim()) metadata.subject = formData.subject.trim()
@@ -110,6 +163,7 @@ const Events = () => {
         notification.priorityClass = formData.priorityClass
         notification.businessValue = Number(formData.businessValue)
         notification.urgency = Number(formData.urgency)
+        notification.maxDelayHours = Number(formData.maxDelayHours)
       }
 
       payload.notification = notification
@@ -121,6 +175,7 @@ const Events = () => {
   const resetForm = () => {
     setFormData({
       userId: '',
+      categoryId: '',
       email: '',
       phone: '',
       type: 'NOTIFICATION',
@@ -135,6 +190,7 @@ const Events = () => {
       priorityClass: 'STANDARD',
       businessValue: 1,
       urgency: 0.3,
+      maxDelayHours: 24,
     })
   }
 
@@ -319,6 +375,28 @@ const Events = () => {
                 </div>
 
                 <div>
+                  <label className="label">Category Policy</label>
+                  <select
+                    className="select"
+                    value={formData.categoryId}
+                    onChange={(e) => applyCategory(e.target.value)}
+                    disabled={sending || !shouldSendNotification || categoriesLoading}
+                  >
+                    <option value="">No category</option>
+                    {categories.map((category) => (
+                      <option key={category.categoryId} value={category.categoryId}>
+                        {category.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCategory && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Loaded defaults from {selectedCategory.categoryId}; fields below remain editable for this send.
+                    </p>
+                  )}
+                </div>
+
+                <div>
                   <label className="label">
                     Delivery Mode <span className="text-danger-600">*</span>
                   </label>
@@ -342,12 +420,32 @@ const Events = () => {
                     onChange={(e) => setFormData({ ...formData, channel: e.target.value as Channel })}
                     disabled={sending || !shouldSendNotification}
                   >
-                    <option value="EMAIL">Email</option>
-                    <option value="SMS">SMS</option>
-                    <option value="PUSH">Push</option>
+                    {selectableChannels.map((channel) => (
+                      <option key={channel} value={channel}>
+                        {channel === 'EMAIL' ? 'Email' : channel === 'SMS' ? 'SMS' : 'Push'}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
+
+              {selectedCategory && shouldSendNotification && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+                  <div className="stat-icon-wrap bg-primary-100 flex-shrink-0">
+                    <Layers3 size={18} className="text-primary-700" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">{selectedCategory.displayName}</div>
+                    <div className="text-sm text-slate-600 mt-1">{selectedCategory.description || 'Organization category defaults loaded.'}</div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <span className="badge badge-info">{selectedCategory.defaultDeliveryMode}</span>
+                      <span className="badge badge-neutral">{selectedCategory.messageCategory}</span>
+                      <span className="badge badge-neutral">{selectedCategory.priorityClass}</span>
+                      <span className="badge badge-neutral">{selectedCategory.maxDelayHours}h max</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {shouldSendNotification && (
                 <>
@@ -425,17 +523,34 @@ const Events = () => {
                       />
                     </div>
                     <div>
+                      <label className="label">Max Delay Hours</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={48}
+                        className="input"
+                        value={formData.maxDelayHours}
+                        onChange={(e) => setFormData({ ...formData, maxDelayHours: Number(e.target.value) })}
+                        disabled={sending}
+                      />
+                    </div>
+                    <div>
                       <label className="label">Message Category</label>
                       <select
                         className="select"
                         value={formData.messageCategory}
                         onChange={(e) => setFormData({ ...formData, messageCategory: e.target.value as MessageCategory })}
-                        disabled={sending}
+                        disabled={sending || Boolean(selectedCategory)}
                       >
                         {categoryOptions.map((value) => (
                           <option key={value} value={value}>{value}</option>
                         ))}
                       </select>
+                      {selectedCategory && (
+                        <div className="text-xs text-slate-500 mt-1">
+                          Message category comes from the configured category identity.
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="label">Priority Class</label>
