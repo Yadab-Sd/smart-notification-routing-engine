@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -1010,6 +1011,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class DecisionRequest {
         private String userId;
         private long windowStart;
@@ -1063,11 +1065,26 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setMessage(String message) { this.message = message; }
         public Map<String, Object> getMetadata() { return metadata; }
         public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
-        public Map<String, Object> getCategoryDefaults() { return categoryDefaults; }
+        public Map<String, Object> getCategoryDefaults() {
+            return categoryDefaults != null ? categoryDefaults : policyAuditMap("categoryDefaults");
+        }
         public void setCategoryDefaults(Map<String, Object> categoryDefaults) { this.categoryDefaults = categoryDefaults; }
-        public Map<String, Object> getEffectivePolicy() { return effectivePolicy; }
+        public Map<String, Object> getEffectivePolicy() {
+            return effectivePolicy != null ? effectivePolicy : policyAuditMap("effectivePolicy");
+        }
         public void setEffectivePolicy(Map<String, Object> effectivePolicy) { this.effectivePolicy = effectivePolicy; }
-        public Map<String, Object> getPolicyOverrides() { return policyOverrides; }
+        public Map<String, Object> getPolicyOverrides() {
+            return policyOverrides != null ? policyOverrides : policyAuditMap("policyOverrides");
+        }
         public void setPolicyOverrides(Map<String, Object> policyOverrides) { this.policyOverrides = policyOverrides; }
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> policyAuditMap(String key) {
+            if (metadata == null || !(metadata.get("attentionPolicyAudit") instanceof Map<?, ?> audit)) {
+                return null;
+            }
+            Object value = audit.get(key);
+            return value instanceof Map<?, ?> ? (Map<String, Object>) value : null;
+        }
     }
 }

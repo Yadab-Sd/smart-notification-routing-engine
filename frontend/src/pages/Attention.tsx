@@ -420,10 +420,14 @@ const Attention = () => {
     businessValue: form.businessValue,
     urgency: form.urgency,
     message: form.message,
-    metadata: form.subject ? { subject: form.subject } : undefined,
-    categoryDefaults,
-    effectivePolicy,
-    policyOverrides,
+    metadata: {
+      ...(form.subject ? { subject: form.subject } : {}),
+      attentionPolicyAudit: {
+        categoryDefaults,
+        effectivePolicy,
+        policyOverrides,
+      },
+    },
   })
 
   const runDecision = async (mode: 'preview' | 'schedule') => {
