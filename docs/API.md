@@ -263,7 +263,7 @@ For auditability and future model training, category-based events are enriched b
 - `effectivePolicy`: the final policy used for this specific send or preview
 - `policyOverrides`: boolean flags showing which category defaults were explicitly changed
 
-Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude`. This prevents future Attention Escrow training from blaming the whole category when a manually overridden send causes fatigue, unsubscribe, or complaint risk.
+Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude` when the decision is scheduled or triggered through `/v1/events`. Preview requests are simulations by default and do not write `ATTENTION_DECISION` records unless `auditPreview` is explicitly set to `true`. This prevents future Attention Escrow training from blaming the whole category when a manually overridden send causes fatigue, unsubscribe, or complaint risk.
 
 **Event-triggered immediate notification**:
 ```json
@@ -465,11 +465,14 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   },
   "overrideCount": 3,
   "overrideMagnitude": 0.78,
+  "previewOnly": true,
   "scheduled": false
 }
 ```
 
 `recommendedSendTime` is the actual UTC timestamp chosen inside `windowStart`/`windowEnd`. `probability` is the model score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the model score for that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
+
+`/v1/decisions/preview` returns `previewOnly: true` by default. It does not write to `AttentionLedger`, so KPI cards and future model training are based on real scheduled/event-driven decisions instead of admin experiments. To audit previews intentionally, send `"auditPreview": true`.
 
 **POST /v1/decisions/schedule** - Schedule notification
 

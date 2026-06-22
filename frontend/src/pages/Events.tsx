@@ -282,7 +282,12 @@ const Events = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card">
+          <button
+            type="button"
+            className={`card text-left transition ${formData.deliveryMode === 'ANALYTICS_ONLY' ? 'border-primary-300 bg-primary-50' : 'hover:border-slate-300'}`}
+            onClick={() => setFormData({ ...formData, deliveryMode: 'ANALYTICS_ONLY' })}
+            disabled={sending}
+          >
             <div className="flex items-start gap-3">
               <div className="stat-icon-wrap bg-slate-100">
                 <Bell size={18} className="text-slate-600" />
@@ -292,8 +297,13 @@ const Events = () => {
                 <div className="text-sm text-slate-500 mt-1">Track behavior without sending a message</div>
               </div>
             </div>
-          </div>
-          <div className="card">
+          </button>
+          <button
+            type="button"
+            className={`card text-left transition ${formData.deliveryMode === 'IMMEDIATE' ? 'border-danger-300 bg-danger-50' : 'hover:border-slate-300'}`}
+            onClick={() => setFormData({ ...formData, deliveryMode: 'IMMEDIATE' })}
+            disabled={sending}
+          >
             <div className="flex items-start gap-3">
               <div className="stat-icon-wrap bg-danger-100">
                 <Zap size={18} className="text-danger-700" />
@@ -303,8 +313,13 @@ const Events = () => {
                 <div className="text-sm text-slate-500 mt-1">Invoke Sender Service now</div>
               </div>
             </div>
-          </div>
-          <div className="card">
+          </button>
+          <button
+            type="button"
+            className={`card text-left transition ${formData.deliveryMode === 'OPTIMIZED' ? 'border-primary-300 bg-primary-50' : 'hover:border-slate-300'}`}
+            onClick={() => setFormData({ ...formData, deliveryMode: 'OPTIMIZED' })}
+            disabled={sending}
+          >
             <div className="flex items-start gap-3">
               <div className="stat-icon-wrap bg-primary-100">
                 <ShieldCheck size={18} className="text-primary-700" />
@@ -314,128 +329,179 @@ const Events = () => {
                 <div className="text-sm text-slate-500 mt-1">Run send-time ML and Attention Escrow</div>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6">
           <div className="card" id="event-form">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Send Event</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Send Event</h3>
+                <p className="text-sm text-slate-500 mt-1">Create an event, optionally attach a notification, and submit it to the routing engine.</p>
+              </div>
+              <span className="badge badge-info">{formData.deliveryMode}</span>
+            </div>
 
             <form onSubmit={handleSendEvent} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">
-                    User ID <span className="text-danger-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="pilot_user_1"
-                    value={formData.userId}
-                    onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                    disabled={sending}
-                    required
-                  />
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Layers3 size={18} className="text-slate-600" />
+                  <h4 className="font-semibold text-slate-900">Event Identity</h4>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">
+                      User ID <span className="text-danger-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="pilot_user_1"
+                      value={formData.userId}
+                      onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                      disabled={sending}
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="label">Event Type</label>
-                  <input
-                    className="input"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value.toUpperCase() })}
-                    disabled={sending}
-                    placeholder="ABANDONED_CART"
-                  />
-                </div>
+                  <div>
+                    <label className="label">Event Type</label>
+                    <input
+                      className="input"
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value.toUpperCase() })}
+                      disabled={sending}
+                      placeholder="ABANDONED_CART"
+                    />
+                  </div>
 
-                <div>
-                  <label className="label">Email</label>
-                  <input
-                    type="email"
-                    className="input"
-                    placeholder="user@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    disabled={sending}
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Useful when auto-creating a user.</p>
-                </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input
+                      type="email"
+                      className="input"
+                      placeholder="user@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      disabled={sending}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Useful when auto-creating a user.</p>
+                  </div>
 
-                <div>
-                  <label className="label">Phone</label>
-                  <input
-                    type="tel"
-                    className="input"
-                    placeholder="+14155551234"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    disabled={sending}
-                  />
-                </div>
-
-                <div>
-                  <label className="label">Category Policy</label>
-                  <select
-                    className="select"
-                    value={formData.categoryId}
-                    onChange={(e) => applyCategory(e.target.value)}
-                    disabled={sending || !shouldSendNotification || categoriesLoading}
-                  >
-                    <option value="">No category</option>
-                    {categories.map((category) => (
-                      <option key={category.categoryId} value={category.categoryId}>
-                        {category.displayName}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedCategory && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      Loaded defaults from {selectedCategory.categoryId}; fields below remain editable for this send.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="label">
-                    Delivery Mode <span className="text-danger-600">*</span>
-                  </label>
-                  <select
-                    className="select"
-                    value={formData.deliveryMode}
-                    onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value as DeliveryMode })}
-                    disabled={sending}
-                  >
-                    <option value="ANALYTICS_ONLY">Analytics only</option>
-                    <option value="IMMEDIATE">Immediate</option>
-                    <option value="OPTIMIZED">Optimized</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label">Channel</label>
-                  <select
-                    className="select"
-                    value={formData.channel}
-                    onChange={(e) => setFormData({ ...formData, channel: e.target.value as Channel })}
-                    disabled={sending || !shouldSendNotification}
-                  >
-                    {selectableChannels.map((channel) => (
-                      <option key={channel} value={channel}>
-                        {channel === 'EMAIL' ? 'Email' : channel === 'SMS' ? 'SMS' : 'Push'}
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="label">Phone</label>
+                    <input
+                      type="tel"
+                      className="input"
+                      placeholder="+14155551234"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      disabled={sending}
+                    />
+                  </div>
                 </div>
               </div>
 
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Send size={18} className="text-slate-600" />
+                    <h4 className="font-semibold text-slate-900">Notification</h4>
+                  </div>
+                  <span className={`badge ${shouldSendNotification ? 'badge-info' : 'badge-neutral'}`}>
+                    {shouldSendNotification ? formData.deliveryMode : 'No send'}
+                  </span>
+                </div>
+
+                {!shouldSendNotification ? (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    This mode records the event for analytics only. No `notification` object will be sent to the API.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="label">Category Policy</label>
+                        <select
+                          className="select"
+                          value={formData.categoryId}
+                          onChange={(e) => applyCategory(e.target.value)}
+                          disabled={sending || categoriesLoading}
+                        >
+                          <option value="">No category</option>
+                          {categories.map((category) => (
+                            <option key={category.categoryId} value={category.categoryId}>
+                              {category.displayName}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedCategory && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Loaded defaults from {selectedCategory.categoryId}; policy fields remain editable.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="label">Channel</label>
+                        <select
+                          className="select"
+                          value={formData.channel}
+                          onChange={(e) => setFormData({ ...formData, channel: e.target.value as Channel })}
+                          disabled={sending}
+                        >
+                          {selectableChannels.map((channel) => (
+                            <option key={channel} value={channel}>
+                              {channel === 'EMAIL' ? 'Email' : channel === 'SMS' ? 'SMS' : 'Push'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label">Subject</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Complete your order"
+                        value={formData.subject}
+                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                        disabled={sending}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">
+                        Message <span className="text-danger-600">*</span>
+                      </label>
+                      <textarea
+                        className="input"
+                        rows={4}
+                        placeholder="You left something in your cart."
+                        value={formData.message}
+                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        disabled={sending}
+                        required
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formData.message.length} characters
+                        {formData.channel === 'SMS' && formData.message.length > 160 && (
+                          <span className="text-warning-600 ml-2">SMS messages over 160 characters may be split.</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {selectedCategory && shouldSendNotification && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
-                  <div className="stat-icon-wrap bg-primary-100 flex-shrink-0">
+                <div className="rounded-lg border border-primary-100 bg-primary-50/50 p-4 flex items-start gap-3">
+                  <div className="stat-icon-wrap bg-primary-100 flex-shrink-0 mt-0.5">
                     <Layers3 size={18} className="text-primary-700" />
                   </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">{selectedCategory.displayName}</div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900">Loaded category: {selectedCategory.displayName}</div>
                     <div className="text-sm text-slate-600 mt-1">{selectedCategory.description || 'Organization category defaults loaded.'}</div>
                     <div className="flex flex-wrap gap-1 mt-2">
                       <span className="badge badge-info">{selectedCategory.defaultDeliveryMode}</span>
@@ -445,43 +511,6 @@ const Events = () => {
                     </div>
                   </div>
                 </div>
-              )}
-
-              {shouldSendNotification && (
-                <>
-                  <div>
-                    <label className="label">Subject</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="Complete your order"
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      disabled={sending}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">
-                      Message <span className="text-danger-600">*</span>
-                    </label>
-                    <textarea
-                      className="input"
-                      rows={4}
-                      placeholder="You left something in your cart."
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      disabled={sending}
-                      required
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {formData.message.length} characters
-                      {formData.channel === 'SMS' && formData.message.length > 160 && (
-                        <span className="text-warning-600 ml-2">SMS messages over 160 characters may be split.</span>
-                      )}
-                    </p>
-                  </div>
-                </>
               )}
 
               {isOptimized && (

@@ -985,6 +985,7 @@ const Attention = () => {
               <div className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-primary-700" />
                 <h3 className="font-semibold text-slate-900">Latest Decision Result</h3>
+                {result.previewOnly && <span className="badge badge-neutral">Preview only</span>}
               </div>
               <div className={`px-4 py-2 rounded-lg border text-base font-bold tracking-wide ${decisionPanelClass(result.attentionDecision)}`}>
                 {result.attentionDecision || 'UNKNOWN'}
@@ -1080,11 +1081,11 @@ const Attention = () => {
               <div className="p-5">
                 <div className="text-xs text-slate-500">Schedule status</div>
                 <div className="text-2xl font-bold text-slate-900">
-                  {result.scheduled ? 'Created' : result.attentionDecision === 'SEND' ? 'Ready' : 'Skipped'}
+                  {result.scheduled ? 'Created' : result.previewOnly ? 'Not recorded' : result.attentionDecision === 'SEND' ? 'Ready' : 'Skipped'}
                 </div>
                 <div className="text-sm text-slate-500 mt-2 flex items-center gap-2">
                   <Clock size={14} />
-                  {result.scheduleSkippedReason || (result.scheduled ? result.scheduleId : 'Click Schedule to create it')}
+                  {result.scheduleSkippedReason || (result.scheduled ? result.scheduleId : result.previewOnly ? 'Preview did not write an AttentionLedger decision' : 'Click Schedule to create it')}
                 </div>
               </div>
             </div>

@@ -103,7 +103,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
             SendTimeResult sendTime = findBestSendTime(req, stats, context);
             AttentionDecision attention = evaluateAttention(req, stats, sendTime, context);
-            String decisionId = recordAttentionDecision(req, stats, sendTime, attention, context);
+            boolean shouldRecordDecision = Boolean.TRUE.equals(req.getSchedule()) || Boolean.TRUE.equals(req.getAuditPreview());
+            String decisionId = shouldRecordDecision
+                    ? recordAttentionDecision(req, stats, sendTime, attention, context)
+                    : "preview_" + UUID.randomUUID();
 
             ObjectNode responseNode = MAPPER.createObjectNode();
             responseNode.put("userId", req.getUserId());
@@ -125,6 +128,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             responseNode.put("sourceTrustScore", round(attention.sourceTrustScore));
             responseNode.put("sourceId", attention.sourceId);
             responseNode.put("decisionId", decisionId);
+            responseNode.put("previewOnly", !shouldRecordDecision);
             putObject(responseNode, "categoryDefaults", req.getCategoryDefaults());
             putObject(responseNode, "effectivePolicy", effectivePolicy(req));
             putObject(responseNode, "policyOverrides", req.getPolicyOverrides());
@@ -1017,6 +1021,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         private long windowStart;
         private long windowEnd;
         private Boolean schedule;
+        private Boolean auditPreview;
         private String channel;
         private String sourceId;
         private String categoryId;
@@ -1041,6 +1046,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setWindowEnd(long windowEnd) { this.windowEnd = windowEnd; }
         public Boolean getSchedule() { return schedule; }
         public void setSchedule(Boolean schedule) { this.schedule = schedule; }
+        public Boolean getAuditPreview() { return auditPreview; }
+        public void setAuditPreview(Boolean auditPreview) { this.auditPreview = auditPreview; }
         public String getChannel() { return channel; }
         public void setChannel(String channel) { this.channel = channel; }
         public String getSourceId() { return sourceId; }
