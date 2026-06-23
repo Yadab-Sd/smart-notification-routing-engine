@@ -51,6 +51,7 @@ import java.util.UUID;
 public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_WINDOW_HOURS = 48;
+    private static final int MIN_SCHEDULE_LEAD_MINUTES = 5;
 
     private final DynamoDbClient dynamo;
     private final SageMakerRuntimeClient sageMaker;
@@ -353,7 +354,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         int sendNowHour = sendNowTime.atZone(ZoneOffset.UTC).getHour();
         double sendNowScore = scoreHour(sendNowHour, stats, context);
 
-        Instant optimizedStart = startTs.isAfter(sendNowTime) ? startTs : sendNowTime;
+        Instant optimizedStart = firstScheduledCandidate(startTs, endTs, sendNowTime);
         int bestHour = optimizedStart.atZone(ZoneOffset.UTC).getHour();
         double bestScore = scoreHour(bestHour, stats, context);
         Instant bestTime = optimizedStart;
@@ -378,6 +379,22 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 Math.max(0.0, sendNowScore),
                 sendNowTime
         );
+    }
+
+    private Instant firstScheduledCandidate(Instant startTs, Instant endTs, Instant now) {
+        Instant minimumLeadTime = now.plus(MIN_SCHEDULE_LEAD_MINUTES, ChronoUnit.MINUTES);
+        if (startTs.isAfter(minimumLeadTime)) {
+            return startTs;
+        }
+
+        Instant nextHourSlot = now.truncatedTo(ChronoUnit.HOURS).plus(1, ChronoUnit.HOURS);
+        if (!nextHourSlot.isAfter(endTs)) {
+            return nextHourSlot;
+        }
+        if (!minimumLeadTime.isAfter(endTs)) {
+            return minimumLeadTime;
+        }
+        return endTs;
     }
 
     private double scoreHour(int hour, UserStats stats, Context context) throws Exception {
@@ -550,7 +567,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
     private ScheduleResult scheduleSend(DecisionRequest req, SendTimeResult sendTime, String decisionId, AttentionDecision attention) throws Exception {
         Instant scheduleInstant = sendTime.recommendedTime;
-        Instant minimumScheduleTime = Instant.now().plus(1, ChronoUnit.MINUTES);
+        Instant minimumScheduleTime = Instant.now().plus(MIN_SCHEDULE_LEAD_MINUTES, ChronoUnit.MINUTES);
         if (!scheduleInstant.isAfter(minimumScheduleTime)) {
             scheduleInstant = minimumScheduleTime;
         }

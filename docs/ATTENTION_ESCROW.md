@@ -125,7 +125,7 @@ Attributes:
 }
 ```
 
-`categoryDefaults`, `effectivePolicy`, and `policyOverrides` are stored together so future model training can separate category identity from manual admin overrides. This prevents the model from falsely learning that an entire category is unsafe when a high-risk override caused fatigue, unsubscribe, spam, or complaint signals.
+When a configured category is used, `categoryId` is stored as the category identity signal. Category policy fields are locked in the current admin UI, but the backend keeps `categoryDefaults`, `effectivePolicy`, and `policyOverrides` so future override workflows can separate category identity from one-off admin changes during model training.
 
 ### Delivery Attempt Record
 
