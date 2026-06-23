@@ -30,6 +30,8 @@ interface DecisionRow {
   messageCategory: MessageCategory
   priorityClass: PriorityClass
   attentionDecision: 'SEND' | 'DEFER'
+  modelSource?: 'SAGEMAKER' | 'FALLBACK_HEURISTIC'
+  modelConfidence?: 'TRAINED_MODEL' | 'LOW_STARTUP_ESTIMATE'
   attentionCost: number
   attentionValue: number
   fatigueScore: number
@@ -267,6 +269,8 @@ const Attention = () => {
         messageCategory: row.messageCategory,
         priorityClass: row.priorityClass,
         attentionDecision: row.attentionDecision,
+        modelSource: row.modelSource,
+        modelConfidence: row.modelConfidence,
         attentionCost: row.attentionCost,
         attentionValue: row.attentionValue,
         fatigueScore: row.fatigueScore,
@@ -437,6 +441,10 @@ const Attention = () => {
     if (typeof recommended !== 'number' || typeof sendNow !== 'number') return null
     return Math.round((recommended - sendNow) * 100)
   }
+
+  const isFallbackModel = (source?: string) => source === 'FALLBACK_HEURISTIC'
+  const timingScoreLabel = (source?: string) => isFallbackModel(source) ? 'Startup timing estimate' : 'Click probability'
+  const modelSourceLabel = (source?: string) => isFallbackModel(source) ? 'Fallback heuristic' : 'SageMaker'
 
   const formatDateTime = (value?: string) => {
     if (!value) return '-'
@@ -945,19 +953,24 @@ const Attention = () => {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                   <div className="font-semibold text-slate-900">
-                    {immediateCategorySelected
-                      ? 'This category is configured for immediate delivery.'
-                      : result.attentionDecision === 'SEND'
+                  {immediateCategorySelected
+                    ? 'This category is configured for immediate delivery.'
+                    : result.attentionDecision === 'SEND'
                       ? 'This notification is cleared by Attention Escrow.'
                       : 'Attention Escrow recommends not sending this now.'}
                   </div>
                   <div className="text-sm text-slate-600 mt-1">
                     {immediateCategorySelected
-                      ? 'Review the send-now cost, value, and current click probability, then submit the immediate send when ready.'
+                      ? `Review the send-now cost, value, and current ${timingScoreLabel(result.modelSource).toLowerCase()}, then submit the immediate send when ready.`
                       : result.attentionDecision === 'SEND'
                       ? 'Schedule the recommended future slot for best engagement, or send now if the business need is immediate.'
-                      : 'You can still schedule this while testing, or adjust inputs and preview again.'}
+                    : 'You can still schedule this while testing, or adjust inputs and preview again.'}
                   </div>
+                  {result.modelSource === 'FALLBACK_HEURISTIC' && (
+                    <div className="text-sm text-primary-700 mt-2">
+                      Startup estimate: SageMaker is not available yet, so this is general timing guidance until training data and endpoint access are ready.
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {!immediateCategorySelected && (
@@ -1012,7 +1025,7 @@ const Attention = () => {
               </div>
               <div className="p-5 border-b lg:border-b-0 lg:border-r border-slate-100 bg-primary-50/50">
                 <div className="text-xs text-primary-700 font-medium">
-                  {immediateCategorySelected ? 'Send-now probability' : 'Recommended send time'}
+                  {immediateCategorySelected ? `Send-now ${timingScoreLabel(result.modelSource)}` : 'Recommended send time'}
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1">
                   {immediateCategorySelected
@@ -1025,6 +1038,13 @@ const Attention = () => {
                     ? (result.sendNowTime ? formatDateTime(result.sendNowTime) : `Current model hour: ${typeof result.sendNowHour === 'number' ? `${result.sendNowHour}:00 UTC` : '-'}`)
                     : `Best hour: ${typeof result.hour === 'number' ? `${result.hour}:00 UTC` : '-'}`}
                 </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Model source: {modelSourceLabel(result.modelSource)}
+                  {result.modelConfidence ? ` (${result.modelConfidence === 'LOW_STARTUP_ESTIMATE' ? 'low confidence startup estimate' : 'trained model'})` : ''}
+                </div>
+                {result.modelExplanation && (
+                  <div className="text-xs text-slate-500 mt-1">{result.modelExplanation}</div>
+                )}
               </div>
               <div className="p-5">
                 <div className="text-xs text-slate-500">{immediateCategorySelected ? 'Delivery option' : 'Schedule status'}</div>
@@ -1044,7 +1064,7 @@ const Attention = () => {
             {!immediateCategorySelected && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border-b border-slate-100">
                 <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
-                  <div className="text-xs text-slate-500">Best-hour click probability</div>
+                  <div className="text-xs text-slate-500">Best-hour {timingScoreLabel(result.modelSource)}</div>
                   <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.probability)}</div>
                 </div>
                 <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
@@ -1084,12 +1104,12 @@ const Attention = () => {
                     <div className="font-semibold text-slate-900">Send Now Impact</div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <div className="text-xs text-slate-500">Send-now probability</div>
+                        <div className="text-xs text-slate-500">Send-now {timingScoreLabel(result.modelSource)}</div>
                         <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.sendNowProbability)}</div>
                         <div className="text-xs text-slate-500 mt-1">{result.sendNowTime ? formatDateTime(result.sendNowTime) : 'Current model hour'}</div>
                       </div>
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <div className="text-xs text-slate-500">Recommended probability</div>
+                        <div className="text-xs text-slate-500">Recommended {timingScoreLabel(result.modelSource)}</div>
                         <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.probability)}</div>
                       </div>
                       <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
@@ -1115,12 +1135,16 @@ const Attention = () => {
                           return 'The API recommends deferring this notification; sending now may increase fatigue risk for this user.'
                         }
                         if (delta === null) {
-                          return 'Send-now impact is based on the API decision response. Send-now probability was not returned for this result.'
+                          return `Send-now impact is based on the API decision response. Send-now ${timingScoreLabel(result.modelSource).toLowerCase()} was not returned for this result.`
                         }
                         if (delta <= 0) {
-                          return 'No timing penalty is detected by the current model, so sending now and scheduling have similar predicted engagement.'
+                          return isFallbackModel(result.modelSource)
+                            ? 'No timing penalty is detected by the startup heuristic, so sending now and scheduling have similar estimated timing scores.'
+                            : 'No timing penalty is detected by the current model, so sending now and scheduling have similar predicted engagement.'
                         }
-                        return `The model predicts scheduling may improve engagement by ${delta} percentage points compared with sending now.`
+                        return isFallbackModel(result.modelSource)
+                          ? `The startup heuristic estimates scheduling may improve the timing score by ${delta} percentage points compared with sending now.`
+                          : `The model predicts scheduling may improve engagement by ${delta} percentage points compared with sending now.`
                       })()}
                     </div>
                   </div>

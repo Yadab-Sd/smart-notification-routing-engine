@@ -7,7 +7,9 @@ import {
     aws_s3 as s3,
     aws_ec2 as ec2,
     aws_logs as logs,
-    aws_kms as kms
+    aws_kms as kms,
+    aws_events as events,
+    aws_events_targets as targets
 } from 'aws-cdk-lib';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -227,6 +229,17 @@ export class MlStack extends cdk.Stack {
             stateMachineType: sfn.StateMachineType.STANDARD
         });
 
+        const enableMlSchedule = (process.env.ENABLE_ML_SCHEDULE || 'true').toLowerCase() !== 'false';
+        const mlPipelineCron = process.env.ML_PIPELINE_CRON || 'cron(0 2 * * ? *)';
+        let mlScheduleRule: events.Rule | undefined;
+        if (enableMlSchedule) {
+            mlScheduleRule = new events.Rule(this, 'MlPipelineNightlySchedule', {
+                ruleName: 'SR-ML-Pipeline-Nightly',
+                description: 'Runs the Smart Notification Routing Engine ML training pipeline nightly',
+                schedule: events.Schedule.expression(mlPipelineCron),
+            });
+            mlScheduleRule.addTarget(new targets.SfnStateMachine(sm));
+        }
 
         // --- Separate workflow for endpoint-only deployment ---
         // Useful for redeploying existing models without retraining
@@ -251,6 +264,10 @@ export class MlStack extends cdk.Stack {
         // output names
         new cdk.CfnOutput(this, 'GlueJobName', {value: glueJob.name as string});
         new cdk.CfnOutput(this, 'StateMachineArn', {value: sm.stateMachineArn});
+        new cdk.CfnOutput(this, 'MlPipelineScheduleEnabled', {value: String(enableMlSchedule)});
+        if (mlScheduleRule) {
+            new cdk.CfnOutput(this, 'MlPipelineScheduleRuleName', {value: mlScheduleRule.ruleName});
+        }
         new cdk.CfnOutput(this, 'DeployOnlyStateMachineArn', {value: deployOnlySm.stateMachineArn, description: 'Step Functions workflow for endpoint-only deployment'});
         new cdk.CfnOutput(this, 'SageMakerRoleArn', {value: this.sagemakerRole.roleArn});
         new cdk.CfnOutput(this, 'EndpointName', {value: 'send-time-v1', description: 'SageMaker endpoint name (auto-deployed by pipeline)'});

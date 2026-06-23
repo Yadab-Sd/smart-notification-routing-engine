@@ -23,7 +23,7 @@ The ML pipeline trains an XGBoost model nightly to predict optimal notification 
 - `click_rate_7d`: User's 7-day click rate
 - `sends_count_hour`: Historical send volume per hour
 
-**Schedule**: Daily at 02:00 UTC
+**Schedule**: Daily at 02:00 UTC by default (`ENABLE_ML_SCHEDULE=true`)
 
 **Duration**: 10-20 minutes (depends on data volume)
 
@@ -209,6 +209,8 @@ aws stepfunctions describe-execution \
 - 7+ days of historical data
 
 **Insufficient data**: Pipeline will log warning and skip training
+
+Decision Service remains available if the SageMaker endpoint is missing or the nightly pipeline fails. In that case `/v1/decisions/preview` and `/v1/decisions/schedule` return `modelSource: "FALLBACK_HEURISTIC"` and `modelConfidence: "LOW_STARTUP_ESTIMATE"`. The returned scores are startup timing estimates, not trained click predictions, until `send-time-v1` is available.
 
 ---
 

@@ -152,12 +152,12 @@
 **Issues**:
 - No retry logic in Lambda functions (fails on transient errors)
 - No dead-letter queues (failed events lost)
-- No circuit breakers (if SageMaker down, all predictions fail)
+- Limited circuit breakers; Decision Service falls back to heuristic send-time scoring if SageMaker is unavailable, but other transient failures still need broader retry/DLQ coverage
 
 **Better approach**:
 - Lambda retry with exponential backoff
 - DLQ for Kinesis events
-- Fallback to rule-based send time if ML unavailable
+- Expand fallback/retry coverage beyond send-time scoring
 
 **Current behavior**: Errors logged to CloudWatch, but no automatic recovery.
 
