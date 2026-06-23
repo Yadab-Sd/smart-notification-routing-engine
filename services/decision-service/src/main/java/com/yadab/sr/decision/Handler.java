@@ -119,6 +119,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             }
             responseNode.put("hour", sendTime.bestHour);
             responseNode.put("probability", round(sendTime.bestScore));
+            responseNode.put("modelSource", sendTime.modelSource);
+            responseNode.put("modelConfidence", modelConfidence(sendTime.modelSource));
+            responseNode.put("modelExplanation", modelExplanation(sendTime.modelSource));
             responseNode.put("recommendedSendTime", sendTime.recommendedTime.toString());
             responseNode.put("sendNowTime", sendTime.sendNowTime.toString());
             responseNode.put("sendNowHour", sendTime.sendNowHour);
@@ -309,6 +312,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         putString(node, "messageCategory", item, "messageCategory");
         putString(node, "priorityClass", item, "priorityClass");
         putString(node, "attentionDecision", item, "attentionDecision");
+        putString(node, "modelSource", item, "modelSource");
+        putString(node, "modelConfidence", item, "modelConfidence");
         putString(node, "reason", item, "reason");
         putString(node, "createdAt", item, "createdAt");
         putString(node, "categoryId", item, "categoryId");
@@ -372,20 +377,23 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         Instant sendNowTime = Instant.now();
 
         int sendNowHour = sendNowTime.atZone(ZoneOffset.UTC).getHour();
-        double sendNowScore = scoreHour(sendNowHour, stats, context);
+        ScoreResult sendNow = scoreHour(sendNowHour, stats, context);
 
         Instant optimizedStart = firstScheduledCandidate(startTs, endTs, sendNowTime);
         int bestHour = optimizedStart.atZone(ZoneOffset.UTC).getHour();
-        double bestScore = scoreHour(bestHour, stats, context);
+        ScoreResult best = scoreHour(bestHour, stats, context);
+        double bestScore = best.score;
         Instant bestTime = optimizedStart;
+        boolean fallbackUsed = sendNow.fallbackUsed || best.fallbackUsed;
 
         Instant firstFutureSlot = optimizedStart.truncatedTo(ChronoUnit.HOURS).plus(1, ChronoUnit.HOURS);
         for (Instant ts = firstFutureSlot; !ts.isAfter(endTs); ts = ts.plus(1, ChronoUnit.HOURS)) {
             int hour = ts.atZone(ZoneOffset.UTC).getHour();
-            double score = scoreHour(hour, stats, context);
+            ScoreResult scored = scoreHour(hour, stats, context);
+            fallbackUsed = fallbackUsed || scored.fallbackUsed;
 
-            if (score > bestScore) {
-                bestScore = score;
+            if (scored.score > bestScore) {
+                bestScore = scored.score;
                 bestHour = hour;
                 bestTime = ts;
             }
@@ -396,8 +404,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 Math.max(0.0, bestScore),
                 bestTime,
                 sendNowHour,
-                Math.max(0.0, sendNowScore),
-                sendNowTime
+                Math.max(0.0, sendNow.score),
+                sendNowTime,
+                fallbackUsed ? "FALLBACK_HEURISTIC" : "SAGEMAKER"
         );
     }
 
@@ -417,20 +426,59 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return endTs;
     }
 
-    private double scoreHour(int hour, UserStats stats, Context context) throws Exception {
+    private ScoreResult scoreHour(int hour, UserStats stats, Context context) {
         int sendsCountHour = Math.max(0, stats.totalSends / 24);
         String csvRow = String.format("%d,%.4f,%d", hour, stats.clickRate(), sendsCountHour);
 
-        context.getLogger().log("SageMaker Input: " + csvRow);
-        InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
-                .endpointName(sageMakerEndpoint)
-                .contentType("text/csv")
-                .body(SdkBytes.fromUtf8String(csvRow))
-                .build());
+        try {
+            context.getLogger().log("SageMaker Input: " + csvRow);
+            InvokeEndpointResponse invokeRes = sageMaker.invokeEndpoint(InvokeEndpointRequest.builder()
+                    .endpointName(sageMakerEndpoint)
+                    .contentType("text/csv")
+                    .body(SdkBytes.fromUtf8String(csvRow))
+                    .build());
 
-        double score = parseScore(invokeRes.body().asUtf8String());
-        context.getLogger().log("Score: " + score);
-        return score;
+            double score = parseScore(invokeRes.body().asUtf8String());
+            context.getLogger().log("Score: " + score);
+            return new ScoreResult(score, false);
+        } catch (Exception e) {
+            double score = fallbackScoreHour(hour, stats);
+            context.getLogger().log(String.format(
+                    "SageMaker unavailable for hour %d. Using fallback heuristic score %.4f. Reason: %s",
+                    hour, score, e.getMessage()
+            ));
+            return new ScoreResult(score, true);
+        }
+    }
+
+    private double fallbackScoreHour(int hour, UserStats stats) {
+        double base;
+        if (hour >= 9 && hour <= 11) {
+            base = 0.68;
+        } else if (hour >= 12 && hour <= 16) {
+            base = 0.74;
+        } else if (hour >= 17 && hour <= 20) {
+            base = 0.56;
+        } else if (hour >= 21 || hour <= 6) {
+            base = 0.24;
+        } else {
+            base = 0.44;
+        }
+
+        double engagementBoost = clamp(stats.clickRate(), 0.0, 1.0) * 0.18;
+        double fatiguePenalty = Math.min(0.18, stats.totalSends / 250.0);
+        return clamp(base + engagementBoost - fatiguePenalty, 0.05, 0.95);
+    }
+
+    private String modelConfidence(String modelSource) {
+        return "FALLBACK_HEURISTIC".equals(modelSource) ? "LOW_STARTUP_ESTIMATE" : "TRAINED_MODEL";
+    }
+
+    private String modelExplanation(String modelSource) {
+        if ("FALLBACK_HEURISTIC".equals(modelSource)) {
+            return "Startup estimate based on general business-hour timing, user click rate, and send volume. SageMaker predictions replace this after the send-time endpoint is trained and available.";
+        }
+        return "Prediction from the SageMaker send-time model trained on historical notification engagement data.";
     }
 
     private double parseScore(String resultStr) throws Exception {
@@ -547,6 +595,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             item.put("sourceTrustScore", AttributeValue.builder().n(String.format("%.4f", attention.sourceTrustScore)).build());
             item.put("bestHour", AttributeValue.builder().n(String.valueOf(sendTime.bestHour)).build());
             item.put("probability", AttributeValue.builder().n(String.format("%.4f", sendTime.bestScore)).build());
+            item.put("modelSource", AttributeValue.builder().s(sendTime.modelSource).build());
+            item.put("modelConfidence", AttributeValue.builder().s(modelConfidence(sendTime.modelSource)).build());
             item.put("recommendedSendTime", AttributeValue.builder().s(sendTime.recommendedTime.toString()).build());
             item.put("sendNowTime", AttributeValue.builder().s(sendTime.sendNowTime.toString()).build());
             item.put("sendNowHour", AttributeValue.builder().n(String.valueOf(sendTime.sendNowHour)).build());
@@ -604,6 +654,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         schedulerPayload.put("message", req.getMessage());
         schedulerPayload.put("metadata", req.getMetadata());
         schedulerPayload.put("attentionDecisionId", decisionId);
+        schedulerPayload.put("modelSource", sendTime.modelSource);
         schedulerPayload.put("sourceId", attention.sourceId);
         schedulerPayload.put("categoryId", req.getCategoryId());
         schedulerPayload.put("notificationType", req.getNotificationType());
@@ -947,8 +998,11 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             Instant recommendedTime,
             int sendNowHour,
             double sendNowScore,
-            Instant sendNowTime
+            Instant sendNowTime,
+            String modelSource
     ) {}
+
+    private record ScoreResult(double score, boolean fallbackUsed) {}
 
     private record ScheduleResult(String scheduleName, String scheduledTime) {}
 

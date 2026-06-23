@@ -25,6 +25,9 @@ export interface DecisionResponse {
   userId?: string
   hour: number // 0-23
   probability: number // 0-1
+  modelSource?: 'SAGEMAKER' | 'FALLBACK_HEURISTIC'
+  modelConfidence?: 'TRAINED_MODEL' | 'LOW_STARTUP_ESTIMATE'
+  modelExplanation?: string
   sendNowTime?: string
   sendNowHour?: number // 0-23
   sendNowProbability?: number // 0-1
@@ -81,6 +84,8 @@ export interface AttentionSummaryResponse {
     messageCategory: MessageCategory
     priorityClass: PriorityClass
     attentionDecision: 'SEND' | 'DEFER'
+    modelSource?: 'SAGEMAKER' | 'FALLBACK_HEURISTIC'
+    modelConfidence?: 'TRAINED_MODEL' | 'LOW_STARTUP_ESTIMATE'
     attentionCost: number
     attentionValue: number
     fatigueScore: number

@@ -635,9 +635,11 @@ Reinstall if versions don't match.
 
 ### Error: "SageMaker endpoint not found"
 
-**Problem**: ML training hasn't run yet (no model deployed).
+**Problem**: ML training hasn't run yet or AWS has not approved the needed SageMaker quota.
 
-**Fix**: Wait for nightly training (02:00 UTC) or trigger manually:
+**Expected behavior**: The application still works. Decision Service falls back to a built-in heuristic scorer and returns `modelSource: "FALLBACK_HEURISTIC"` in preview/schedule responses.
+
+**Fix**: Wait for nightly training (02:00 UTC), request SageMaker quota if needed, or trigger manually:
 ```bash
 aws stepfunctions start-execution --state-machine-arn $STATE_MACHINE_ARN --name "manual-$(date +%s)"
 ```

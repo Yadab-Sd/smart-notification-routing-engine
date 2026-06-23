@@ -249,17 +249,17 @@ const userPool = new cognito.UserPool(this, 'UserPool', {
 
 **Default**: Daily at 02:00 UTC
 
+```env
+ENABLE_ML_SCHEDULE=true
+ML_PIPELINE_CRON=cron(0 2 * * ? *)
+```
+
+Set `ENABLE_ML_SCHEDULE=false` to deploy the system without automatic Glue/SageMaker training cost. Decision Service still works through `modelSource: "FALLBACK_HEURISTIC"` until the SageMaker endpoint is available.
+
 To change schedule:
 
-```typescript
-// infra/cdk/lib/ml-stack.ts
-const trainingSchedule = new events.Rule(this, 'TrainingSchedule', {
-    schedule: events.Schedule.cron({
-        hour: '4',  // Change to 04:00 UTC
-        minute: '0',
-    }),
-    // ...
-});
+```env
+ML_PIPELINE_CRON=cron(0 4 * * ? *)
 ```
 
 ---

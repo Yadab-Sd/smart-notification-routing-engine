@@ -438,6 +438,9 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "modelSource": "SAGEMAKER",
+  "modelConfidence": "TRAINED_MODEL",
+  "modelExplanation": "Prediction from the SageMaker send-time model trained on historical notification engagement data.",
   "recommendedSendTime": "2026-06-12T14:00:00Z",
   "sendNowTime": "2026-06-12T10:37:24Z",
   "sendNowHour": 10,
@@ -478,6 +481,8 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
 
 `recommendedSendTime` is the actual UTC timestamp chosen inside `windowStart`/`windowEnd`. `probability` is the model score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the model score for that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
+`modelSource` is `SAGEMAKER` when the send-time endpoint is available. If the endpoint is missing, throttled, or unavailable, Decision Service uses a built-in heuristic scorer and returns `FALLBACK_HEURISTIC` so preview and schedule flows still work during first-time setup. In fallback mode, treat `probability` and `sendNowProbability` as startup timing estimates, not trained click predictions. `modelConfidence` will be `LOW_STARTUP_ESTIMATE` until SageMaker is available.
+
 `/v1/decisions/preview` returns `previewOnly: true` by default. It does not write to `AttentionLedger`, so KPI cards and future model training are based on real scheduled/event-driven decisions instead of admin experiments. To audit previews intentionally, send `"auditPreview": true`.
 
 Scheduled recommendations avoid the current instant. The API scores send-now separately through `sendNowProbability`; `/v1/decisions/schedule` uses a future candidate slot and enforces a minimum scheduling lead time so the Schedule action does not behave like Send Now.
@@ -512,6 +517,8 @@ One-time EventBridge schedules are deleted by Sender Service after successful de
   "userId": "user_123",
   "hour": 14,
   "probability": 0.73,
+  "modelSource": "SAGEMAKER",
+  "modelConfidence": "TRAINED_MODEL",
   "recommendedSendTime": "2026-06-12T14:00:00Z",
   "sendNowTime": "2026-06-12T10:37:24Z",
   "sendNowHour": 10,
