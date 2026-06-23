@@ -507,7 +507,9 @@ const Events = () => {
                       <span className="badge badge-info">{selectedCategory.defaultDeliveryMode}</span>
                       <span className="badge badge-neutral">{selectedCategory.messageCategory}</span>
                       <span className="badge badge-neutral">{selectedCategory.priorityClass}</span>
-                      <span className="badge badge-neutral">{selectedCategory.maxDelayHours}h max</span>
+                      {selectedCategory.defaultDeliveryMode === 'OPTIMIZED' && (
+                        <span className="badge badge-neutral">{selectedCategory.maxDelayHours}h max</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -551,18 +553,20 @@ const Events = () => {
                         placeholder="cart_reminder_v1"
                       />
                     </div>
-                    <div>
-                      <label className="label">Max Delay Hours</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={48}
-                        className="input"
-                        value={formData.maxDelayHours}
-                        onChange={(e) => setFormData({ ...formData, maxDelayHours: Number(e.target.value) })}
-                        disabled={sending || Boolean(selectedCategory)}
-                      />
-                    </div>
+                    {(!selectedCategory || selectedCategory.defaultDeliveryMode === 'OPTIMIZED') && (
+                      <div>
+                        <label className="label">Max Delay Hours</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={48}
+                          className="input"
+                          value={formData.maxDelayHours}
+                          onChange={(e) => setFormData({ ...formData, maxDelayHours: Number(e.target.value) })}
+                          disabled={sending || Boolean(selectedCategory)}
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="label">Message Category</label>
                       <select

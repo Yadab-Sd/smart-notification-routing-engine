@@ -783,10 +783,12 @@ const Attention = () => {
                           <div className="text-slate-500">Risk</div>
                           <div className="font-mono">{selectedCategory.riskClass}</div>
                         </div>
-                        <div>
-                          <div className="text-slate-500">Max delay</div>
-                          <div className="font-mono">{selectedCategory.maxDelayHours ?? '-'}h</div>
-                        </div>
+                        {selectedCategory.defaultDeliveryMode === 'OPTIMIZED' && (
+                          <div>
+                            <div className="text-slate-500">Max delay</div>
+                            <div className="font-mono">{selectedCategory.maxDelayHours ?? '-'}h</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

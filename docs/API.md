@@ -157,7 +157,7 @@ In the admin console, use **Messaging → Categories** to create and edit these 
 
 The **Attention Escrow** page is a decision workbench: choose a delivery window, preview first, then schedule the recommended time, send immediately, or adjust inputs and preview again. The default UI window is the next 24 hours, but admins can choose today, tomorrow, next 48 hours, or a custom local date/time range. If the selected category has `defaultDeliveryMode: "IMMEDIATE"`, the preview focuses on send-now impact and the UI shows only the Send Now action.
 
-Category `maxDelayHours` is a policy limit for that notification type. The Attention page uses it to prefill the delivery window for optimized categories. The delivery window is still the actual per-decision search range. Immediate categories hide the delivery window because no scheduling search is needed.
+Category `maxDelayHours` is a policy limit for that notification type. The Attention page uses it to prefill the delivery window for optimized categories. The delivery window is still the actual per-decision search range. Immediate categories use `maxDelayHours: 0` and hide delivery-window controls because no scheduling search is needed.
 
 Storage shape:
 
