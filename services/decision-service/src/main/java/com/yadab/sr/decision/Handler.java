@@ -30,6 +30,7 @@ import software.amazon.awssdk.services.scheduler.model.FlexibleTimeWindowMode;
 import software.amazon.awssdk.services.scheduler.model.Target;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -52,6 +53,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_WINDOW_HOURS = 48;
     private static final int MIN_SCHEDULE_LEAD_MINUTES = 5;
+    private static final int SUMMARY_SCAN_PAGE_SIZE = 200;
+    private static final int SUMMARY_SCAN_MAX_EVALUATED = 2_000;
 
     private final DynamoDbClient dynamo;
     private final SageMakerRuntimeClient sageMaker;
@@ -210,7 +213,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         ArrayNode recent = body.putArray("recentDecisions");
         items.stream()
                 .sorted(Comparator.comparing(item -> stringAttr(item, "createdAt"), Comparator.reverseOrder()))
-                .limit(50)
+                .limit(limit)
                 .forEach(item -> recent.add(decisionNode(item)));
 
         return response(200, MAPPER.writeValueAsString(body));
@@ -247,13 +250,30 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             return response.items();
         }
 
-        ScanResponse response = dynamo.scan(ScanRequest.builder()
-                .tableName(attentionTable)
-                .filterExpression("recordType = :decision")
-                .expressionAttributeValues(values)
-                .limit(limit)
-                .build());
-        return response.items();
+        List<Map<String, AttributeValue>> items = new ArrayList<>();
+        Map<String, AttributeValue> lastEvaluatedKey = null;
+        int evaluated = 0;
+
+        do {
+            ScanRequest.Builder scanBuilder = ScanRequest.builder()
+                    .tableName(attentionTable)
+                    .filterExpression("recordType = :decision")
+                    .expressionAttributeValues(values)
+                    .limit(SUMMARY_SCAN_PAGE_SIZE);
+            if (lastEvaluatedKey != null && !lastEvaluatedKey.isEmpty()) {
+                scanBuilder.exclusiveStartKey(lastEvaluatedKey);
+            }
+
+            ScanResponse response = dynamo.scan(scanBuilder.build());
+            items.addAll(response.items());
+            evaluated += response.scannedCount();
+            lastEvaluatedKey = response.lastEvaluatedKey();
+        } while (items.size() < limit
+                && evaluated < SUMMARY_SCAN_MAX_EVALUATED
+                && lastEvaluatedKey != null
+                && !lastEvaluatedKey.isEmpty());
+
+        return items;
     }
 
     private SummaryStats summarize(List<Map<String, AttributeValue>> items) {
@@ -571,12 +591,14 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (!scheduleInstant.isAfter(minimumScheduleTime)) {
             scheduleInstant = minimumScheduleTime;
         }
-        ZonedDateTime targetTime = scheduleInstant.atZone(ZoneOffset.UTC);
+        ZoneId scheduleZone = scheduleZone(req);
+        ZonedDateTime targetTime = scheduleInstant.atZone(scheduleZone);
 
         String scheduleExpression = "at(" + targetTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")) + ")";
         String scheduleName = "send-" + UUID.randomUUID();
 
         Map<String, Object> schedulerPayload = new LinkedHashMap<>();
+        schedulerPayload.put("scheduleName", scheduleName);
         schedulerPayload.put("userId", req.getUserId());
         schedulerPayload.put("channel", req.getChannel());
         schedulerPayload.put("message", req.getMessage());
@@ -600,7 +622,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         scheduler.createSchedule(CreateScheduleRequest.builder()
                 .name(scheduleName)
                 .scheduleExpression(scheduleExpression)
-                .scheduleExpressionTimezone("UTC")
+                .scheduleExpressionTimezone(scheduleZone.getId())
                 .flexibleTimeWindow(FlexibleTimeWindow.builder()
                         .mode(FlexibleTimeWindowMode.OFF)
                         .build())
@@ -608,6 +630,18 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 .build());
 
         return new ScheduleResult(scheduleName, scheduleInstant.toString());
+    }
+
+    private ZoneId scheduleZone(DecisionRequest req) {
+        String timezone = req.getTimezone();
+        if (timezone == null || timezone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(timezone);
+        } catch (Exception ignored) {
+            return ZoneOffset.UTC;
+        }
     }
 
     private double fatigueScore(UserStats stats) {
@@ -1045,6 +1079,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         private String campaignId;
         private String templateId;
         private String notificationType;
+        private String timezone;
         private String messageCategory;
         private String priorityClass;
         private Double businessValue;
@@ -1077,6 +1112,8 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         public void setTemplateId(String templateId) { this.templateId = templateId; }
         public String getNotificationType() { return notificationType; }
         public void setNotificationType(String notificationType) { this.notificationType = notificationType; }
+        public String getTimezone() { return timezone; }
+        public void setTimezone(String timezone) { this.timezone = timezone; }
         public String getMessageCategory() { return messageCategory; }
         public void setMessageCategory(String messageCategory) { this.messageCategory = messageCategory; }
         public String getPriorityClass() { return priorityClass; }

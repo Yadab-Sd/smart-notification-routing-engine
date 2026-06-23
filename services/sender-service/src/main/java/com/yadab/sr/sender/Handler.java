@@ -16,6 +16,8 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.scheduler.SchedulerClient;
+import software.amazon.awssdk.services.scheduler.model.DeleteScheduleRequest;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
@@ -53,6 +55,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
     private final Handlebars handlebars;
     private final ChannelFactory channelFactory;
     private final ChannelSelector channelSelector;
+    private final SchedulerClient scheduler;
     private final String userProfilesTable;
     private final String attentionTable;
     private final String curatedBucket;
@@ -61,6 +64,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         Region region = Region.of(System.getenv("AWS_REGION"));
         this.s3 = S3Client.builder().region(region).build();
         this.dynamodb = DynamoDbClient.builder().region(region).build();
+        this.scheduler = SchedulerClient.builder().region(region).build();
         this.handlebars = new Handlebars();
         this.userProfilesTable = System.getenv("USER_PROFILES_TABLE");
         this.attentionTable = System.getenv("ATTENTION_TABLE");
@@ -159,6 +163,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             throw new RuntimeException("Notification delivery failed", e);
         }
         recordAttentionDelivery(event, userId, selection.getChannelType(), "SENT", null, context);
+        deleteCompletedSchedule(event, context);
 
         // Build response with metadata
         Map<String, Object> response = new HashMap<>();
@@ -177,6 +182,22 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         }
 
         return response;
+    }
+
+    private void deleteCompletedSchedule(Map<String, Object> event, Context context) {
+        Object scheduleName = event.get("scheduleName");
+        if (scheduleName == null || scheduleName.toString().isBlank()) {
+            return;
+        }
+
+        try {
+            scheduler.deleteSchedule(DeleteScheduleRequest.builder()
+                    .name(scheduleName.toString())
+                    .build());
+            context.getLogger().log("Deleted completed EventBridge schedule: " + scheduleName);
+        } catch (Exception e) {
+            context.getLogger().log("Could not delete completed EventBridge schedule " + scheduleName + ": " + e.getMessage());
+        }
     }
 
     /**
