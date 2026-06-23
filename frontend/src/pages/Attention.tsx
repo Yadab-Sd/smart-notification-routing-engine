@@ -134,6 +134,17 @@ const defaultDeliveryWindow = () => {
   }
 }
 
+const categoryDeliveryWindow = (maxDelayHours?: number) => {
+  const start = new Date()
+  const delayHours = Math.max(1, Math.min(48, maxDelayHours || 24))
+  const end = new Date(start.getTime() + delayHours * 60 * 60 * 1000)
+  return {
+    start: toDateTimeLocal(start),
+    end: toDateTimeLocal(end),
+    preset: 'category',
+  }
+}
+
 const Attention = () => {
   const [loading, setLoading] = useState<'preview' | 'schedule' | 'sendNow' | null>(null)
   const [error, setError] = useState('')
@@ -146,7 +157,6 @@ const Attention = () => {
   const [summaryData, setSummaryData] = useState<AttentionSummaryResponse | null>(null)
   const [notificationCategories, setNotificationCategories] = useState<NotificationCategory[]>([])
   const [categoryLoadError, setCategoryLoadError] = useState('')
-  const [showPolicyChanges, setShowPolicyChanges] = useState(false)
   const [showAllRows, setShowAllRows] = useState(false)
   const [filters, setFilters] = useState({
     sourceId: '',
@@ -171,85 +181,11 @@ const Attention = () => {
     () => notificationCategories.find((category) => category.categoryId === form.categoryId),
     [notificationCategories, form.categoryId]
   )
-
-  const categoryDefaults = useMemo(() => {
-    if (!selectedCategory) return undefined
-    return {
-      categoryId: selectedCategory.categoryId,
-      deliveryMode: selectedCategory.defaultDeliveryMode,
-      allowedChannels: selectedCategory.allowedChannels,
-      messageCategory: selectedCategory.messageCategory,
-      riskClass: selectedCategory.riskClass,
-      priorityClass: selectedCategory.priorityClass,
-      businessValue: selectedCategory.businessValue,
-      urgency: selectedCategory.urgency,
-      maxDelayHours: selectedCategory.maxDelayHours,
-      quietHoursRespect: selectedCategory.quietHoursRespect,
-    }
-  }, [selectedCategory])
-
-  const effectivePolicy = useMemo(() => ({
-    categoryId: form.categoryId || undefined,
-    channel: form.channel,
-    messageCategory: form.messageCategory,
-    priorityClass: form.priorityClass,
-    businessValue: form.businessValue,
-    urgency: form.urgency,
-  }), [form.categoryId, form.channel, form.messageCategory, form.priorityClass, form.businessValue, form.urgency])
-
-  const policyOverrides = useMemo(() => {
-    if (!selectedCategory) return undefined
-    const overrides: Record<string, boolean> = {
-      channel: selectedCategory.allowedChannels?.length === 1
-        ? selectedCategory.allowedChannels[0] !== form.channel
-        : false,
-      priorityClass: selectedCategory.priorityClass !== form.priorityClass,
-      businessValue: Math.abs(selectedCategory.businessValue - form.businessValue) > 0.001,
-      urgency: Math.abs(selectedCategory.urgency - form.urgency) > 0.001,
-    }
-    return overrides
-  }, [selectedCategory, form.channel, form.messageCategory, form.priorityClass, form.businessValue, form.urgency])
-
-  const overrideCount = useMemo(
-    () => Object.values(policyOverrides || {}).filter(Boolean).length,
-    [policyOverrides]
-  )
-
-  const categoryPolicyDiffs = useMemo(() => {
-    if (!selectedCategory || !policyOverrides) return []
-
-    const rows = [
-      {
-        key: 'channel',
-        label: 'Channel',
-        defaultValue: selectedCategory.allowedChannels?.length === 1 ? selectedCategory.allowedChannels[0] : 'Any allowed',
-        currentValue: form.channel,
-      },
-      {
-        key: 'priorityClass',
-        label: 'Priority',
-        defaultValue: selectedCategory.priorityClass,
-        currentValue: form.priorityClass,
-      },
-      {
-        key: 'businessValue',
-        label: 'Business value',
-        defaultValue: selectedCategory.businessValue.toFixed(1),
-        currentValue: form.businessValue.toFixed(1),
-      },
-      {
-        key: 'urgency',
-        label: 'Urgency',
-        defaultValue: selectedCategory.urgency.toFixed(1),
-        currentValue: form.urgency.toFixed(1),
-      },
-    ]
-
-    return rows.map((row) => ({
-      ...row,
-      changed: Boolean(policyOverrides[row.key]),
-    }))
-  }, [selectedCategory, policyOverrides, form.channel, form.priorityClass, form.businessValue, form.urgency])
+  const categoryLocked = Boolean(selectedCategory)
+  const immediateCategorySelected = selectedCategory?.defaultDeliveryMode === 'IMMEDIATE'
+  const selectableChannels = selectedCategory?.allowedChannels?.length
+    ? selectedCategory.allowedChannels.filter((channel): channel is Channel => channels.includes(channel as Channel))
+    : channels
 
   useEffect(() => {
     if (!result) return
@@ -315,6 +251,10 @@ const Attention = () => {
       urgency: category.urgency,
       sourceId: form.sourceId || `category:${category.categoryId}`,
     })
+
+    if (category.defaultDeliveryMode === 'OPTIMIZED') {
+      setDeliveryWindow(categoryDeliveryWindow(category.maxDelayHours))
+    }
   }
 
   const rows = useMemo<DecisionRow[]>(() => {
@@ -420,14 +360,7 @@ const Attention = () => {
     businessValue: form.businessValue,
     urgency: form.urgency,
     message: form.message,
-    metadata: {
-      ...(form.subject ? { subject: form.subject } : {}),
-      attentionPolicyAudit: {
-        categoryDefaults,
-        effectivePolicy,
-        policyOverrides,
-      },
-    },
+    metadata: form.subject ? { subject: form.subject } : undefined,
   })
 
   const runDecision = async (mode: 'preview' | 'schedule') => {
@@ -483,9 +416,6 @@ const Attention = () => {
           priorityClass: form.priorityClass,
           businessValue: form.businessValue,
           urgency: form.urgency,
-          categoryDefaults,
-          effectivePolicy,
-          policyOverrides,
           metadata: form.subject ? { subject: form.subject } : undefined,
         },
       })
@@ -735,12 +665,12 @@ const Attention = () => {
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Category Policy</div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      Select a configured category, then adjust scoring policy for this decision.
+                      Leave blank for a custom decision, or select a category to use its locked organization policy.
                     </div>
                   </div>
                   {selectedCategory && (
-                    <span className={`badge ${overrideCount > 0 ? 'badge-warning text-nowrap' : 'badge-success'}`}>
-                      {overrideCount > 0 ? `${overrideCount} override${overrideCount === 1 ? '' : 's'}` : 'Defaults'}
+                    <span className="badge badge-info text-nowrap">
+                      {selectedCategory.defaultDeliveryMode}
                     </span>
                   )}
                 </div>
@@ -772,7 +702,7 @@ const Attention = () => {
                     <select
                       className="select"
                       value={form.messageCategory}
-                      disabled={Boolean(selectedCategory)}
+                      disabled={categoryLocked}
                       onChange={(e) => setForm({ ...form, messageCategory: e.target.value as MessageCategory })}
                     >
                       {messageCategories.map((category) => <option key={category}>{category}</option>)}
@@ -790,9 +720,10 @@ const Attention = () => {
                       <select
                         className="select"
                         value={form.channel}
+                        disabled={categoryLocked}
                         onChange={(e) => setForm({ ...form, channel: e.target.value as Channel })}
                       >
-                        {channels.map((channel) => <option key={channel}>{channel}</option>)}
+                        {selectableChannels.map((channel) => <option key={channel}>{channel}</option>)}
                       </select>
                     </div>
                     <div>
@@ -800,6 +731,7 @@ const Attention = () => {
                       <select
                         className="select"
                         value={form.priorityClass}
+                        disabled={categoryLocked}
                         onChange={(e) => setForm({ ...form, priorityClass: e.target.value as PriorityClass })}
                       >
                         {priorities.map((priority) => <option key={priority}>{priority}</option>)}
@@ -815,6 +747,7 @@ const Attention = () => {
                       max="10"
                       step="0.5"
                       value={form.businessValue}
+                      disabled={categoryLocked}
                       onChange={(e) => setForm({ ...form, businessValue: Number(e.target.value) })}
                       className="w-full accent-primary-600"
                     />
@@ -828,122 +761,121 @@ const Attention = () => {
                       max="1"
                       step="0.1"
                       value={form.urgency}
+                      disabled={categoryLocked}
                       onChange={(e) => setForm({ ...form, urgency: Number(e.target.value) })}
                       className="w-full accent-primary-600"
                     />
                   </div>
 
                   {selectedCategory && (
-                    <div className={`border rounded-lg p-3 text-sm ${overrideCount > 0 ? 'border-warning-200 bg-warning-50' : 'border-success-200 bg-success-50'}`}>
-                      <div className="flex items-center justify-between gap-3">
+                    <div className="border rounded-lg p-3 text-sm border-primary-200 bg-primary-50">
+                      <div className="font-semibold text-primary-900">Using locked category policy</div>
+                      <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-slate-700">
                         <div>
-                          <div className={`font-semibold ${overrideCount > 0 ? 'text-warning-800' : 'text-success-800'}`}>
-                            {overrideCount > 0 ? `${overrideCount} category override${overrideCount === 1 ? '' : 's'} active` : 'Using category defaults'}
-                          </div>
-                          <div className="text-xs text-slate-600 mt-1">
-                            Stored in AttentionLedger for future training attribution.
-                          </div>
+                          <div className="text-slate-500">Delivery</div>
+                          <div className="font-mono">{selectedCategory.defaultDeliveryMode}</div>
                         </div>
-                        <button
-                          type="button"
-                          className="btn-ghost text-xs"
-                          onClick={() => setShowPolicyChanges(!showPolicyChanges)}
-                        >
-                          {showPolicyChanges ? 'Hide changes' : 'View changes'}
-                        </button>
+                        <div>
+                          <div className="text-slate-500">Allowed channels</div>
+                          <div className="font-mono">{selectedCategory.allowedChannels?.join(', ') || form.channel}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500">Risk</div>
+                          <div className="font-mono">{selectedCategory.riskClass}</div>
+                        </div>
+                        {selectedCategory.defaultDeliveryMode === 'OPTIMIZED' && (
+                          <div>
+                            <div className="text-slate-500">Max delay</div>
+                            <div className="font-mono">{selectedCategory.maxDelayHours ?? '-'}h</div>
+                          </div>
+                        )}
                       </div>
-                      {showPolicyChanges && (
-                        <div className="mt-3 space-y-2">
-                          {categoryPolicyDiffs.map((row) => (
-                            <div
-                              key={row.key}
-                              className={`rounded-md border px-3 py-2 ${row.changed ? 'border-warning-200 bg-white' : 'border-slate-200 bg-white/70'}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-medium text-slate-800">{row.label}</span>
-                                <span className={`badge ${row.changed ? 'badge-warning' : 'badge-neutral'}`}>
-                                  {row.changed ? 'Changed' : 'Default'}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                                <div>
-                                  <div className="text-slate-500">Category default</div>
-                                  <div className="font-mono text-slate-800">{row.defaultValue}</div>
-                                </div>
-                                <div>
-                                  <div className="text-slate-500">Current decision</div>
-                                  <div className={`font-mono ${row.changed ? 'text-warning-800' : 'text-slate-800'}`}>{row.currentValue}</div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
-              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900">Delivery Window</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Optimize only inside this local admin time range.</div>
-                  </div>
-                  <CalendarClock size={18} className="text-slate-500" />
-                </div>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button
-                    type="button"
-                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next24h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
-                    onClick={() => applyWindowPreset('next24h')}
-                  >
-                    Next 24h
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next48h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
-                    onClick={() => applyWindowPreset('next48h')}
-                  >
-                    Next 48h
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'today' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
-                    onClick={() => applyWindowPreset('today')}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'tomorrow' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
-                    onClick={() => applyWindowPreset('tomorrow')}
-                  >
-                    Tomorrow
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="label">Window Start</label>
-                    <input
-                      type="datetime-local"
-                      className="input"
-                      value={deliveryWindow.start}
-                      onChange={(e) => setDeliveryWindow({ ...deliveryWindow, start: e.target.value, preset: 'custom' })}
-                    />
-                    <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.start)}</div>
-                  </div>
-                  <div>
-                    <label className="label">Window End</label>
-                    <input
-                      type="datetime-local"
-                      className="input"
-                      value={deliveryWindow.end}
-                      onChange={(e) => setDeliveryWindow({ ...deliveryWindow, end: e.target.value, preset: 'custom' })}
-                    />
-                    <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.end)}</div>
+              {immediateCategorySelected ? (
+                <div className="border border-success-200 rounded-lg p-3 bg-success-50">
+                  <div className="flex items-start gap-3">
+                    <Send size={18} className="text-success-700 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-semibold text-success-900">Immediate delivery</div>
+                      <div className="text-xs text-success-800 mt-1">
+                        Delivery window is not used for this category. Preview shows send-now impact only.
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Delivery Window</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        Actual search window for this decision. Category max delay can prefill this range.
+                      </div>
+                    </div>
+                    <CalendarClock size={18} className="text-slate-500" />
+                  </div>
+                  {selectedCategory?.defaultDeliveryMode === 'OPTIMIZED' && (
+                    <div className="mb-3 rounded-md border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+                      Category max delay: {selectedCategory.maxDelayHours ?? 24}h. You can narrow this window for this preview.
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button
+                      type="button"
+                      className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next24h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                      onClick={() => applyWindowPreset('next24h')}
+                    >
+                      Next 24h
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'next48h' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                      onClick={() => applyWindowPreset('next48h')}
+                    >
+                      Next 48h
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'today' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                      onClick={() => applyWindowPreset('today')}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-secondary text-xs justify-center ${deliveryWindow.preset === 'tomorrow' ? 'border-primary-300 bg-primary-50 text-primary-700' : ''}`}
+                      onClick={() => applyWindowPreset('tomorrow')}
+                    >
+                      Tomorrow
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Window Start</label>
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={deliveryWindow.start}
+                        onChange={(e) => setDeliveryWindow({ ...deliveryWindow, start: e.target.value, preset: 'custom' })}
+                      />
+                      <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.start)}</div>
+                    </div>
+                    <div>
+                      <label className="label">Window End</label>
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={deliveryWindow.end}
+                        onChange={(e) => setDeliveryWindow({ ...deliveryWindow, end: e.target.value, preset: 'custom' })}
+                      />
+                      <div className="text-[11px] text-slate-500 mt-1">API UTC: {utcFromLocalInput(deliveryWindow.end)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="label">Subject</label>
                 <input
@@ -984,7 +916,9 @@ const Attention = () => {
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-primary-700" />
-                <h3 className="font-semibold text-slate-900">Latest Decision Result</h3>
+                <h3 className="font-semibold text-slate-900">
+                  {immediateCategorySelected ? 'Send Now Impact Preview' : 'Latest Decision Result'}
+                </h3>
                 {result.previewOnly && <span className="badge badge-neutral">Preview only</span>}
               </div>
               <div className={`px-4 py-2 rounded-lg border text-base font-bold tracking-wide ${decisionPanelClass(result.attentionDecision)}`}>
@@ -1011,27 +945,33 @@ const Attention = () => {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                   <div className="font-semibold text-slate-900">
-                    {result.attentionDecision === 'SEND'
+                    {immediateCategorySelected
+                      ? 'This category is configured for immediate delivery.'
+                      : result.attentionDecision === 'SEND'
                       ? 'This notification is cleared by Attention Escrow.'
                       : 'Attention Escrow recommends not sending this now.'}
                   </div>
                   <div className="text-sm text-slate-600 mt-1">
-                    {result.attentionDecision === 'SEND'
-                      ? 'Schedule the recommended time for best engagement, or send now if the business need is immediate.'
-                      : 'You can still schedule this as a manual override while testing, or adjust inputs and preview again.'}
+                    {immediateCategorySelected
+                      ? 'Review the send-now cost, value, and current click probability, then submit the immediate send when ready.'
+                      : result.attentionDecision === 'SEND'
+                      ? 'Schedule the recommended future slot for best engagement, or send now if the business need is immediate.'
+                      : 'You can still schedule this while testing, or adjust inputs and preview again.'}
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
+                  {!immediateCategorySelected && (
+                    <button
+                      className="btn-primary"
+                      onClick={() => runDecision('schedule')}
+                      disabled={loading !== null || result.scheduled}
+                    >
+                      {loading === 'schedule' ? <Loader2 className="animate-spin" size={16} /> : <CalendarClock size={16} />}
+                      Schedule Recommended
+                    </button>
+                  )}
                   <button
-                    className="btn-primary"
-                    onClick={() => runDecision('schedule')}
-                    disabled={loading !== null || result.scheduled}
-                  >
-                    {loading === 'schedule' ? <Loader2 className="animate-spin" size={16} /> : <CalendarClock size={16} />}
-                    Schedule Recommended
-                  </button>
-                  <button
-                    className="btn-secondary"
+                    className={immediateCategorySelected ? 'btn-primary' : 'btn-secondary'}
                     onClick={sendNow}
                     disabled={loading !== null}
                   >
@@ -1071,106 +1011,122 @@ const Attention = () => {
                 </div>
               </div>
               <div className="p-5 border-b lg:border-b-0 lg:border-r border-slate-100 bg-primary-50/50">
-                <div className="text-xs text-primary-700 font-medium">Recommended send time</div>
-                <div className="text-xl font-bold text-slate-900 mt-1">{formatDateTime(result.recommendedSendTime || result.scheduledTime)}</div>
+                <div className="text-xs text-primary-700 font-medium">
+                  {immediateCategorySelected ? 'Send-now probability' : 'Recommended send time'}
+                </div>
+                <div className="text-xl font-bold text-slate-900 mt-1">
+                  {immediateCategorySelected
+                    ? probabilityPercent(result.sendNowProbability)
+                    : formatDateTime(result.recommendedSendTime || result.scheduledTime)}
+                </div>
                 <div className="text-sm text-slate-500 mt-2 flex items-center gap-2">
-                  <CalendarClock size={14} />
-                  Best hour: {typeof result.hour === 'number' ? `${result.hour}:00 UTC` : '-'}
+                  {immediateCategorySelected ? <Send size={14} /> : <CalendarClock size={14} />}
+                  {immediateCategorySelected
+                    ? (result.sendNowTime ? formatDateTime(result.sendNowTime) : `Current model hour: ${typeof result.sendNowHour === 'number' ? `${result.sendNowHour}:00 UTC` : '-'}`)
+                    : `Best hour: ${typeof result.hour === 'number' ? `${result.hour}:00 UTC` : '-'}`}
                 </div>
               </div>
               <div className="p-5">
-                <div className="text-xs text-slate-500">Schedule status</div>
+                <div className="text-xs text-slate-500">{immediateCategorySelected ? 'Delivery option' : 'Schedule status'}</div>
                 <div className="text-2xl font-bold text-slate-900">
-                  {result.scheduled ? 'Created' : result.previewOnly ? 'Not recorded' : result.attentionDecision === 'SEND' ? 'Ready' : 'Skipped'}
+                  {immediateCategorySelected
+                    ? 'Send now'
+                    : result.scheduled ? 'Created' : result.previewOnly ? 'Not recorded' : result.attentionDecision === 'SEND' ? 'Ready' : 'Skipped'}
                 </div>
                 <div className="text-sm text-slate-500 mt-2 flex items-center gap-2">
                   <Clock size={14} />
-                  {result.scheduleSkippedReason || (result.scheduled ? result.scheduleId : result.previewOnly ? 'Preview did not write an AttentionLedger decision' : 'Click Schedule to create it')}
+                  {immediateCategorySelected
+                    ? 'Category defaultDeliveryMode is IMMEDIATE'
+                    : result.scheduleSkippedReason || (result.scheduled ? result.scheduleId : result.previewOnly ? 'Preview did not write an AttentionLedger decision' : 'Click Schedule to create it')}
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border-b border-slate-100">
-              <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
-                <div className="text-xs text-slate-500">Best-hour click probability</div>
-                <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.probability)}</div>
-              </div>
-              <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
-                <div className="text-xs text-slate-500">If sent now</div>
-                <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.sendNowProbability)}</div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {result.sendNowTime
-                    ? formatDateTime(result.sendNowTime)
-                    : typeof result.sendNowHour === 'number'
-                      ? `Current model hour: ${result.sendNowHour}:00 UTC`
-                      : '-'}
+            {!immediateCategorySelected && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border-b border-slate-100">
+                <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
+                  <div className="text-xs text-slate-500">Best-hour click probability</div>
+                  <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.probability)}</div>
+                </div>
+                <div className="p-5 border-b md:border-b-0 md:border-r border-slate-100">
+                  <div className="text-xs text-slate-500">If sent now</div>
+                  <div className="text-2xl font-bold text-slate-900">{probabilityPercent(result.sendNowProbability)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {result.sendNowTime
+                      ? formatDateTime(result.sendNowTime)
+                      : typeof result.sendNowHour === 'number'
+                        ? `Current model hour: ${result.sendNowHour}:00 UTC`
+                        : '-'}
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="text-xs text-slate-500">Lift from waiting</div>
+                  <div className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <TrendingUp size={20} className="text-success-600" />
+                    {probabilityPointDelta(result.probability, result.sendNowProbability) ?? '-'} pts
+                  </div>
+                </div>
+                <div className="p-5 border-t md:border-t-0 md:border-l border-slate-100">
+                  <div className="text-xs text-slate-500">Policy source</div>
+                  <div className="text-2xl font-bold text-slate-900">{result.categoryId ? 'Category' : 'Custom'}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {result.categoryId ? result.categoryId : 'No configured category'}
+                  </div>
                 </div>
               </div>
-              <div className="p-5">
-                <div className="text-xs text-slate-500">Lift from waiting</div>
-                <div className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                  <TrendingUp size={20} className="text-success-600" />
-                  {probabilityPointDelta(result.probability, result.sendNowProbability) ?? '-'} pts
-                </div>
-              </div>
-              <div className="p-5 border-t md:border-t-0 md:border-l border-slate-100">
-                <div className="text-xs text-slate-500">Category overrides</div>
-                <div className="text-2xl font-bold text-slate-900">{result.overrideCount ?? 0}</div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {result.categoryId ? result.categoryId : 'No configured category'}
-                </div>
-              </div>
-            </div>
-            <div className="p-5 border-b border-slate-100 bg-white">
-              <div className="flex items-start gap-3">
-                <div className="stat-icon-wrap bg-slate-100 flex-shrink-0">
-                  <Send size={18} className="text-slate-700" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-slate-900">Send Now Impact</div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
-                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div className="text-xs text-slate-500">Send-now probability</div>
-                      <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.sendNowProbability)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{result.sendNowTime ? formatDateTime(result.sendNowTime) : 'Current model hour'}</div>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div className="text-xs text-slate-500">Recommended probability</div>
-                      <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.probability)}</div>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div className="text-xs text-slate-500">Timing penalty</div>
-                      <div className="text-xl font-bold text-slate-900 mt-1">
-                        {(() => {
-                          const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
-                          if (delta === null) return '-'
-                          if (delta <= 0) return '0 pts'
-                          return `-${delta} pts`
-                        })()}
+            )}
+            {!immediateCategorySelected && (
+              <div className="p-5 border-b border-slate-100 bg-white">
+                <div className="flex items-start gap-3">
+                  <div className="stat-icon-wrap bg-slate-100 flex-shrink-0">
+                    <Send size={18} className="text-slate-700" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-slate-900">Send Now Impact</div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="text-xs text-slate-500">Send-now probability</div>
+                        <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.sendNowProbability)}</div>
+                        <div className="text-xs text-slate-500 mt-1">{result.sendNowTime ? formatDateTime(result.sendNowTime) : 'Current model hour'}</div>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="text-xs text-slate-500">Recommended probability</div>
+                        <div className="text-xl font-bold text-slate-900 mt-1">{probabilityPercent(result.probability)}</div>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="text-xs text-slate-500">Timing penalty</div>
+                        <div className="text-xl font-bold text-slate-900 mt-1">
+                          {(() => {
+                            const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
+                            if (delta === null) return '-'
+                            if (delta <= 0) return '0 pts'
+                            return `-${delta} pts`
+                          })()}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="text-xs text-slate-500">Attention cost</div>
+                        <div className="text-xl font-bold text-slate-900 mt-1">{result.attentionCost?.toFixed(3) ?? '-'}</div>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div className="text-xs text-slate-500">Attention cost</div>
-                      <div className="text-xl font-bold text-slate-900 mt-1">{result.attentionCost?.toFixed(3) ?? '-'}</div>
+                    <div className="text-sm text-slate-600 mt-4">
+                      {(() => {
+                        const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
+                        if (result.attentionDecision === 'DEFER') {
+                          return 'The API recommends deferring this notification; sending now may increase fatigue risk for this user.'
+                        }
+                        if (delta === null) {
+                          return 'Send-now impact is based on the API decision response. Send-now probability was not returned for this result.'
+                        }
+                        if (delta <= 0) {
+                          return 'No timing penalty is detected by the current model, so sending now and scheduling have similar predicted engagement.'
+                        }
+                        return `The model predicts scheduling may improve engagement by ${delta} percentage points compared with sending now.`
+                      })()}
                     </div>
-                  </div>
-                  <div className="text-sm text-slate-600 mt-4">
-                    {(() => {
-                      const delta = probabilityPointDelta(result.probability, result.sendNowProbability)
-                      if (result.attentionDecision === 'DEFER') {
-                        return 'The API recommends deferring this notification; sending now may increase fatigue risk for this user.'
-                      }
-                      if (delta === null) {
-                        return 'Send-now impact is based on the API decision response. Send-now probability was not returned for this result.'
-                      }
-                      if (delta <= 0) {
-                        return 'No timing penalty is detected by the current model, so sending now and scheduling have similar predicted engagement.'
-                      }
-                      return `The model predicts scheduling may improve engagement by ${delta} percentage points compared with sending now.`
-                    })()}
                   </div>
                 </div>
               </div>
-            </div>
+            )}
             <div className="p-5">
               <div className="text-sm text-slate-600">{result.attentionReason}</div>
               <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">

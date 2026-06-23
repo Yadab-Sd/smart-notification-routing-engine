@@ -119,6 +119,14 @@ const Categories = () => {
     setForm({ ...form, allowedChannels: next.length > 0 ? next : [channel] })
   }
 
+  const setDeliveryMode = (mode: DeliveryMode) => {
+    setForm({
+      ...form,
+      defaultDeliveryMode: mode,
+      maxDelayHours: mode === 'IMMEDIATE' ? 0 : form.maxDelayHours > 0 ? form.maxDelayHours : 24,
+    })
+  }
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
@@ -133,7 +141,7 @@ const Categories = () => {
       allowedChannels: form.allowedChannels?.length ? form.allowedChannels : ['EMAIL'],
       businessValue: Number(form.businessValue),
       urgency: Number(form.urgency),
-      maxDelayHours: Number(form.maxDelayHours),
+      maxDelayHours: form.defaultDeliveryMode === 'IMMEDIATE' ? 0 : Number(form.maxDelayHours),
       active: form.active !== false,
       quietHoursRespect: form.quietHoursRespect !== false,
     }
@@ -279,7 +287,9 @@ const Categories = () => {
                           <div className="text-xs text-slate-500">Urgency {category.urgency.toFixed(1)}</div>
                         </td>
                         <td>
-                          <div className="text-sm text-slate-700">{category.maxDelayHours}h max</div>
+                          <div className="text-sm text-slate-700">
+                            {category.defaultDeliveryMode === 'IMMEDIATE' ? 'Immediate' : `${category.maxDelayHours}h max`}
+                          </div>
                           <div className="text-xs text-slate-500">
                             {(category.allowedChannels || []).join(', ') || 'No channels'}
                           </div>
@@ -352,7 +362,7 @@ const Categories = () => {
                 <select
                   className="select"
                   value={form.defaultDeliveryMode}
-                  onChange={(event) => setForm({ ...form, defaultDeliveryMode: event.target.value as DeliveryMode })}
+                  onChange={(event) => setDeliveryMode(event.target.value as DeliveryMode)}
                   disabled={saving}
                 >
                   {deliveryModes.map((mode) => <option key={mode}>{mode}</option>)}
@@ -445,10 +455,15 @@ const Categories = () => {
                 min={0}
                 max={48}
                 className="input"
-                value={form.maxDelayHours}
+                value={form.defaultDeliveryMode === 'IMMEDIATE' ? 0 : form.maxDelayHours}
                 onChange={(event) => setForm({ ...form, maxDelayHours: Number(event.target.value) })}
-                disabled={saving}
+                disabled={saving || form.defaultDeliveryMode === 'IMMEDIATE'}
               />
+              {form.defaultDeliveryMode === 'IMMEDIATE' && (
+                <div className="text-xs text-slate-500 mt-1">
+                  Immediate categories do not allow delayed scheduling, so max delay is fixed at 0.
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

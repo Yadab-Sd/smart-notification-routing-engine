@@ -437,7 +437,7 @@ const Events = () => {
                         </select>
                         {selectedCategory && (
                           <p className="text-xs text-slate-500 mt-1">
-                            Loaded defaults from {selectedCategory.categoryId}; policy fields remain editable.
+                            Loaded locked policy from {selectedCategory.categoryId}.
                           </p>
                         )}
                       </div>
@@ -448,7 +448,7 @@ const Events = () => {
                           className="select"
                           value={formData.channel}
                           onChange={(e) => setFormData({ ...formData, channel: e.target.value as Channel })}
-                          disabled={sending}
+                          disabled={sending || Boolean(selectedCategory)}
                         >
                           {selectableChannels.map((channel) => (
                             <option key={channel} value={channel}>
@@ -507,7 +507,9 @@ const Events = () => {
                       <span className="badge badge-info">{selectedCategory.defaultDeliveryMode}</span>
                       <span className="badge badge-neutral">{selectedCategory.messageCategory}</span>
                       <span className="badge badge-neutral">{selectedCategory.priorityClass}</span>
-                      <span className="badge badge-neutral">{selectedCategory.maxDelayHours}h max</span>
+                      {selectedCategory.defaultDeliveryMode === 'OPTIMIZED' && (
+                        <span className="badge badge-neutral">{selectedCategory.maxDelayHours}h max</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -551,18 +553,20 @@ const Events = () => {
                         placeholder="cart_reminder_v1"
                       />
                     </div>
-                    <div>
-                      <label className="label">Max Delay Hours</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={48}
-                        className="input"
-                        value={formData.maxDelayHours}
-                        onChange={(e) => setFormData({ ...formData, maxDelayHours: Number(e.target.value) })}
-                        disabled={sending}
-                      />
-                    </div>
+                    {(!selectedCategory || selectedCategory.defaultDeliveryMode === 'OPTIMIZED') && (
+                      <div>
+                        <label className="label">Max Delay Hours</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={48}
+                          className="input"
+                          value={formData.maxDelayHours}
+                          onChange={(e) => setFormData({ ...formData, maxDelayHours: Number(e.target.value) })}
+                          disabled={sending || Boolean(selectedCategory)}
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="label">Message Category</label>
                       <select
@@ -587,7 +591,7 @@ const Events = () => {
                         className="select"
                         value={formData.priorityClass}
                         onChange={(e) => setFormData({ ...formData, priorityClass: e.target.value as PriorityClass })}
-                        disabled={sending}
+                        disabled={sending || Boolean(selectedCategory)}
                       >
                         {priorityOptions.map((value) => (
                           <option key={value} value={value}>{value}</option>
@@ -604,7 +608,7 @@ const Events = () => {
                         value={formData.businessValue}
                         onChange={(e) => setFormData({ ...formData, businessValue: Number(e.target.value) })}
                         className="w-full accent-primary-600"
-                        disabled={sending}
+                        disabled={sending || Boolean(selectedCategory)}
                       />
                     </div>
                     <div>
@@ -617,7 +621,7 @@ const Events = () => {
                         value={formData.urgency}
                         onChange={(e) => setFormData({ ...formData, urgency: Number(e.target.value) })}
                         className="w-full accent-primary-600"
-                        disabled={sending}
+                        disabled={sending || Boolean(selectedCategory)}
                       />
                     </div>
                   </div>

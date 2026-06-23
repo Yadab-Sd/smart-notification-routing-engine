@@ -153,9 +153,11 @@ Categories are organization-defined notification policies. They are different fr
 
 Create categories first when you want API callers to send simpler events and let SNRE fill in policy defaults. Categories are stored independently from users in the `NotificationCategories` DynamoDB table and scoped by organization. Until full multi-tenant onboarding exists, the API uses organization `default`; callers may send `X-Organization-Id` to scope categories explicitly.
 
-In the admin console, use **Messaging → Categories** to create and edit these policies. The **Send Event** page can then load a category, prefill the notification fields, and still let the admin override values for the specific send before submitting.
+In the admin console, use **Messaging → Categories** to create and edit these policies. The **Send Event** and **Attention Escrow** pages can load a category and lock its policy fields so test sends follow the organization's configured rules. Leave the category blank when you want a custom one-off decision without a category relationship.
 
-The **Attention Escrow** page is a decision workbench: choose a delivery window, preview first, then schedule the recommended time, send immediately, or adjust inputs and preview again. The default UI window is the next 24 hours, but admins can choose today, tomorrow, next 48 hours, or a custom local date/time range.
+The **Attention Escrow** page is a decision workbench: choose a delivery window, preview first, then schedule the recommended time, send immediately, or adjust inputs and preview again. The default UI window is the next 24 hours, but admins can choose today, tomorrow, next 48 hours, or a custom local date/time range. If the selected category has `defaultDeliveryMode: "IMMEDIATE"`, the preview focuses on send-now impact and the UI shows only the Send Now action.
+
+Category `maxDelayHours` is a policy limit for that notification type. The Attention page uses it to prefill the delivery window for optimized categories. The delivery window is still the actual per-decision search range. Immediate categories use `maxDelayHours: 0` and hide delivery-window controls because no scheduling search is needed.
 
 Storage shape:
 
@@ -228,7 +230,7 @@ curl -X DELETE \
   $API_URL/v1/categories/appointment_reminder
 ```
 
-When `/v1/events` includes `notification.categoryId`, Control Plane loads the category and fills missing notification fields. Request fields win over category defaults, which allows UI and API callers to override any category default for a specific notification. For example, an event may send only:
+When `/v1/events` includes `notification.categoryId`, Control Plane loads the category and fills missing notification fields. The admin UI locks category policy fields after selection. Direct API callers may still send explicit policy fields; the backend preserves category audit metadata so a future admin UI can re-enable override workflows without backend changes. For example, an event may send only:
 
 ```json
 {
@@ -241,7 +243,7 @@ When `/v1/events` includes `notification.categoryId`, Control Plane loads the ca
 
 SNRE enriches it internally with category defaults such as `deliveryMode`, `messageCategory`, `priorityClass`, `businessValue`, `urgency`, `maxDelayHours`, and channel policy before routing.
 
-To override one send while still keeping the category relationship:
+To override one send through the API while still keeping the category relationship:
 
 ```json
 {
@@ -255,7 +257,7 @@ To override one send while still keeping the category relationship:
 }
 ```
 
-Attention Escrow then uses the overridden values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` values such as `URGENT`, `CRITICAL`, or `EMERGENCY`, combined with the correct `messageCategory`.
+Attention Escrow uses the final enriched values for that specific user/message. There is no category-level `bypassAttentionEscrow`; urgent or must-send policies should use `priorityClass` values such as `URGENT`, `CRITICAL`, or `EMERGENCY`, combined with the correct `messageCategory`.
 
 For auditability and future model training, category-based events are enriched before routing with:
 
@@ -263,7 +265,9 @@ For auditability and future model training, category-based events are enriched b
 - `effectivePolicy`: the final policy used for this specific send or preview
 - `policyOverrides`: boolean flags showing which category defaults were explicitly changed
 
-Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude` when the decision is scheduled or triggered through `/v1/events`. Preview requests are simulations by default and do not write `ATTENTION_DECISION` records unless `auditPreview` is explicitly set to `true`. This prevents future Attention Escrow training from blaming the whole category when a manually overridden send causes fatigue, unsubscribe, or complaint risk.
+Decision Service stores these fields in `AttentionLedger` with `overrideCount` and `overrideMagnitude` when the decision is scheduled or triggered through `/v1/events`.
+
+Preview requests are simulations by default and do not write `ATTENTION_DECISION` records unless `auditPreview` is explicitly set to `true`. This keeps KPI cards and future model training focused on real scheduled/event-driven decisions instead of admin experiments.
 
 **Event-triggered immediate notification**:
 ```json
@@ -319,7 +323,7 @@ Decision Service stores these fields in `AttentionLedger` with `overrideCount` a
 
 For backward compatibility, top-level `notificationType: "immediate"` and `notificationType: "optimized"` still work. New integrations should use `notification.deliveryMode`.
 
-`categoryId` is optional. If supplied, it must reference an active category created with `/v1/categories`. Category defaults are advisory: explicit event fields override category defaults.
+`categoryId` is optional. If supplied, it must reference an active category created with `/v1/categories`. The admin UI treats category policy as locked. Direct API callers can still override category defaults, and the backend records override audit fields.
 
 **Response 200**:
 ```json
@@ -473,6 +477,8 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
 `recommendedSendTime` is the actual UTC timestamp chosen inside `windowStart`/`windowEnd`. `probability` is the model score for that timestamp's UTC hour bucket. `sendNowTime` is the actual current request time in UTC, not `windowStart`; `sendNowProbability` is the model score for that current UTC hour bucket. If `windowStart` is in the future, send-now impact is shown as a separate immediate-send comparison, while the recommended time still stays inside the requested window.
 
 `/v1/decisions/preview` returns `previewOnly: true` by default. It does not write to `AttentionLedger`, so KPI cards and future model training are based on real scheduled/event-driven decisions instead of admin experiments. To audit previews intentionally, send `"auditPreview": true`.
+
+Scheduled recommendations avoid the current instant. The API scores send-now separately through `sendNowProbability`; `/v1/decisions/schedule` uses a future candidate slot and enforces a minimum scheduling lead time so the Schedule action does not behave like Send Now.
 
 **POST /v1/decisions/schedule** - Schedule notification
 
