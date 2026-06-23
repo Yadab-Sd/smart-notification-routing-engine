@@ -4,6 +4,10 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 
 ## [Unreleased]
 
+---
+
+## [2.2.0] - 2026-06-23
+
 ### Added
 
 - Notification category configuration API with create/list/get/update/delete endpoints
@@ -14,6 +18,13 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 - Dedicated organization-scoped category storage in the `NotificationCategories` DynamoDB table
 - Category policy defaults for delivery mode, channel policy, message category, priority, value, urgency, and scheduling window
 - Category identifiers on Attention Escrow decision and delivery records for future campaign/category reporting
+
+### Changed
+
+- Attention and Send Event forms now lock category-controlled fields when a category is selected
+- Immediate categories now focus the UI on send-now impact and hide schedule-only controls
+- Immediate categories use `maxDelayHours: 0`; optimized categories use max delay to prefill delivery windows
+- Scheduled recommendations now avoid the current instant and enforce a minimum lead time before creating schedules
 
 ---
 
