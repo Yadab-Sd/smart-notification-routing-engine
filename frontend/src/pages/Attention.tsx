@@ -359,6 +359,7 @@ const Attention = () => {
     channel: form.channel,
     sourceId: form.sourceId,
     categoryId: form.categoryId || undefined,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     messageCategory: form.messageCategory,
     priorityClass: form.priorityClass,
     businessValue: form.businessValue,
@@ -388,8 +389,11 @@ const Attention = () => {
         : await scheduleDecision(request)
 
       setResult(response)
-      if (mode === 'schedule' && response.scheduled) {
-        setActionNotice('Recommended send time scheduled.')
+      if (mode === 'schedule') {
+        if (response.scheduled) {
+          setActionNotice('Recommended send time scheduled.')
+        }
+        await loadSummary()
       }
     } catch (err: any) {
       const status = err.response?.status

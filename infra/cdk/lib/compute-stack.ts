@@ -108,7 +108,8 @@ export class ComputeStack extends Stack {
                 'ses:SendEmail',           // SES v2 email sending
                 'ses:SendRawEmail',
                 'sns:Publish',             // SNS SMS sending
-                'mobiletargeting:SendMessages'  // Pinpoint (legacy, optional)
+                'mobiletargeting:SendMessages',  // Pinpoint (legacy, optional)
+                'scheduler:DeleteSchedule' // cleanup one-time schedules after successful delivery
             ],
             resources:['*'] // Can be narrowed to specific SES identities and SNS topics
         }));

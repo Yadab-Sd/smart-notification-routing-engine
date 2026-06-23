@@ -378,6 +378,7 @@ If the user does not exist, the Control Plane can auto-create the user when the 
   "windowEnd": 1718272800,
   "channel": "EMAIL",
   "sourceId": "campaign:abandoned_cart",
+  "timezone": "America/Los_Angeles",
   "messageCategory": "MARKETING",
   "priorityClass": "LOW",
   "businessValue": 6.0,
@@ -386,6 +387,7 @@ If the user does not exist, the Control Plane can auto-create the user when the 
 ```
 
 Timestamps are Unix epoch (seconds).
+`timezone` is optional. When provided, EventBridge Scheduler uses it to format the one-time schedule expression while preserving the same absolute UTC send instant. If omitted, schedules use UTC.
 
 Attention Escrow fields are optional:
 - `sourceId`: Internal message source for trust tracking
@@ -494,6 +496,7 @@ Scheduled recommendations avoid the current instant. The API scores send-now sep
   "windowStart": 1718186400,
   "windowEnd": 1718272800,
   "channel": "SMS",
+  "timezone": "America/Los_Angeles",
   "messageCategory": "TRANSACTIONAL",
   "priorityClass": "HIGH",
   "message": "Your order is ready.",
@@ -506,6 +509,7 @@ Scheduled recommendations avoid the current instant. The API scores send-now sep
 `channel` is optional. If not specified, Sender Service uses user preference or falls back to EMAIL.
 
 Attention Escrow runs before scheduling. If the decision is `DEFER`, no EventBridge schedule is created.
+One-time EventBridge schedules are deleted by Sender Service after successful delivery, so completed sends do not leave stale schedules behind.
 
 **Response 200**:
 ```json

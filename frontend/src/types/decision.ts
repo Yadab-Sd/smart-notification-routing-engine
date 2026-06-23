@@ -9,6 +9,7 @@ export interface DecisionRequest {
   categoryId?: string
   campaignId?: string
   templateId?: string
+  timezone?: string
   messageCategory?: MessageCategory
   priorityClass?: PriorityClass
   businessValue?: number // 0.0-10.0
