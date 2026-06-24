@@ -36,7 +36,7 @@ const STRENGTH_COLORS = [
   'bg-success-600',
 ]
 
-const BULLETS = ['Sign up in 60 seconds', 'SOC 2 & GDPR compliant']
+const BULLETS = ['Sign up in 60 seconds', 'Self-hosted in your AWS account']
 
 const Register = () => {
   const { signup, isAuthenticated, isLoading: isAuthLoading } = useAuth()
@@ -150,7 +150,7 @@ const Register = () => {
 
           <div className="relative flex items-center gap-2 text-xs text-white/60">
             <ShieldCheck className="w-4 h-4" />
-            <span>SOC 2 · GDPR · ISO 27001</span>
+            <span>AWS-native · Customer-operated · Security-conscious</span>
           </div>
         </div>
 
