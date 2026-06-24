@@ -1,5 +1,11 @@
 import { apiClient } from './client'
-import type { AttentionSummaryResponse, DecisionRequest, DecisionResponse } from '@/types'
+import type {
+  AttentionSummaryResponse,
+  BatchDecisionRequest,
+  BatchDecisionResponse,
+  DecisionRequest,
+  DecisionResponse,
+} from '@/types'
 
 /**
  * Preview optimal send time without scheduling
@@ -29,6 +35,16 @@ export const scheduleDecision = async (
       ...request,
       schedule: true,
     }
+  )
+  return response.data
+}
+
+export const previewBatchDecision = async (
+  request: BatchDecisionRequest
+): Promise<BatchDecisionResponse> => {
+  const response = await apiClient.post<BatchDecisionResponse>(
+    '/v1/decisions/batch-preview',
+    request
   )
   return response.data
 }

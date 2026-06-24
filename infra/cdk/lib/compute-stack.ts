@@ -295,6 +295,12 @@ export class ComputeStack extends Stack {
             integration: decisionInteg,
             authorizer: jwtAuth
         });
+        new apigwv2.HttpRoute(this,'DecisionBatchPreview',{
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/decisions/batch-preview', apigwv2.HttpMethod.POST),
+            integration: decisionInteg,
+            authorizer: jwtAuth
+        });
         new apigwv2.HttpRoute(this,'DecisionSchedule',{
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/decisions/schedule', apigwv2.HttpMethod.POST),
