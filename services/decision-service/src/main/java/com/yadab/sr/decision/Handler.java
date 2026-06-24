@@ -52,6 +52,7 @@ import java.util.UUID;
 public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_WINDOW_HOURS = 48;
+    private static final int MAX_BATCH_PREVIEW_USERS = 100;
     private static final int MIN_SCHEDULE_LEAD_MINUTES = 5;
     private static final int SUMMARY_SCAN_PAGE_SIZE = 200;
     private static final int SUMMARY_SCAN_MAX_EVALUATED = 2_000;
@@ -88,72 +89,19 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return response(400, "{\"error\":\"Empty request body\"}");
             }
 
+            if (isBatchPreviewRequest(event)) {
+                return batchPreview(event, context);
+            }
+
             DecisionRequest req = MAPPER.readValue(event.getBody(), DecisionRequest.class);
-            String validationError = validate(req);
-            if (validationError != null) {
-                return response(400, "{\"error\":\"" + validationError + "\"}");
-            }
-
-            Map<String, AttributeValue> userItem = fetchUser(req.getUserId());
-            if (userItem == null || userItem.isEmpty()) {
+            ObjectNode responseNode;
+            try {
+                responseNode = evaluateSingleDecision(req, context);
+            } catch (UserNotFoundException e) {
                 return response(404, "{\"error\":\"User profile not found\"}");
+            } catch (IllegalArgumentException e) {
+                return response(400, "{\"error\":\"" + safeMessage(e.getMessage()) + "\"}");
             }
-
-            UserStats stats = extractStats(userItem);
-            context.getLogger().log(String.format(
-                    "User stats - Events: %d, Clicks: %d, Sends: %d, Click Rate: %.3f",
-                    stats.totalEvents, stats.totalClicks, stats.totalSends, stats.clickRate()
-            ));
-
-            SendTimeResult sendTime = findBestSendTime(req, stats, context);
-            AttentionDecision attention = evaluateAttention(req, stats, sendTime, context);
-            boolean shouldRecordDecision = Boolean.TRUE.equals(req.getSchedule()) || Boolean.TRUE.equals(req.getAuditPreview());
-            String decisionId = shouldRecordDecision
-                    ? recordAttentionDecision(req, stats, sendTime, attention, context)
-                    : "preview_" + UUID.randomUUID();
-
-            ObjectNode responseNode = MAPPER.createObjectNode();
-            responseNode.put("userId", req.getUserId());
-            if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
-                responseNode.put("categoryId", req.getCategoryId());
-            }
-            responseNode.put("hour", sendTime.bestHour);
-            responseNode.put("probability", round(sendTime.bestScore));
-            responseNode.put("modelSource", sendTime.modelSource);
-            responseNode.put("modelConfidence", modelConfidence(sendTime.modelSource));
-            responseNode.put("modelExplanation", modelExplanation(sendTime.modelSource));
-            responseNode.put("recommendedSendTime", sendTime.recommendedTime.toString());
-            responseNode.put("sendNowTime", sendTime.sendNowTime.toString());
-            responseNode.put("sendNowHour", sendTime.sendNowHour);
-            responseNode.put("sendNowProbability", round(sendTime.sendNowScore));
-            responseNode.put("attentionDecision", attention.decision);
-            responseNode.put("attentionCost", round(attention.cost));
-            responseNode.put("attentionValue", round(attention.value));
-            responseNode.put("attentionMargin", round(attention.margin));
-            responseNode.put("attentionReason", attention.reason);
-            responseNode.put("fatigueScore", round(attention.fatigueScore));
-            responseNode.put("sourceTrustScore", round(attention.sourceTrustScore));
-            responseNode.put("sourceId", attention.sourceId);
-            responseNode.put("decisionId", decisionId);
-            responseNode.put("previewOnly", !shouldRecordDecision);
-            putObject(responseNode, "categoryDefaults", req.getCategoryDefaults());
-            putObject(responseNode, "effectivePolicy", effectivePolicy(req));
-            putObject(responseNode, "policyOverrides", req.getPolicyOverrides());
-            responseNode.put("overrideCount", overrideCount(req.getPolicyOverrides()));
-            responseNode.put("overrideMagnitude", round(overrideMagnitude(req)));
-            responseNode.put("scheduled", false);
-
-            if (Boolean.TRUE.equals(req.getSchedule())) {
-                if (!"SEND".equals(attention.decision)) {
-                    responseNode.put("scheduleSkippedReason", attention.reason);
-                } else if (sendTime.bestHour >= 0) {
-                    ScheduleResult schedule = scheduleSend(req, sendTime, decisionId, attention);
-                    responseNode.put("scheduled", true);
-                    responseNode.put("scheduleId", schedule.scheduleName);
-                    responseNode.put("scheduledTime", schedule.scheduledTime);
-                }
-            }
-
             return response(200, MAPPER.writeValueAsString(responseNode));
         } catch (Exception e) {
             context.getLogger().log("Error in decision handler: " + e.getMessage());
@@ -167,6 +115,155 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 ? event.getRequestContext().getHttp().getMethod()
                 : "";
         return "GET".equalsIgnoreCase(method) && "/v1/attention/summary".equals(event.getRawPath());
+    }
+
+    private boolean isBatchPreviewRequest(APIGatewayV2HTTPEvent event) {
+        String method = event.getRequestContext() != null && event.getRequestContext().getHttp() != null
+                ? event.getRequestContext().getHttp().getMethod()
+                : "";
+        return "POST".equalsIgnoreCase(method) && "/v1/decisions/batch-preview".equals(event.getRawPath());
+    }
+
+    private APIGatewayV2HTTPResponse batchPreview(APIGatewayV2HTTPEvent event, Context context) throws Exception {
+        BatchDecisionRequest batch = MAPPER.readValue(event.getBody(), BatchDecisionRequest.class);
+        String validationError = validateBatch(batch);
+        if (validationError != null) {
+            return response(400, "{\"error\":\"" + validationError + "\"}");
+        }
+
+        ArrayNode results = MAPPER.createArrayNode();
+        BatchPreviewStats stats = new BatchPreviewStats();
+        String modelSource = null;
+        String modelConfidence = null;
+
+        for (String rawUserId : batch.getUserIds()) {
+            String userId = rawUserId == null ? "" : rawUserId.trim();
+            if (userId.isBlank()) {
+                continue;
+            }
+
+            DecisionRequest req = batch.toDecisionRequest(userId);
+            try {
+                ObjectNode decision = evaluateSingleDecision(req, context);
+                decision.put("status", "PREVIEWED");
+                results.add(decision);
+                stats.addDecision(decision);
+                if (modelSource == null && decision.hasNonNull("modelSource")) {
+                    modelSource = decision.get("modelSource").asText();
+                    modelConfidence = decision.path("modelConfidence").asText(null);
+                }
+            } catch (UserNotFoundException e) {
+                ObjectNode missing = MAPPER.createObjectNode();
+                missing.put("userId", userId);
+                missing.put("status", "USER_NOT_FOUND");
+                missing.put("previewOnly", true);
+                missing.put("attentionDecision", "SKIPPED");
+                missing.put("attentionReason", "User profile not found");
+                results.add(missing);
+                stats.notFoundCount++;
+            }
+        }
+
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("campaignId", batch.getCampaignId());
+        if (batch.getCategoryId() != null && !batch.getCategoryId().isBlank()) {
+            body.put("categoryId", batch.getCategoryId());
+        }
+        body.put("sourceId", batch.sourceId());
+        body.put("previewOnly", true);
+        body.put("recipientCount", stats.totalCount());
+        body.put("previewedCount", stats.previewedCount);
+        body.put("sendCount", stats.sendCount);
+        body.put("deferCount", stats.deferCount);
+        body.put("notFoundCount", stats.notFoundCount);
+        body.put("sendRate", round(stats.rate(stats.sendCount)));
+        body.put("deferRate", round(stats.rate(stats.deferCount)));
+        body.put("avgAttentionCost", round(stats.avg(stats.costSum)));
+        body.put("avgAttentionValue", round(stats.avg(stats.valueSum)));
+        body.put("avgFatigueScore", round(stats.avg(stats.fatigueSum)));
+        body.put("avgProbability", round(stats.avg(stats.probabilitySum)));
+        body.put("estimatedAttentionSaved", round(stats.deferredCostSum));
+        if (modelSource != null) {
+            body.put("modelSource", modelSource);
+            body.put("modelConfidence", modelConfidence);
+            body.put("modelExplanation", modelExplanation(modelSource));
+        }
+        body.put("recommendation", stats.recommendation());
+        body.set("results", results);
+
+        return response(200, MAPPER.writeValueAsString(body));
+    }
+
+    private ObjectNode evaluateSingleDecision(DecisionRequest req, Context context) throws Exception {
+        String validationError = validate(req);
+        if (validationError != null) {
+            throw new IllegalArgumentException(validationError);
+        }
+
+        Map<String, AttributeValue> userItem = fetchUser(req.getUserId());
+        if (userItem == null || userItem.isEmpty()) {
+            throw new UserNotFoundException(req.getUserId());
+        }
+
+        UserStats stats = extractStats(userItem);
+        context.getLogger().log(String.format(
+                "User stats - Events: %d, Clicks: %d, Sends: %d, Click Rate: %.3f",
+                stats.totalEvents, stats.totalClicks, stats.totalSends, stats.clickRate()
+        ));
+
+        SendTimeResult sendTime = findBestSendTime(req, stats, context);
+        AttentionDecision attention = evaluateAttention(req, stats, sendTime, context);
+        boolean shouldRecordDecision = Boolean.TRUE.equals(req.getSchedule()) || Boolean.TRUE.equals(req.getAuditPreview());
+        String decisionId = shouldRecordDecision
+                ? recordAttentionDecision(req, stats, sendTime, attention, context)
+                : "preview_" + UUID.randomUUID();
+
+        ObjectNode responseNode = MAPPER.createObjectNode();
+        responseNode.put("userId", req.getUserId());
+        if (req.getCampaignId() != null && !req.getCampaignId().isBlank()) {
+            responseNode.put("campaignId", req.getCampaignId());
+        }
+        if (req.getCategoryId() != null && !req.getCategoryId().isBlank()) {
+            responseNode.put("categoryId", req.getCategoryId());
+        }
+        responseNode.put("hour", sendTime.bestHour);
+        responseNode.put("probability", round(sendTime.bestScore));
+        responseNode.put("modelSource", sendTime.modelSource);
+        responseNode.put("modelConfidence", modelConfidence(sendTime.modelSource));
+        responseNode.put("modelExplanation", modelExplanation(sendTime.modelSource));
+        responseNode.put("recommendedSendTime", sendTime.recommendedTime.toString());
+        responseNode.put("sendNowTime", sendTime.sendNowTime.toString());
+        responseNode.put("sendNowHour", sendTime.sendNowHour);
+        responseNode.put("sendNowProbability", round(sendTime.sendNowScore));
+        responseNode.put("attentionDecision", attention.decision);
+        responseNode.put("attentionCost", round(attention.cost));
+        responseNode.put("attentionValue", round(attention.value));
+        responseNode.put("attentionMargin", round(attention.margin));
+        responseNode.put("attentionReason", attention.reason);
+        responseNode.put("fatigueScore", round(attention.fatigueScore));
+        responseNode.put("sourceTrustScore", round(attention.sourceTrustScore));
+        responseNode.put("sourceId", attention.sourceId);
+        responseNode.put("decisionId", decisionId);
+        responseNode.put("previewOnly", !shouldRecordDecision);
+        putObject(responseNode, "categoryDefaults", req.getCategoryDefaults());
+        putObject(responseNode, "effectivePolicy", effectivePolicy(req));
+        putObject(responseNode, "policyOverrides", req.getPolicyOverrides());
+        responseNode.put("overrideCount", overrideCount(req.getPolicyOverrides()));
+        responseNode.put("overrideMagnitude", round(overrideMagnitude(req)));
+        responseNode.put("scheduled", false);
+
+        if (Boolean.TRUE.equals(req.getSchedule())) {
+            if (!"SEND".equals(attention.decision)) {
+                responseNode.put("scheduleSkippedReason", attention.reason);
+            } else if (sendTime.bestHour >= 0) {
+                ScheduleResult schedule = scheduleSend(req, sendTime, decisionId, attention);
+                responseNode.put("scheduled", true);
+                responseNode.put("scheduleId", schedule.scheduleName);
+                responseNode.put("scheduledTime", schedule.scheduledTime);
+            }
+        }
+
+        return responseNode;
     }
 
     private APIGatewayV2HTTPResponse attentionSummary(APIGatewayV2HTTPEvent event) throws Exception {
@@ -345,6 +442,21 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         );
         if (hours > MAX_WINDOW_HOURS) {
             return "Window too large - max 48 hours";
+        }
+        return null;
+    }
+
+    private String validateBatch(BatchDecisionRequest req) {
+        if (req.getUserIds() == null || req.getUserIds().isEmpty()) {
+            return "userIds is required";
+        }
+        if (req.getUserIds().size() > MAX_BATCH_PREVIEW_USERS) {
+            return "Batch preview supports at most " + MAX_BATCH_PREVIEW_USERS + " users";
+        }
+        DecisionRequest probe = req.toDecisionRequest(firstNonBlank(req.getUserIds()));
+        String validationError = validate(probe);
+        if (validationError != null && !validationError.equals("userId is required")) {
+            return validationError;
         }
         return null;
     }
@@ -988,8 +1100,24 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return value == null || value.isBlank() ? fallback : value.trim().toUpperCase();
     }
 
+    private static String firstNonBlank(List<String> values) {
+        if (values == null) {
+            return "";
+        }
+        return values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("");
+    }
+
     private static String safeMessage(String value) {
         return value == null ? "Internal server error" : value.replace("\"", "'");
+    }
+
+    private static class UserNotFoundException extends Exception {
+        UserNotFoundException(String userId) {
+            super(userId);
+        }
     }
 
     private record SendTimeResult(
@@ -1099,6 +1227,61 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private static class BatchPreviewStats {
+        private int previewedCount;
+        private int sendCount;
+        private int deferCount;
+        private int notFoundCount;
+        private double costSum;
+        private double valueSum;
+        private double fatigueSum;
+        private double probabilitySum;
+        private double deferredCostSum;
+
+        private void addDecision(ObjectNode decision) {
+            previewedCount++;
+            String outcome = decision.path("attentionDecision").asText();
+            if ("SEND".equals(outcome)) {
+                sendCount++;
+            } else if ("DEFER".equals(outcome)) {
+                deferCount++;
+                deferredCostSum += decision.path("attentionCost").asDouble(0.0);
+            }
+            costSum += decision.path("attentionCost").asDouble(0.0);
+            valueSum += decision.path("attentionValue").asDouble(0.0);
+            fatigueSum += decision.path("fatigueScore").asDouble(0.0);
+            probabilitySum += decision.path("probability").asDouble(0.0);
+        }
+
+        private int totalCount() {
+            return previewedCount + notFoundCount;
+        }
+
+        private double avg(double sum) {
+            return previewedCount == 0 ? 0.0 : sum / previewedCount;
+        }
+
+        private double rate(int count) {
+            return previewedCount == 0 ? 0.0 : (double) count / previewedCount;
+        }
+
+        private String recommendation() {
+            if (previewedCount == 0) {
+                return "No valid user profiles were available for this batch preview.";
+            }
+            if (rate(deferCount) > 0.40 && avg(valueSum) <= avg(costSum) + 1.0) {
+                return "High defer rate: review category value, targeting, or send frequency before launching this campaign.";
+            }
+            if (avg(fatigueSum) > 0.55) {
+                return "Audience fatigue is elevated: consider narrowing the audience or using a longer delivery window.";
+            }
+            if (rate(sendCount) > 0.75 && avg(valueSum) > avg(costSum)) {
+                return "Batch looks healthy: most recipients clear the attention gate with value above cost.";
+            }
+            return "Mixed batch: inspect deferred users and timing distribution before sending.";
+        }
+    }
+
     private static <T extends Enum<T>> T enumValue(String value, Class<T> enumType, T fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
@@ -1201,5 +1384,106 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             Object value = audit.get(key);
             return value instanceof Map<?, ?> ? (Map<String, Object>) value : null;
         }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class BatchDecisionRequest {
+        private String campaignId;
+        private String categoryId;
+        private List<String> userIds;
+        private long windowStart;
+        private long windowEnd;
+        private String channel;
+        private String sourceId;
+        private String templateId;
+        private String notificationType;
+        private String timezone;
+        private String messageCategory;
+        private String priorityClass;
+        private Double businessValue;
+        private Double urgency;
+        private String message;
+        private Map<String, Object> metadata;
+        private Map<String, Object> categoryDefaults;
+        private Map<String, Object> effectivePolicy;
+        private Map<String, Object> policyOverrides;
+
+        private DecisionRequest toDecisionRequest(String userId) {
+            DecisionRequest req = new DecisionRequest();
+            req.setUserId(userId);
+            req.setWindowStart(windowStart);
+            req.setWindowEnd(windowEnd);
+            req.setSchedule(false);
+            req.setAuditPreview(false);
+            req.setChannel(channel);
+            req.setSourceId(sourceId());
+            req.setCategoryId(categoryId);
+            req.setCampaignId(campaignId);
+            req.setTemplateId(templateId);
+            req.setNotificationType(notificationType);
+            req.setTimezone(timezone);
+            req.setMessageCategory(messageCategory);
+            req.setPriorityClass(priorityClass);
+            req.setBusinessValue(businessValue);
+            req.setUrgency(urgency);
+            req.setMessage(message);
+            req.setMetadata(metadata);
+            req.setCategoryDefaults(categoryDefaults);
+            req.setEffectivePolicy(effectivePolicy);
+            req.setPolicyOverrides(policyOverrides);
+            return req;
+        }
+
+        private String sourceId() {
+            if (sourceId != null && !sourceId.isBlank()) {
+                return sourceId;
+            }
+            if (campaignId != null && !campaignId.isBlank()) {
+                return "campaign:" + campaignId;
+            }
+            if (categoryId != null && !categoryId.isBlank()) {
+                return "category:" + categoryId;
+            }
+            return "campaign:batch-preview";
+        }
+
+        public String getCampaignId() { return campaignId; }
+        public void setCampaignId(String campaignId) { this.campaignId = campaignId; }
+        public String getCategoryId() { return categoryId; }
+        public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
+        public List<String> getUserIds() { return userIds; }
+        public void setUserIds(List<String> userIds) { this.userIds = userIds; }
+        public long getWindowStart() { return windowStart; }
+        public void setWindowStart(long windowStart) { this.windowStart = windowStart; }
+        public long getWindowEnd() { return windowEnd; }
+        public void setWindowEnd(long windowEnd) { this.windowEnd = windowEnd; }
+        public String getChannel() { return channel; }
+        public void setChannel(String channel) { this.channel = channel; }
+        public String getSourceId() { return sourceId; }
+        public void setSourceId(String sourceId) { this.sourceId = sourceId; }
+        public String getTemplateId() { return templateId; }
+        public void setTemplateId(String templateId) { this.templateId = templateId; }
+        public String getNotificationType() { return notificationType; }
+        public void setNotificationType(String notificationType) { this.notificationType = notificationType; }
+        public String getTimezone() { return timezone; }
+        public void setTimezone(String timezone) { this.timezone = timezone; }
+        public String getMessageCategory() { return messageCategory; }
+        public void setMessageCategory(String messageCategory) { this.messageCategory = messageCategory; }
+        public String getPriorityClass() { return priorityClass; }
+        public void setPriorityClass(String priorityClass) { this.priorityClass = priorityClass; }
+        public Double getBusinessValue() { return businessValue; }
+        public void setBusinessValue(Double businessValue) { this.businessValue = businessValue; }
+        public Double getUrgency() { return urgency; }
+        public void setUrgency(Double urgency) { this.urgency = urgency; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public Map<String, Object> getMetadata() { return metadata; }
+        public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+        public Map<String, Object> getCategoryDefaults() { return categoryDefaults; }
+        public void setCategoryDefaults(Map<String, Object> categoryDefaults) { this.categoryDefaults = categoryDefaults; }
+        public Map<String, Object> getEffectivePolicy() { return effectivePolicy; }
+        public void setEffectivePolicy(Map<String, Object> effectivePolicy) { this.effectivePolicy = effectivePolicy; }
+        public Map<String, Object> getPolicyOverrides() { return policyOverrides; }
+        public void setPolicyOverrides(Map<String, Object> policyOverrides) { this.policyOverrides = policyOverrides; }
     }
 }

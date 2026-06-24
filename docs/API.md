@@ -487,6 +487,78 @@ Do not use `notificationType` for Attention Escrow category. In the event ingest
 
 Scheduled recommendations avoid the current instant. The API scores send-now separately through `sendNowProbability`; `/v1/decisions/schedule` uses a future candidate slot and enforces a minimum scheduling lead time so the Schedule action does not behave like Send Now.
 
+**POST /v1/decisions/batch-preview** - Preview Attention Escrow decisions for a campaign draft
+
+This endpoint is the MVP campaign workflow. It previews multiple users at once, returns a campaign-level summary, and does **not** schedule sends or write `AttentionLedger` records. Use it before launching a batch/campaign to see how many users would send, defer, or fail because the profile does not exist.
+
+Current MVP limit: 100 users per request.
+
+The admin Campaigns page uses this endpoint first, then launches previewed users through the existing `/v1/events` endpoint. By default, only `SEND` users are launched and `DEFER`/missing users are skipped. If deferred users exist, the UI can show an admin override checkbox to include them deliberately. `Send now` submits `deliveryMode: "IMMEDIATE"`. `Schedule optimized` submits `deliveryMode: "OPTIMIZED"` and lets the normal event-consumer/Decision-Service flow create schedules.
+
+**Request**:
+```json
+{
+  "campaignId": "renewal_reminder_june",
+  "categoryId": "renewal_reminder",
+  "userIds": ["user_123", "user_456", "user_789"],
+  "windowStart": 1782345600,
+  "windowEnd": 1782432000,
+  "channel": "EMAIL",
+  "messageCategory": "TRANSACTIONAL",
+  "priorityClass": "STANDARD",
+  "businessValue": 7.0,
+  "urgency": 0.6,
+  "message": "Your renewal date is coming up."
+}
+```
+
+`categoryId` is optional but recommended for real campaign previews. When a category is selected in the admin UI, category policy fields are locked and sent as the effective policy for auditability.
+
+**Response 200**:
+```json
+{
+  "campaignId": "renewal_reminder_june",
+  "categoryId": "renewal_reminder",
+  "sourceId": "campaign:renewal_reminder_june",
+  "previewOnly": true,
+  "recipientCount": 3,
+  "previewedCount": 2,
+  "sendCount": 2,
+  "deferCount": 0,
+  "notFoundCount": 1,
+  "sendRate": 1.0,
+  "deferRate": 0.0,
+  "avgAttentionCost": 2.35,
+  "avgAttentionValue": 6.12,
+  "avgFatigueScore": 0.18,
+  "avgProbability": 0.71,
+  "estimatedAttentionSaved": 0.0,
+  "modelSource": "FALLBACK_HEURISTIC",
+  "modelConfidence": "LOW_STARTUP_ESTIMATE",
+  "recommendation": "Batch looks healthy: most recipients clear the attention gate with value above cost.",
+  "results": [
+    {
+      "userId": "user_123",
+      "status": "PREVIEWED",
+      "attentionDecision": "SEND",
+      "recommendedSendTime": "2026-06-24T16:00:00Z",
+      "probability": 0.74,
+      "attentionCost": 2.1,
+      "attentionValue": 6.4,
+      "attentionReason": "Predicted value exceeds attention cost",
+      "previewOnly": true
+    },
+    {
+      "userId": "user_789",
+      "status": "USER_NOT_FOUND",
+      "attentionDecision": "SKIPPED",
+      "attentionReason": "User profile not found",
+      "previewOnly": true
+    }
+  ]
+}
+```
+
 **POST /v1/decisions/schedule** - Schedule notification
 
 **Request**:

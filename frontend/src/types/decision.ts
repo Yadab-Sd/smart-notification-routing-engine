@@ -54,6 +54,54 @@ export interface DecisionResponse {
   scheduleSkippedReason?: string
 }
 
+export interface BatchDecisionRequest {
+  campaignId: string
+  categoryId?: string
+  userIds: string[]
+  windowStart: number
+  windowEnd: number
+  channel?: 'AUTO' | 'EMAIL' | 'SMS' | 'PUSH'
+  sourceId?: string
+  templateId?: string
+  notificationType?: string
+  timezone?: string
+  messageCategory?: MessageCategory
+  priorityClass?: PriorityClass
+  businessValue?: number
+  urgency?: number
+  message?: string
+  metadata?: Record<string, unknown>
+  categoryDefaults?: Record<string, unknown>
+  effectivePolicy?: Record<string, unknown>
+  policyOverrides?: Record<string, boolean>
+}
+
+export interface BatchDecisionResponse {
+  campaignId: string
+  categoryId?: string
+  sourceId: string
+  previewOnly: boolean
+  recipientCount: number
+  previewedCount: number
+  sendCount: number
+  deferCount: number
+  notFoundCount: number
+  sendRate: number
+  deferRate: number
+  avgAttentionCost: number
+  avgAttentionValue: number
+  avgFatigueScore: number
+  avgProbability: number
+  estimatedAttentionSaved: number
+  modelSource?: 'SAGEMAKER' | 'FALLBACK_HEURISTIC'
+  modelConfidence?: 'TRAINED_MODEL' | 'LOW_STARTUP_ESTIMATE'
+  modelExplanation?: string
+  recommendation: string
+  results: Array<DecisionResponse & {
+    status: 'PREVIEWED' | 'USER_NOT_FOUND'
+  }>
+}
+
 export interface AttentionSummaryResponse {
   scope: {
     sourceId: string

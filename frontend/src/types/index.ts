@@ -3,6 +3,8 @@ export type { User, UserPreferences, UserProfileResponse } from './user'
 export type { EventType, UserEvent, EventIngestionRequest } from './event'
 export type {
   AttentionSummaryResponse,
+  BatchDecisionRequest,
+  BatchDecisionResponse,
   DecisionRequest,
   DecisionResponse,
   MessageCategory,
