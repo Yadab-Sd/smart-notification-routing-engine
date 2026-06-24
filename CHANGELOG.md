@@ -6,6 +6,39 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 
 ---
 
+## [2.3.0] - 2026-06-24
+
+### Added
+
+- Campaign batch preview API: `POST /v1/decisions/batch-preview`
+- Campaign draft workbench for previewing multiple users before launch
+- Campaign-level Attention Escrow summary with send/defer/not-found counts, average value/cost, fatigue, probability, attention saved, and recommendation
+- Campaign launch actions from preview through the existing `/v1/events` flow
+- Admin override checkbox for deliberately including deferred users in campaign launch
+- `modelSource`, `modelConfidence`, and explanatory startup heuristic messaging when SageMaker send-time endpoint is unavailable
+- Optional nightly ML pipeline EventBridge schedule configuration
+
+### Changed
+
+- Campaigns page now uses real preview and launch workflows instead of static demo rows
+- Decision Service now has a shared single-decision evaluation path used by preview, schedule, and batch preview
+- Frontend registration and adoption-facing documentation now avoid certification/compliance promises and clarify adopter responsibilities
+- Frontend stack output now surfaces the configured custom frontend domain when available
+
+### Fixed
+
+- Scheduled recommendations avoid immediate/current-time execution and enforce a minimum lead time
+- Sender Service deletes completed one-time EventBridge schedules after delivery
+- Native select dropdown rendering is used to avoid displaced option menus
+
+### Compatibility
+
+- **Backward Compatible**: Yes. Existing `/v1/events`, `/v1/decisions/preview`, and `/v1/decisions/schedule` clients continue to work.
+- **CDK Deploy Required**: Yes, because this release adds the `/v1/decisions/batch-preview` API route and ML schedule configuration.
+- **Recommended Version Type**: Minor release, because the release adds campaign/batch capabilities without intentionally removing existing behavior.
+
+---
+
 ## [2.2.0] - 2026-06-23
 
 ### Added
