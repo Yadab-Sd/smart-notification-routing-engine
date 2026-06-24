@@ -537,9 +537,9 @@ CloudWatch-based monitoring.
 ---
 
 ### 18. Security Features
-**Status**: ✅ Production Ready
+**Status**: ✅ Implemented Core Controls
 
-Enterprise-grade security.
+AWS-native security controls for self-hosted deployments.
 
 **Features**:
 - ✅ KMS encryption (S3, DynamoDB, Kinesis)
@@ -550,10 +550,12 @@ Enterprise-grade security.
 - ✅ Secrets in environment variables (not code)
 - ✅ Input validation (email format, phone E.164)
 
-**Compliance**:
-- ✅ CAN-SPAM Act (bounce/complaint handling)
-- ✅ GDPR (data minimization, TTL deletion)
-- ✅ SOC 2 (audit logs, encryption)
+**Compliance-supporting controls**:
+- ✅ SES bounce/complaint handling for suppression workflows
+- ✅ Data minimization and TTL-based deletion options
+- ✅ Audit logs and encryption controls that adopters can map to their own policies
+
+Adopting organizations remain responsible for legal and regulatory compliance.
 
 ---
 
