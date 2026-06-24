@@ -120,7 +120,8 @@ Patient books appointment via your portal
   → Your system sends event to Intelligent Routing Engine
   → System auto-creates user profile (userId, phone)
   → Sends appointment reminder SMS (TPO use)
-  → HIPAA compliant (operational necessity)
+  → May support a compliant workflow if your organization has the required consent,
+    policies, AWS agreements, and operational controls in place
 ```
 
 ---

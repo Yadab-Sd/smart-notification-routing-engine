@@ -278,7 +278,8 @@ This system aligns with federal initiatives:
 **This System Contributes**:
 - Secure notification delivery for security incidents
 - Real-time fraud alert optimization
-- HIPAA-compliant healthcare communication
+- Healthcare communication workflows that can be configured under the adopting
+  organization's compliance controls
 
 **Source**: [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
 
