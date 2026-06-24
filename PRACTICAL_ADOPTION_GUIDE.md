@@ -258,7 +258,7 @@ AWS requires:
 
 **Pros**:
 - ✅ Full data sovereignty (they own account)
-- ✅ HIPAA/GDPR compliant
+- ✅ Stronger control over data residency, access, and compliance review
 - ✅ Easy transition to production after pilot
 
 **Cons**:

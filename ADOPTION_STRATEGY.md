@@ -106,7 +106,7 @@ Enterprise: Custom
 - Unlimited volume
 - White-label options
 - Dedicated support
-- SLA guarantees
+- Service-level terms only if supported by a separate managed-service agreement
 - Custom ML models
 ```
 
@@ -217,7 +217,8 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 
 **Key Messages:**
 - 40-60% higher engagement = better medication adherence
-- HIPAA-compliant (when deployed to customer AWS)
+- Customer-owned AWS deployment; healthcare compliance must be reviewed and operated
+  by the adopting organization
 - Reduces no-show rates for appointments
 - Improves chronic disease management
 
@@ -275,7 +276,8 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 
 **Objection Handling:**
 - "Already using Klaviyo/Braze?" → Complementary, not replacement - optimizes WHEN to send
-- "Implementation time?" → 2-hour setup, production-ready day 1
+- "Implementation time?" → Guided setup can be quick; production readiness depends on
+  the adopter's AWS, sender approval, data, security, and compliance review
 - "ROI?" → ROI calculator, pilot program to prove value first
 
 ---
@@ -300,8 +302,8 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 **Managed SaaS**: $99-$999+/month
 - Hosted version (no AWS account needed)
 - Usage-based pricing
-- SLA guarantees
-- Compliance certifications (SOC 2, HIPAA)
+- Service-level terms only if separately offered
+- Compliance certifications would require separate organizational review and audit
 
 **Enterprise Licensing**: Custom
 - White-label rights
