@@ -14,6 +14,7 @@ import { Construct } from 'constructs'
 
 export class FrontendStack extends Stack {
   public readonly distributionUrl: string
+  public readonly websiteUrl: string
   public readonly bucketName: string
 
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -96,12 +97,19 @@ export class FrontendStack extends Stack {
     const distribution = new cloudfront.Distribution(this, 'Distribution', distributionConfig)
 
     this.distributionUrl = `https://${distribution.distributionDomainName}`
+    this.websiteUrl = customDomain ? `https://${customDomain}` : this.distributionUrl
     this.bucketName = websiteBucket.bucketName
 
     new CfnOutput(this, 'WebsiteURL', {
+      value: this.websiteUrl,
+      description: 'Primary frontend URL',
+      exportName: 'SR-Frontend-URL',
+    })
+
+    new CfnOutput(this, 'CloudFrontURL', {
       value: this.distributionUrl,
       description: 'CloudFront distribution URL',
-      exportName: 'SR-Frontend-URL',
+      exportName: 'SR-Frontend-CloudFrontURL',
     })
 
     new CfnOutput(this, 'BucketName', {
