@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import Layout from '@/components/common/Layout'
 import { listCategories } from '@/api/categories'
-import { previewBatchDecision } from '@/api/decisions'
+import { createCampaign, deleteCampaign, listCampaigns, listCampaignLaunches, recordCampaignLaunch, updateCampaign } from '@/api/campaigns'
+import { getAttentionSummary, previewBatchDecision } from '@/api/decisions'
 import { ingestNotificationEvent } from '@/api/events'
 import type {
+  AttentionSummaryResponse,
+  Campaign,
   BatchDecisionResponse,
+  CampaignLaunch,
   DecisionResponse,
   MessageCategory,
   NotificationCategory,
@@ -21,6 +25,10 @@ import {
   ShieldCheck,
   Users,
   Send,
+  Activity,
+  Save,
+  Trash2,
+  Edit3,
 } from 'lucide-react'
 
 const nowSeconds = () => Math.floor(Date.now() / 1000)
@@ -47,6 +55,8 @@ const timeLabel = (value?: string) => {
   }).format(new Date(value))
 }
 
+const campaignSourceId = (campaignId: string) => `campaign:${campaignId.trim()}`
+
 const categoryDefaults = (category?: NotificationCategory) => {
   if (!category) return undefined
   return {
@@ -61,10 +71,23 @@ const categoryDefaults = (category?: NotificationCategory) => {
   }
 }
 
+const normalizeError = (err: unknown) => {
+  const maybe = err as { response?: { data?: { error?: string; message?: string }; status?: number }; message?: string }
+  const apiMessage = maybe.response?.data?.error || maybe.response?.data?.message
+  if (apiMessage && maybe.response?.status) return `${maybe.response.status}: ${apiMessage}`
+  return apiMessage || maybe.message || 'Request failed'
+}
+
 const Campaigns = () => {
   const [categories, setCategories] = useState<NotificationCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [savedCampaigns, setSavedCampaigns] = useState<Campaign[]>([])
+  const [campaignsLoading, setCampaignsLoading] = useState(false)
+  const [selectedCampaignId, setSelectedCampaignId] = useState('')
+  const [savingCampaign, setSavingCampaign] = useState(false)
   const [campaignId, setCampaignId] = useState('pilot-campaign')
+  const [campaignName, setCampaignName] = useState('Pilot Campaign')
+  const [campaignDescription, setCampaignDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [userIdsText, setUserIdsText] = useState('pilot_user_1\npilot_user_2\npilot_user_3')
   const [message, setMessage] = useState('A helpful reminder from your organization.')
@@ -82,10 +105,29 @@ const Campaigns = () => {
   const [error, setError] = useState('')
   const [launchNotice, setLaunchNotice] = useState('')
   const [includeDeferred, setIncludeDeferred] = useState(false)
+  const [launches, setLaunches] = useState<CampaignLaunch[]>([])
+  const [launchesLoading, setLaunchesLoading] = useState(false)
+  const [outcomeLoadingSource, setOutcomeLoadingSource] = useState<string | null>(null)
+  const [selectedOutcome, setSelectedOutcome] = useState<{
+    launch: CampaignLaunch
+    summary: AttentionSummaryResponse
+  } | null>(null)
 
   const selectedCategory = categories.find((category) => category.categoryId === categoryId)
   const userIds = useMemo(() => uniqueUserIds(userIdsText), [userIdsText])
   const policyLocked = Boolean(selectedCategory)
+
+  const loadCampaigns = async () => {
+    setCampaignsLoading(true)
+    try {
+      const data = await listCampaigns()
+      setSavedCampaigns(data.campaigns || [])
+    } catch (err) {
+      console.warn('Unable to load campaigns', err)
+    } finally {
+      setCampaignsLoading(false)
+    }
+  }
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -100,6 +142,23 @@ const Campaigns = () => {
       }
     }
     loadCategories()
+    loadCampaigns()
+  }, [])
+
+  const loadLaunches = async () => {
+    setLaunchesLoading(true)
+    try {
+      const data = await listCampaignLaunches({ limit: 10 })
+      setLaunches(data.launches || [])
+    } catch (err) {
+      console.warn('Unable to load campaign launches', err)
+    } finally {
+      setLaunchesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadLaunches()
   }, [])
 
   const applyCategory = (nextCategoryId: string) => {
@@ -112,6 +171,93 @@ const Campaigns = () => {
     setBusinessValue(category.businessValue)
     setUrgency(category.urgency)
     setMaxDelayHours(category.defaultDeliveryMode === 'IMMEDIATE' ? 0 : category.maxDelayHours || 24)
+  }
+
+  const campaignPayload = (): Campaign => ({
+    campaignId: campaignId.trim(),
+    name: campaignName.trim(),
+    description: campaignDescription.trim(),
+    categoryId: selectedCategory?.categoryId || categoryId || undefined,
+    eventType: eventType.trim() || 'CAMPAIGN_NOTIFICATION',
+    subject: subject.trim(),
+    message: message.trim(),
+    channel,
+    messageCategory,
+    priorityClass,
+    businessValue: Number(businessValue),
+    urgency: Number(urgency),
+    maxDelayHours: selectedCategory?.defaultDeliveryMode === 'IMMEDIATE' ? 0 : Number(maxDelayHours),
+    defaultDeliveryMode: selectedCategory?.defaultDeliveryMode || 'OPTIMIZED',
+    active: true,
+  })
+
+  const loadSavedCampaign = (campaign: Campaign) => {
+    setSelectedCampaignId(campaign.campaignId)
+    setCampaignId(campaign.campaignId)
+    setCampaignName(campaign.name)
+    setCampaignDescription(campaign.description || '')
+    setCategoryId(campaign.categoryId || '')
+    setEventType(campaign.eventType || 'CAMPAIGN_NOTIFICATION')
+    setSubject(campaign.subject || '')
+    setMessage(campaign.message)
+    setChannel(campaign.channel)
+    setMessageCategory(campaign.messageCategory)
+    setPriorityClass(campaign.priorityClass)
+    setBusinessValue(campaign.businessValue)
+    setUrgency(campaign.urgency)
+    setMaxDelayHours(campaign.defaultDeliveryMode === 'IMMEDIATE' ? 0 : campaign.maxDelayHours || 24)
+    setPreview(null)
+    setLaunchNotice('')
+    setError('')
+  }
+
+  const saveCampaign = async () => {
+    setError('')
+    setLaunchNotice('')
+    const payload = campaignPayload()
+    if (!payload.campaignId) {
+      setError('Campaign ID is required before saving.')
+      return
+    }
+    if (!payload.name) {
+      setError('Campaign name is required before saving.')
+      return
+    }
+    if (!payload.message) {
+      setError('Campaign message is required before saving.')
+      return
+    }
+
+    setSavingCampaign(true)
+    try {
+      const exists = savedCampaigns.some((campaign) => campaign.campaignId === payload.campaignId)
+      const saved = exists
+        ? await updateCampaign(payload.campaignId, payload)
+        : await createCampaign(payload)
+      setSelectedCampaignId(saved.campaignId)
+      await loadCampaigns()
+      setLaunchNotice(exists ? 'Campaign updated.' : 'Campaign saved.')
+    } catch (err) {
+      setError(normalizeError(err))
+    } finally {
+      setSavingCampaign(false)
+    }
+  }
+
+  const removeCampaign = async (campaign: Campaign) => {
+    if (!window.confirm(`Delete saved campaign "${campaign.name}"? Launch history will remain.`)) return
+    setError('')
+    setLaunchNotice('')
+    try {
+      await deleteCampaign(campaign.campaignId)
+      await loadCampaigns()
+      if (selectedCampaignId === campaign.campaignId) {
+        setSelectedCampaignId('')
+      }
+      setLaunchNotice('Campaign deleted. Existing launch history remains available.')
+    } catch (err) {
+      setError(normalizeError(err))
+    }
   }
 
   const runPreview = async () => {
@@ -146,7 +292,7 @@ const Campaigns = () => {
         windowStart: start,
         windowEnd: end,
         channel,
-        sourceId: `campaign:${campaignId.trim()}`,
+        sourceId: campaignSourceId(campaignId),
         messageCategory,
         priorityClass,
         businessValue,
@@ -189,7 +335,7 @@ const Campaigns = () => {
       deliveryMode,
       channel,
       message: message.trim(),
-      sourceId: `campaign:${campaignId.trim()}`,
+      sourceId: campaignSourceId(campaignId),
       campaignId: campaignId.trim(),
       messageCategory,
       priorityClass,
@@ -253,10 +399,53 @@ const Campaigns = () => {
       }
     }
 
+    try {
+      const launch = await recordCampaignLaunch({
+        campaignId: campaignId.trim(),
+        categoryId: selectedCategory?.categoryId,
+        sourceId: preview.sourceId,
+        deliveryMode,
+        recipientCount: preview.recipientCount,
+        previewedCount: preview.previewedCount,
+        sendReadyCount: sendReadyResults.length,
+        deferredCount: deferredResults.length,
+        deferredIncludedCount: includeDeferred ? deferredResults.length : 0,
+        notFoundSkippedCount: preview.notFoundCount,
+        acceptedCount: accepted,
+        failedCount: failed,
+        avgAttentionCost: preview.avgAttentionCost,
+        avgAttentionValue: preview.avgAttentionValue,
+        avgFatigueScore: preview.avgFatigueScore,
+        avgProbability: preview.avgProbability,
+        estimatedAttentionSaved: preview.estimatedAttentionSaved,
+        modelSource: preview.modelSource,
+        modelConfidence: preview.modelConfidence,
+        recommendation: preview.recommendation,
+      })
+      setLaunches((items) => [launch, ...items].slice(0, 10))
+    } catch (err) {
+      console.warn('Unable to record campaign launch', err)
+      setError('Launch submitted, but launch history could not be recorded.')
+    }
+
     setLaunching(null)
     setLaunchNotice(
       `${deliveryMode === 'IMMEDIATE' ? 'Send-now' : 'Optimized schedule'} launch accepted ${accepted} event${accepted === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.${includeDeferred && deferredResults.length > 0 ? ` Included ${deferredResults.length} deferred user${deferredResults.length === 1 ? '' : 's'} by admin override.` : ''} Track scheduled decisions in Attention Escrow.`
     )
+  }
+
+  const loadLaunchOutcome = async (launch: CampaignLaunch) => {
+    const sourceId = launch.sourceId || campaignSourceId(launch.campaignId)
+    setOutcomeLoadingSource(sourceId)
+    setError('')
+    try {
+      const summary = await getAttentionSummary({ sourceId, limit: 200 })
+      setSelectedOutcome({ launch, summary })
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Unable to load campaign outcome summary.')
+    } finally {
+      setOutcomeLoadingSource(null)
+    }
   }
 
   const stats = preview
@@ -264,7 +453,7 @@ const Campaigns = () => {
         { label: 'Recipients', value: preview.recipientCount, icon: Users },
         { label: 'Send-ready', value: preview.sendCount, icon: ShieldCheck },
         { label: 'Deferred', value: preview.deferCount, icon: Clock },
-        { label: 'Not found', value: preview.notFoundCount, icon: AlertCircle },
+        { label: 'Launchable', value: launchableResults.length, icon: Send },
       ]
     : [
         { label: 'Recipients', value: userIds.length, icon: Users },
@@ -311,6 +500,80 @@ const Campaigns = () => {
           </div>
         )}
 
+        <section className="card-flush">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Campaign library</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Save reusable campaign settings, then load them later for another preview or launch.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-secondary" onClick={loadCampaigns} disabled={campaignsLoading}>
+                {campaignsLoading ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+                Refresh
+              </button>
+              <button className="btn-primary" onClick={saveCampaign} disabled={savingCampaign}>
+                {savingCampaign ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {savedCampaigns.some((campaign) => campaign.campaignId === campaignId.trim()) ? 'Update campaign' : 'Save campaign'}
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Category</th>
+                  <th>Mode</th>
+                  <th>Priority</th>
+                  <th>Value / urgency</th>
+                  <th className="text-right pr-6">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {savedCampaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-slate-500 py-8">
+                      {campaignsLoading ? 'Loading campaigns...' : 'No saved campaigns yet. Save the draft below to reuse it later.'}
+                    </td>
+                  </tr>
+                ) : (
+                  savedCampaigns.map((campaign) => (
+                    <tr key={campaign.campaignId} className={selectedCampaignId === campaign.campaignId ? 'bg-primary-50/60' : ''}>
+                      <td>
+                        <div className="font-medium text-slate-900">{campaign.name}</div>
+                        <div className="text-xs text-slate-400 font-mono">{campaign.campaignId}</div>
+                      </td>
+                      <td>{campaign.categoryId || 'Manual policy'}</td>
+                      <td>
+                        <span className={campaign.defaultDeliveryMode === 'IMMEDIATE' ? 'badge badge-info' : 'badge badge-success'}>
+                          {campaign.defaultDeliveryMode === 'IMMEDIATE' ? 'Immediate' : 'Optimized'}
+                        </span>
+                      </td>
+                      <td>{campaign.priorityClass}</td>
+                      <td>{campaign.businessValue.toFixed(1)} / {campaign.urgency.toFixed(1)}</td>
+                      <td className="text-right pr-6">
+                        <div className="flex justify-end gap-2">
+                          <button className="btn-secondary text-xs" onClick={() => loadSavedCampaign(campaign)}>
+                            <Edit3 size={14} />
+                            Load
+                          </button>
+                          <button className="btn-secondary text-xs text-danger-700" onClick={() => removeCampaign(campaign)}>
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <div className="grid xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6">
           <section className="card-flush p-5 space-y-5">
             <div>
@@ -322,8 +585,19 @@ const Campaigns = () => {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
+                <label className="label">Campaign name</label>
+                <input className="input" value={campaignName} onChange={(event) => setCampaignName(event.target.value)} />
+              </div>
+              <div>
                 <label className="label">Campaign ID</label>
-                <input className="input" value={campaignId} onChange={(event) => setCampaignId(event.target.value)} />
+                <input
+                  className="input"
+                  value={campaignId}
+                  onChange={(event) => {
+                    setCampaignId(event.target.value)
+                    setSelectedCampaignId('')
+                  }}
+                />
               </div>
               <div>
                 <label className="label">Event type</label>
@@ -349,6 +623,16 @@ const Campaigns = () => {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="label">Internal description</label>
+              <textarea
+                className="input min-h-16"
+                value={campaignDescription}
+                onChange={(event) => setCampaignDescription(event.target.value)}
+                placeholder="Optional notes for admins. Not sent to users."
+              />
             </div>
 
             <div>
@@ -584,6 +868,128 @@ const Campaigns = () => {
             )}
           </section>
         </div>
+
+        <section className="card-flush">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Recent launches</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Launch history is recorded after campaign events are submitted.
+              </p>
+            </div>
+            <button className="btn-secondary" onClick={loadLaunches} disabled={launchesLoading}>
+              {launchesLoading ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+              Refresh
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Mode</th>
+                  <th>Accepted</th>
+                  <th>Deferred override</th>
+                  <th>Skipped</th>
+                  <th>Avg value / cost</th>
+                  <th>Created</th>
+                  <th className="text-right pr-6">Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {launches.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center text-slate-500 py-8">
+                      {launchesLoading ? 'Loading launch history...' : 'No campaign launches recorded yet.'}
+                    </td>
+                  </tr>
+                ) : (
+                  launches.map((launch) => (
+                    <tr key={launch.launchId}>
+                      <td>
+                        <div className="font-medium text-slate-900">{launch.campaignId}</div>
+                        <div className="text-xs text-slate-400 font-mono">{launch.launchId}</div>
+                      </td>
+                      <td>
+                        <span className={launch.deliveryMode === 'IMMEDIATE' ? 'badge badge-info' : 'badge badge-success'}>
+                          {launch.deliveryMode === 'IMMEDIATE' ? 'Send now' : 'Optimized'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="font-medium text-slate-900">{launch.acceptedCount}</span>
+                        {launch.failedCount > 0 && <span className="text-danger-600"> / {launch.failedCount} failed</span>}
+                      </td>
+                      <td>{launch.deferredIncludedCount || 0}</td>
+                      <td>{launch.notFoundSkippedCount || 0}</td>
+                      <td>
+                        {(launch.avgAttentionValue || 0).toFixed(1)} / {(launch.avgAttentionCost || 0).toFixed(1)}
+                      </td>
+                      <td className="text-slate-600">{timeLabel(launch.createdAt)}</td>
+                      <td className="text-right pr-6">
+                        <button
+                          className="btn-secondary text-xs"
+                          onClick={() => loadLaunchOutcome(launch)}
+                          disabled={outcomeLoadingSource === (launch.sourceId || campaignSourceId(launch.campaignId))}
+                        >
+                          {outcomeLoadingSource === (launch.sourceId || campaignSourceId(launch.campaignId))
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <Activity size={14} />}
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {selectedOutcome && (
+          <section className="card-flush p-5 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Campaign outcome snapshot</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  {selectedOutcome.launch.campaignId} · {selectedOutcome.launch.sourceId || campaignSourceId(selectedOutcome.launch.campaignId)}
+                </p>
+              </div>
+              <span className="badge badge-info">Campaign summary</span>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="text-xs text-slate-500">Decisions</div>
+                <div className="text-2xl font-bold text-slate-900">{selectedOutcome.summary.totalDecisions}</div>
+                <div className="text-xs text-slate-500 mt-1">Send rate {pct(selectedOutcome.summary.sendRate)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="text-xs text-slate-500">Deferred</div>
+                <div className="text-2xl font-bold text-slate-900">{selectedOutcome.summary.deferredDecisions}</div>
+                <div className="text-xs text-slate-500 mt-1">Attention saved {selectedOutcome.summary.estimatedAttentionSaved.toFixed(1)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="text-xs text-slate-500">Deliveries</div>
+                <div className="text-2xl font-bold text-slate-900">{selectedOutcome.summary.deliveryRecords || 0}</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Sent {selectedOutcome.summary.sentDeliveries || 0}, failed {selectedOutcome.summary.failedDeliveries || 0}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="text-xs text-slate-500">Avg value / cost</div>
+                <div className="text-2xl font-bold text-slate-900">
+                  {selectedOutcome.summary.avgAttentionValue.toFixed(1)} / {selectedOutcome.summary.avgAttentionCost.toFixed(1)}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">Fatigue {selectedOutcome.summary.avgFatigueScore.toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              {selectedOutcome.summary.recommendation}
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   )

@@ -46,8 +46,10 @@ export class ComputeStack extends Stack {
         data.userEvents.grantWrite(controlPlane);
         data.profilesTable.grantReadWriteData(controlPlane);
         data.categoriesTable.grantReadWriteData(controlPlane);
+        data.attentionTable.grantReadWriteData(controlPlane);
         controlPlane.addEnvironment('USER_TABLE', data.profilesTable.tableName);
         controlPlane.addEnvironment('CATEGORY_TABLE', data.categoriesTable.tableName);
+        controlPlane.addEnvironment('ATTENTION_TABLE', data.attentionTable.tableName);
 
         // Lambda: eventsConsumer (Java zip you will build at services/events-consumer)
         const eventsConsumer = new lambda.Function(this,'EventsConsumerFn',{
@@ -284,6 +286,55 @@ export class ComputeStack extends Stack {
         new apigwv2.HttpRoute(this, 'DeleteCategoryRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/categories/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'CreateCampaignRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'ListCampaignsRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'GetCampaignRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns/{id}', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'UpdateCampaignRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns/{id}', apigwv2.HttpMethod.PUT),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'DeleteCampaignRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'CreateCampaignLaunchRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns/launches', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'ListCampaignLaunchesRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns/launches', apigwv2.HttpMethod.GET),
             integration: integ,
             authorizer: jwtAuth,
         });

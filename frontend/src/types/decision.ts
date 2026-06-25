@@ -119,6 +119,10 @@ export interface AttentionSummaryResponse {
   avgSourceTrustScore: number
   attentionProtected: number
   estimatedAttentionSaved: number
+  deliveryRecords?: number
+  sentDeliveries?: number
+  failedDeliveries?: number
+  deliverySuccessRate?: number
   recommendation: string
   topSources: Array<{
     sourceId: string

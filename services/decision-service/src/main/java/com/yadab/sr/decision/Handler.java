@@ -279,7 +279,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         int limit = parseLimit(query.get("limit"), 200);
 
         List<Map<String, AttributeValue>> items = fetchAttentionDecisionItems(sourceId, userId, limit);
+        List<Map<String, AttributeValue>> deliveryItems = fetchAttentionDeliveryItems(sourceId, userId, limit);
         SummaryStats stats = summarize(items);
+        DeliveryStats deliveryStats = summarizeDeliveries(deliveryItems);
 
         ObjectNode body = MAPPER.createObjectNode();
         ObjectNode scope = body.putObject("scope");
@@ -298,6 +300,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         body.put("avgSourceTrustScore", round(stats.avg(stats.trustSum)));
         body.put("attentionProtected", stats.deferCount);
         body.put("estimatedAttentionSaved", round(stats.deferredCostSum));
+        body.put("deliveryRecords", deliveryStats.total);
+        body.put("sentDeliveries", deliveryStats.sentCount);
+        body.put("failedDeliveries", deliveryStats.failedCount);
+        body.put("deliverySuccessRate", round(deliveryStats.successRate()));
         body.put("recommendation", stats.recommendation());
 
         ArrayNode sources = body.putArray("topSources");
@@ -317,6 +323,40 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 .forEach(item -> recent.add(decisionNode(item)));
 
         return response(200, MAPPER.writeValueAsString(body));
+    }
+
+    private List<Map<String, AttributeValue>> fetchAttentionDeliveryItems(String sourceId, String userId, int limit) {
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":delivery", AttributeValue.builder().s("ATTENTION_DELIVERY").build());
+
+        if (userId != null) {
+            values.put(":pk", AttributeValue.builder().s("USER#" + userId).build());
+            QueryResponse response = dynamo.query(QueryRequest.builder()
+                    .tableName(attentionTable)
+                    .keyConditionExpression("pk = :pk")
+                    .filterExpression("recordType = :delivery")
+                    .expressionAttributeValues(values)
+                    .scanIndexForward(false)
+                    .limit(limit)
+                    .build());
+            return response.items();
+        }
+
+        if (sourceId != null) {
+            values.put(":sourceId", AttributeValue.builder().s(sourceId).build());
+            QueryResponse response = dynamo.query(QueryRequest.builder()
+                    .tableName(attentionTable)
+                    .indexName("source-index")
+                    .keyConditionExpression("sourceId = :sourceId")
+                    .filterExpression("recordType = :delivery")
+                    .expressionAttributeValues(values)
+                    .scanIndexForward(false)
+                    .limit(limit)
+                    .build());
+            return response.items();
+        }
+
+        return List.of();
     }
 
     private List<Map<String, AttributeValue>> fetchAttentionDecisionItems(String sourceId, String userId, int limit) {
@@ -395,6 +435,20 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             String sourceId = stringAttr(item, "sourceId");
             if (sourceId != null && !sourceId.isBlank()) {
                 stats.sourceCounts.merge(sourceId, 1, Integer::sum);
+            }
+        }
+        return stats;
+    }
+
+    private DeliveryStats summarizeDeliveries(List<Map<String, AttributeValue>> items) {
+        DeliveryStats stats = new DeliveryStats();
+        for (Map<String, AttributeValue> item : items) {
+            stats.total++;
+            String status = stringAttr(item, "status");
+            if ("SENT".equals(status)) {
+                stats.sentCount++;
+            } else if ("FAILED".equals(status)) {
+                stats.failedCount++;
             }
         }
         return stats;
@@ -1224,6 +1278,16 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return "Healthy source: most messages clear the attention gate with value above cost.";
             }
             return "Mixed performance: compare message categories, priority classes, and source trust before increasing volume.";
+        }
+    }
+
+    private static class DeliveryStats {
+        private int total;
+        private int sentCount;
+        private int failedCount;
+
+        private double successRate() {
+            return total == 0 ? 0.0 : (double) sentCount / total;
         }
     }
 

@@ -280,6 +280,12 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         payload.put("userId", userId);
         putText(payload, "message", firstText(notification, event, "message"));
         putText(payload, "channel", firstText(notification, event, "channel"));
+        putText(payload, "sourceId", firstText(notification, event, "sourceId"));
+        putText(payload, "categoryId", firstText(notification, event, "categoryId"));
+        putText(payload, "campaignId", firstText(notification, event, "campaignId"));
+        putText(payload, "templateId", firstText(notification, event, "templateId"));
+        putText(payload, "messageCategory", firstText(notification, event, "messageCategory"));
+        putText(payload, "priorityClass", firstText(notification, event, "priorityClass"));
 
         JsonNode metadata = firstNode(notification, event, "metadata");
         if (metadata != null && metadata.isObject()) {
@@ -287,12 +293,6 @@ public class Handler implements RequestHandler<KinesisEvent, Map<String, Object>
         }
 
         if (includeAttentionFields) {
-            putText(payload, "sourceId", firstText(notification, event, "sourceId"));
-            putText(payload, "categoryId", firstText(notification, event, "categoryId"));
-            putText(payload, "campaignId", firstText(notification, event, "campaignId"));
-            putText(payload, "templateId", firstText(notification, event, "templateId"));
-            putText(payload, "messageCategory", firstText(notification, event, "messageCategory"));
-            putText(payload, "priorityClass", firstText(notification, event, "priorityClass"));
             putDouble(payload, "businessValue", firstNode(notification, event, "businessValue"));
             putDouble(payload, "urgency", firstNode(notification, event, "urgency"));
             putInt(payload, "maxDelayHours", firstNode(notification, event, "maxDelayHours"));

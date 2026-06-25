@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 
 import com.yadab.sr.models.User;
 import com.yadab.sr.models.NotificationCategory;
+import com.yadab.sr.models.Campaign;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.UUID;
 
 /**
  * Control Plane API Handler
@@ -41,6 +43,13 @@ import java.util.ArrayList;
  * - GET /v1/categories/{id} - Get notification category
  * - PUT /v1/categories/{id} - Update notification category
  * - DELETE /v1/categories/{id} - Delete notification category
+ * - POST /v1/campaigns - Create reusable campaign
+ * - GET /v1/campaigns - List reusable campaigns
+ * - GET /v1/campaigns/{id} - Get reusable campaign
+ * - PUT /v1/campaigns/{id} - Update reusable campaign
+ * - DELETE /v1/campaigns/{id} - Delete reusable campaign
+ * - POST /v1/campaigns/launches - Record campaign launch summary
+ * - GET /v1/campaigns/launches - List recent campaign launches
  * - POST /v1/events - Ingest events (auto-creates user if not exists)
  * - GET /v1/health - Health check
  */
@@ -70,6 +79,10 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
     private static String categoryTable() {
         return System.getenv("CATEGORY_TABLE");
+    }
+
+    private static String attentionTable() {
+        return System.getenv("ATTENTION_TABLE");
     }
 
     private final DynamoDbClient ddb = DynamoDbClient.builder()
@@ -144,6 +157,39 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             if (path.matches("/v1/categories/[^/]+") && "DELETE".equals(method)) {
                 String categoryId = extractPathId(path);
                 return deleteCategory(categoryId, e, ctx);
+            }
+
+            // Campaign Launch Audit Endpoints
+            if (path.equals("/v1/campaigns/launches") && "POST".equals(method)) {
+                return createCampaignLaunch(e, ctx);
+            }
+
+            if (path.equals("/v1/campaigns/launches") && "GET".equals(method)) {
+                return listCampaignLaunches(e, ctx);
+            }
+
+            // Reusable Campaign Configuration Endpoints
+            if (path.equals("/v1/campaigns") && "POST".equals(method)) {
+                return createCampaign(e, ctx);
+            }
+
+            if (path.equals("/v1/campaigns") && "GET".equals(method)) {
+                return listCampaigns(e, ctx);
+            }
+
+            if (path.matches("/v1/campaigns/[^/]+") && "GET".equals(method)) {
+                String campaignId = extractPathId(path);
+                return getCampaign(campaignId, e, ctx);
+            }
+
+            if (path.matches("/v1/campaigns/[^/]+") && "PUT".equals(method)) {
+                String campaignId = extractPathId(path);
+                return updateCampaign(campaignId, e, ctx);
+            }
+
+            if (path.matches("/v1/campaigns/[^/]+") && "DELETE".equals(method)) {
+                String campaignId = extractPathId(path);
+                return deleteCampaign(campaignId, e, ctx);
             }
 
             // Event Ingestion (validates user exists)
@@ -484,12 +530,13 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private APIGatewayV2HTTPResponse listCategories(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
         String organizationId = organizationId(e);
         Map<String, AttributeValue> expressionValues = Map.of(
-                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build()
+                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                ":prefix", AttributeValue.builder().s("CATEGORY#").build()
         );
 
         QueryResponse queryRes = ddb.query(QueryRequest.builder()
                 .tableName(categoryTable())
-                .keyConditionExpression("pk = :pk")
+                .keyConditionExpression("pk = :pk AND begins_with(sk, :prefix)")
                 .expressionAttributeValues(expressionValues)
                 .build());
 
@@ -570,6 +617,231 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
 
         ctx.getLogger().log("Category deleted: " + categoryId);
         return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "categoryId", categoryId, "deleted", true)));
+    }
+
+    private APIGatewayV2HTTPResponse createCampaign(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        Campaign campaign = mapper.readValue(body, Campaign.class);
+        campaign.organizationId = organizationId(e);
+        validateCampaign(campaign);
+
+        if (campaignExists(campaign.organizationId, campaign.campaignId)) {
+            throw new ConflictException("Campaign already exists: " + campaign.campaignId);
+        }
+
+        applyCampaignDefaults(campaign);
+        validateCampaignEnums(campaign);
+        String now = Instant.now().toString();
+        campaign.createdAt = now;
+        campaign.updatedAt = now;
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(campaign.toItem())
+                .build());
+
+        ctx.getLogger().log("Campaign created: " + campaign.campaignId);
+        return json(201, mapper.writeValueAsString(campaign));
+    }
+
+    private APIGatewayV2HTTPResponse listCampaigns(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                ":prefix", AttributeValue.builder().s("CAMPAIGN#").build()
+        );
+
+        QueryResponse queryRes = ddb.query(QueryRequest.builder()
+                .tableName(categoryTable())
+                .keyConditionExpression("pk = :pk AND begins_with(sk, :prefix)")
+                .expressionAttributeValues(expressionValues)
+                .build());
+
+        List<Campaign> campaigns = new ArrayList<>();
+        for (Map<String, AttributeValue> item : queryRes.items()) {
+            Campaign campaign = Campaign.fromItem(item);
+            if (campaign != null && campaign.campaignId != null) {
+                campaigns.add(campaign);
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("organizationId", organizationId);
+        response.put("campaigns", campaigns);
+        response.put("count", campaigns.size());
+
+        ctx.getLogger().log(String.format("Listed %d campaigns", campaigns.size()));
+        return json(200, mapper.writeValueAsString(response));
+    }
+
+    private APIGatewayV2HTTPResponse getCampaign(String campaignId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        Campaign campaign = fetchCampaign(organizationId(e), campaignId);
+        if (campaign == null) {
+            throw new ResourceNotFoundException("Campaign not found: " + campaignId);
+        }
+        return json(200, mapper.writeValueAsString(campaign));
+    }
+
+    private APIGatewayV2HTTPResponse updateCampaign(String campaignId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        String organizationId = organizationId(e);
+        Campaign existing = fetchCampaign(organizationId, campaignId);
+        if (existing == null) {
+            throw new ResourceNotFoundException("Campaign not found: " + campaignId);
+        }
+
+        Campaign campaign = mapper.readValue(body, Campaign.class);
+        campaign.organizationId = organizationId;
+        campaign.campaignId = campaignId;
+        validateCampaign(campaign);
+        applyCampaignDefaults(campaign);
+        validateCampaignEnums(campaign);
+        campaign.createdAt = existing.createdAt;
+        campaign.updatedAt = Instant.now().toString();
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(campaign.toItem())
+                .build());
+
+        ctx.getLogger().log("Campaign updated: " + campaign.campaignId);
+        return json(200, mapper.writeValueAsString(campaign));
+    }
+
+    private APIGatewayV2HTTPResponse deleteCampaign(String campaignId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        if (!campaignExists(organizationId, campaignId)) {
+            throw new ResourceNotFoundException("Campaign not found: " + campaignId);
+        }
+
+        ddb.deleteItem(DeleteItemRequest.builder()
+                .tableName(categoryTable())
+                .key(campaignKey(organizationId, campaignId))
+                .build());
+
+        ctx.getLogger().log("Campaign deleted: " + campaignId);
+        return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "campaignId", campaignId, "deleted", true)));
+    }
+
+    /**
+     * POST /v1/campaigns/launches - Record campaign launch summary.
+     */
+    private APIGatewayV2HTTPResponse createCampaignLaunch(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        if (attentionTable() == null || attentionTable().isBlank()) {
+            throw new ValidationException("ATTENTION_TABLE is not configured");
+        }
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        JsonNode request = mapper.readTree(body);
+        String campaignId = text(request, "campaignId");
+        if (campaignId == null || campaignId.isBlank()) {
+            throw new ValidationException("campaignId is required");
+        }
+        if (!campaignId.matches("^[A-Za-z0-9_.:-]{1,120}$")) {
+            throw new ValidationException("campaignId may contain letters, numbers, _, ., :, or - and must be 1-120 characters");
+        }
+
+        String organizationId = organizationId(e);
+        String now = Instant.now().toString();
+        String launchId = text(request, "launchId");
+        if (launchId == null || launchId.isBlank()) {
+            launchId = "launch_" + UUID.randomUUID();
+        }
+
+        Map<String, AttributeValue> item = new HashMap<>();
+        item.put("pk", AttributeValue.builder().s("ORG#" + organizationId).build());
+        item.put("sk", AttributeValue.builder().s("CAMPAIGN#" + campaignId + "#LAUNCH#" + now + "#" + launchId).build());
+        item.put("recordType", AttributeValue.builder().s("CAMPAIGN_LAUNCH").build());
+        item.put("organizationId", AttributeValue.builder().s(organizationId).build());
+        item.put("launchId", AttributeValue.builder().s(launchId).build());
+        item.put("campaignId", AttributeValue.builder().s(campaignId).build());
+        item.put("createdAt", AttributeValue.builder().s(now).build());
+
+        putStringAttr(item, "categoryId", text(request, "categoryId"));
+        putStringAttr(item, "sourceId", text(request, "sourceId"));
+        putStringAttr(item, "deliveryMode", text(request, "deliveryMode"));
+        putStringAttr(item, "modelSource", text(request, "modelSource"));
+        putStringAttr(item, "modelConfidence", text(request, "modelConfidence"));
+        putStringAttr(item, "recommendation", text(request, "recommendation"));
+        putIntAttr(item, "recipientCount", intValue(request, "recipientCount"));
+        putIntAttr(item, "previewedCount", intValue(request, "previewedCount"));
+        putIntAttr(item, "sendReadyCount", intValue(request, "sendReadyCount"));
+        putIntAttr(item, "deferredCount", intValue(request, "deferredCount"));
+        putIntAttr(item, "deferredIncludedCount", intValue(request, "deferredIncludedCount"));
+        putIntAttr(item, "notFoundSkippedCount", intValue(request, "notFoundSkippedCount"));
+        putIntAttr(item, "acceptedCount", intValue(request, "acceptedCount"));
+        putIntAttr(item, "failedCount", intValue(request, "failedCount"));
+        putDoubleAttr(item, "avgAttentionCost", doubleValue(request, "avgAttentionCost"));
+        putDoubleAttr(item, "avgAttentionValue", doubleValue(request, "avgAttentionValue"));
+        putDoubleAttr(item, "avgFatigueScore", doubleValue(request, "avgFatigueScore"));
+        putDoubleAttr(item, "avgProbability", doubleValue(request, "avgProbability"));
+        putDoubleAttr(item, "estimatedAttentionSaved", doubleValue(request, "estimatedAttentionSaved"));
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(attentionTable())
+                .item(item)
+                .build());
+
+        ctx.getLogger().log("Campaign launch recorded: " + launchId);
+        return json(201, mapper.writeValueAsString(campaignLaunchNode(item)));
+    }
+
+    /**
+     * GET /v1/campaigns/launches - List recent campaign launch summaries.
+     */
+    private APIGatewayV2HTTPResponse listCampaignLaunches(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        if (attentionTable() == null || attentionTable().isBlank()) {
+            throw new ValidationException("ATTENTION_TABLE is not configured");
+        }
+
+        String organizationId = organizationId(e);
+        Map<String, String> query = e.getQueryStringParameters() == null ? Map.of() : e.getQueryStringParameters();
+        String campaignId = query.get("campaignId");
+        int limit = parseLimit(query.get("limit"), 25);
+
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":pk", AttributeValue.builder().s("ORG#" + organizationId).build());
+
+        QueryRequest.Builder builder = QueryRequest.builder()
+                .tableName(attentionTable())
+                .keyConditionExpression("pk = :pk")
+                .scanIndexForward(false)
+                .limit(limit);
+
+        if (campaignId != null && !campaignId.isBlank()) {
+            values.put(":prefix", AttributeValue.builder().s("CAMPAIGN#" + campaignId.trim() + "#LAUNCH#").build());
+            builder.keyConditionExpression("pk = :pk AND begins_with(sk, :prefix)");
+        } else {
+            values.put(":launch", AttributeValue.builder().s("CAMPAIGN_LAUNCH").build());
+            builder.filterExpression("recordType = :launch");
+        }
+
+        builder.expressionAttributeValues(values);
+        QueryResponse queryRes = ddb.query(builder.build());
+        List<ObjectNode> launches = new ArrayList<>();
+        for (Map<String, AttributeValue> item : queryRes.items()) {
+            launches.add(campaignLaunchNode(item));
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("organizationId", organizationId);
+        response.put("campaignId", campaignId == null || campaignId.isBlank() ? "ALL" : campaignId.trim());
+        response.put("count", launches.size());
+        response.put("launches", launches);
+
+        ctx.getLogger().log(String.format("Listed %d campaign launches", launches.size()));
+        return json(200, mapper.writeValueAsString(response));
     }
 
     /**
@@ -921,6 +1193,33 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         );
     }
 
+    private boolean campaignExists(String organizationId, String campaignId) {
+        return fetchCampaign(organizationId, campaignId) != null;
+    }
+
+    private Campaign fetchCampaign(String organizationId, String campaignId) {
+        if (campaignId == null || campaignId.isBlank()) {
+            return null;
+        }
+
+        GetItemResponse res = ddb.getItem(GetItemRequest.builder()
+                .tableName(categoryTable())
+                .key(campaignKey(organizationId, campaignId))
+                .build());
+
+        if (!res.hasItem() || res.item().isEmpty()) {
+            return null;
+        }
+        return Campaign.fromItem(res.item());
+    }
+
+    private Map<String, AttributeValue> campaignKey(String organizationId, String campaignId) {
+        return Map.of(
+                "pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                "sk", AttributeValue.builder().s("CAMPAIGN#" + campaignId).build()
+        );
+    }
+
     private void validateCategory(NotificationCategory category) throws ValidationException {
         if (category.categoryId == null || category.categoryId.isBlank()) {
             throw new ValidationException("categoryId is required");
@@ -958,6 +1257,36 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private void validateCampaign(Campaign campaign) throws ValidationException {
+        if (campaign.campaignId == null || campaign.campaignId.isBlank()) {
+            throw new ValidationException("campaignId is required");
+        }
+        if (campaign.organizationId == null || campaign.organizationId.isBlank()) {
+            throw new ValidationException("organizationId is required");
+        }
+        if (!campaign.campaignId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("campaignId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (!campaign.organizationId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("organizationId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (campaign.name == null || campaign.name.isBlank()) {
+            throw new ValidationException("name is required");
+        }
+        if (campaign.message == null || campaign.message.isBlank()) {
+            throw new ValidationException("message is required");
+        }
+        if (campaign.businessValue != null && (campaign.businessValue < 0.0 || campaign.businessValue > 10.0)) {
+            throw new ValidationException("businessValue must be between 0.0 and 10.0");
+        }
+        if (campaign.urgency != null && (campaign.urgency < 0.0 || campaign.urgency > 1.0)) {
+            throw new ValidationException("urgency must be between 0.0 and 1.0");
+        }
+        if (campaign.maxDelayHours != null && (campaign.maxDelayHours < 0 || campaign.maxDelayHours > 48)) {
+            throw new ValidationException("maxDelayHours must be between 0 and 48");
+        }
+    }
+
     private void validateCategoryEnums(NotificationCategory category) throws ValidationException {
         requireOneOf("defaultDeliveryMode", category.defaultDeliveryMode, List.of("IMMEDIATE", "OPTIMIZED"));
         requireOneOf("messageCategory", category.messageCategory, List.of(
@@ -967,6 +1296,17 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 "LOW", "STANDARD", "HIGH", "URGENT", "CRITICAL", "EMERGENCY"
         ));
         requireOneOf("riskClass", category.riskClass, List.of("LOW", "MEDIUM", "HIGH", "CRITICAL", "REGULATED"));
+    }
+
+    private void validateCampaignEnums(Campaign campaign) throws ValidationException {
+        requireOneOf("defaultDeliveryMode", campaign.defaultDeliveryMode, List.of("IMMEDIATE", "OPTIMIZED"));
+        requireOneOf("channel", campaign.channel, List.of("AUTO", "EMAIL", "SMS", "PUSH"));
+        requireOneOf("messageCategory", campaign.messageCategory, List.of(
+                "GENERAL", "MARKETING", "PROMOTION", "NEWSLETTER", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
+        ));
+        requireOneOf("priorityClass", campaign.priorityClass, List.of(
+                "LOW", "STANDARD", "HIGH", "URGENT", "CRITICAL", "EMERGENCY"
+        ));
     }
 
     private void requireOneOf(String field, String value, List<String> allowed) throws ValidationException {
@@ -1025,6 +1365,58 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private void applyCampaignDefaults(Campaign campaign) {
+        campaign.campaignId = campaign.campaignId == null ? null : campaign.campaignId.trim();
+        campaign.name = campaign.name == null ? null : campaign.name.trim();
+        campaign.description = campaign.description == null ? null : campaign.description.trim();
+        campaign.categoryId = campaign.categoryId == null ? null : campaign.categoryId.trim();
+        campaign.eventType = campaign.eventType == null || campaign.eventType.isBlank()
+                ? "CAMPAIGN_NOTIFICATION"
+                : campaign.eventType.trim();
+        campaign.subject = campaign.subject == null ? null : campaign.subject.trim();
+        campaign.message = campaign.message == null ? null : campaign.message.trim();
+
+        if (campaign.defaultDeliveryMode == null || campaign.defaultDeliveryMode.isBlank()) {
+            campaign.defaultDeliveryMode = "OPTIMIZED";
+        } else {
+            campaign.defaultDeliveryMode = campaign.defaultDeliveryMode.trim().toUpperCase();
+        }
+
+        if (campaign.channel == null || campaign.channel.isBlank()) {
+            campaign.channel = "EMAIL";
+        } else {
+            campaign.channel = campaign.channel.trim().toUpperCase();
+        }
+
+        if (campaign.messageCategory == null || campaign.messageCategory.isBlank()) {
+            campaign.messageCategory = "GENERAL";
+        } else {
+            campaign.messageCategory = campaign.messageCategory.trim().toUpperCase();
+        }
+
+        if (campaign.priorityClass == null || campaign.priorityClass.isBlank()) {
+            campaign.priorityClass = "STANDARD";
+        } else {
+            campaign.priorityClass = campaign.priorityClass.trim().toUpperCase();
+        }
+
+        if (campaign.businessValue == null) {
+            campaign.businessValue = 5.0;
+        }
+        if (campaign.urgency == null) {
+            campaign.urgency = 0.4;
+        }
+        if (campaign.maxDelayHours == null) {
+            campaign.maxDelayHours = "IMMEDIATE".equals(campaign.defaultDeliveryMode) ? 0 : 24;
+        }
+        if ("IMMEDIATE".equals(campaign.defaultDeliveryMode)) {
+            campaign.maxDelayHours = 0;
+        }
+        if (campaign.active == null) {
+            campaign.active = true;
+        }
+    }
+
     private String organizationId(APIGatewayV2HTTPEvent event) {
         if (event != null && event.getHeaders() != null) {
             String header = event.getHeaders().get("x-organization-id");
@@ -1048,6 +1440,31 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             return null;
         }
         return node.get(field).asText(null);
+    }
+
+    private Integer intValue(JsonNode node, String field) {
+        if (node == null || !node.hasNonNull(field) || !node.get(field).canConvertToInt()) {
+            return null;
+        }
+        return node.get(field).asInt();
+    }
+
+    private Double doubleValue(JsonNode node, String field) {
+        if (node == null || !node.hasNonNull(field) || !node.get(field).isNumber()) {
+            return null;
+        }
+        return node.get(field).asDouble();
+    }
+
+    private int parseLimit(String value, int fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Math.max(1, Math.min(100, Integer.parseInt(value)));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     private void putMissing(ObjectNode node, String field, String value) {
@@ -1101,6 +1518,66 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
     private void copyIfPresent(ObjectNode source, ObjectNode target, String field) {
         if (source.hasNonNull(field)) {
             target.set(field, source.get(field));
+        }
+    }
+
+    private void putStringAttr(Map<String, AttributeValue> item, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            item.put(key, AttributeValue.builder().s(value).build());
+        }
+    }
+
+    private void putIntAttr(Map<String, AttributeValue> item, String key, Integer value) {
+        if (value != null) {
+            item.put(key, AttributeValue.builder().n(String.valueOf(value)).build());
+        }
+    }
+
+    private void putDoubleAttr(Map<String, AttributeValue> item, String key, Double value) {
+        if (value != null) {
+            item.put(key, AttributeValue.builder().n(String.format("%.4f", value)).build());
+        }
+    }
+
+    private ObjectNode campaignLaunchNode(Map<String, AttributeValue> item) {
+        ObjectNode node = mapper.createObjectNode();
+        putStringNode(node, item, "organizationId");
+        putStringNode(node, item, "launchId");
+        putStringNode(node, item, "campaignId");
+        putStringNode(node, item, "categoryId");
+        putStringNode(node, item, "sourceId");
+        putStringNode(node, item, "deliveryMode");
+        putStringNode(node, item, "modelSource");
+        putStringNode(node, item, "modelConfidence");
+        putStringNode(node, item, "recommendation");
+        putStringNode(node, item, "createdAt");
+        putNumberNode(node, item, "recipientCount");
+        putNumberNode(node, item, "previewedCount");
+        putNumberNode(node, item, "sendReadyCount");
+        putNumberNode(node, item, "deferredCount");
+        putNumberNode(node, item, "deferredIncludedCount");
+        putNumberNode(node, item, "notFoundSkippedCount");
+        putNumberNode(node, item, "acceptedCount");
+        putNumberNode(node, item, "failedCount");
+        putNumberNode(node, item, "avgAttentionCost");
+        putNumberNode(node, item, "avgAttentionValue");
+        putNumberNode(node, item, "avgFatigueScore");
+        putNumberNode(node, item, "avgProbability");
+        putNumberNode(node, item, "estimatedAttentionSaved");
+        return node;
+    }
+
+    private void putStringNode(ObjectNode node, Map<String, AttributeValue> item, String key) {
+        AttributeValue value = item.get(key);
+        if (value != null && value.s() != null) {
+            node.put(key, value.s());
+        }
+    }
+
+    private void putNumberNode(ObjectNode node, Map<String, AttributeValue> item, String key) {
+        AttributeValue value = item.get(key);
+        if (value != null && value.n() != null) {
+            node.put(key, Double.parseDouble(value.n()));
         }
     }
 

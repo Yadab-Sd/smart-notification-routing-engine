@@ -2,8 +2,8 @@
 
 Complete list of all features in the Smart Notification Routing Engine.
 
-**Last Updated**: June 17, 2026  
-**Version**: 1.0.0
+**Last Updated**: June 24, 2026  
+**Version**: 2.3.0+
 
 ---
 
@@ -20,7 +20,9 @@ Predicts optimal notification delivery time using XGBoost machine learning model
 - Schedules notification at hour with highest predicted engagement
 
 **Technical Details**:
-- **Model**: XGBoost Classifier trained on user behavior data
+- **Primary model**: XGBoost Classifier trained on user behavior data
+- **Fallback model**: Deterministic heuristic when SageMaker is not deployed or not ready
+- **Model transparency**: Decision responses include `modelSource` such as `SAGEMAKER` or `FALLBACK_HEURISTIC`
 - **Features**: 
   - Hour of day (0-23)
   - 7-day click rate
@@ -38,7 +40,38 @@ Predicts optimal notification delivery time using XGBoost machine learning model
 
 ---
 
-### 2. Multi-Channel Notification Delivery
+### 2. Attention Escrow Decisioning
+**Status**: ✅ MVP Ready
+
+Protects users from low-value or poorly timed notifications by comparing expected attention value against estimated attention cost before sending or scheduling.
+
+**What It Does**:
+- Calculates `attentionCost`, `attentionValue`, `fatigueScore`, and `sourceTrustScore`
+- Returns clear decisions: `SEND` or `DEFER`
+- Supports both single-user previews and batch campaign previews
+- Explains why a message should be sent, scheduled, or deferred
+- Records committed send/schedule decisions in the Attention Ledger
+- Shows business-facing KPIs such as send rate, defer rate, attention saved, average cost, and average value
+
+**Important Behavior**:
+- Preview-only requests are advisory and do not create ledger rows
+- Schedule/send actions create auditable decision records
+- New deployments can operate without SageMaker by using `FALLBACK_HEURISTIC`
+- `CRITICAL` and `EMERGENCY` priority classes can bypass or nearly bypass the attention budget
+
+**API Endpoints**:
+- `POST /v1/decisions/preview` - Preview send/schedule impact
+- `POST /v1/decisions/batch-preview` - Preview a campaign across multiple users
+- `GET /v1/attention/summary` - Summarize recent attention decisions and delivery outcomes
+
+**Files**:
+- Decision Service: `services/decision-service/`
+- Frontend: `frontend/src/pages/Attention.tsx`, `frontend/src/pages/Campaigns.tsx`
+- Documentation: `docs/ATTENTION_ESCROW.md`, `docs/API.md`
+
+---
+
+### 3. Multi-Channel Notification Delivery
 **Status**: ✅ Production Ready
 
 Sends notifications via multiple channels with intelligent fallback.
@@ -75,7 +108,7 @@ User requests SMS but has no phone number
 
 ---
 
-### 3. User Profile Management
+### 4. User Profile Management
 **Status**: ✅ Production Ready
 
 Manages user profiles with contact info, preferences, and engagement stats.
@@ -129,7 +162,7 @@ Manages user profiles with contact info, preferences, and engagement stats.
 
 ---
 
-### 4. Event Ingestion & Processing
+### 5. Event Ingestion & Processing
 **Status**: ✅ Production Ready
 
 Real-time event ingestion with Kinesis stream processing.
@@ -140,10 +173,20 @@ Real-time event ingestion with Kinesis stream processing.
 - Custom event types
 
 **Auto-Triggered Notifications**:
-Events can include `notificationType` field to trigger automatic notifications:
-- `"immediate"` - Send notification right now (transactional)
-- `"optimized"` - Use ML to schedule at best time (marketing)
-- `null` - Analytics only, no notification
+Events can include a `notification` object to trigger automatic notifications:
+- `deliveryMode: "IMMEDIATE"` - Send notification right now
+- `deliveryMode: "OPTIMIZED"` - Use Attention Escrow and send-time optimization
+- No `notification` object - Analytics only, no notification
+
+Notification payloads can include category/campaign fields such as:
+- `categoryId`
+- `campaignId`
+- `sourceId`
+- `messageCategory`
+- `priorityClass`
+- `businessValue`
+- `urgency`
+- `maxDelayHours`
 
 **Data Flow**:
 ```
@@ -167,7 +210,80 @@ API → Kinesis Stream → Lambda Consumer → S3 (JSONL) + DynamoDB (counters)
 
 ---
 
-### 5. SES Bounce & Complaint Handling
+### 6. Notification Categories
+**Status**: ✅ MVP Ready
+
+Lets adopters define reusable organization-specific notification policies without hardcoding industries or use cases.
+
+**What It Does**:
+- Stores configurable categories such as appointment reminders, payment alerts, renewal reminders, or public notices
+- Applies default delivery mode, allowed channels, message category, risk class, priority, business value, urgency, max delay, and quiet-hours behavior
+- Keeps category defaults locked in the UI after selection so admins do not accidentally change policy fields
+- Allows no-category sends for ad hoc notifications where the admin wants to manually enter fields
+
+**API Endpoints**:
+- `POST /v1/categories` - Create category
+- `GET /v1/categories` - List categories
+- `GET /v1/categories/{categoryId}` - Get category
+- `PUT /v1/categories/{categoryId}` - Update category
+- `DELETE /v1/categories/{categoryId}` - Delete/deactivate category
+
+**Files**:
+- Model: `services/control-plane/src/main/java/com/yadab/sr/models/NotificationCategory.java`
+- Frontend: `frontend/src/pages/Categories.tsx`
+- Documentation: `docs/API.md`
+
+---
+
+### 7. Campaign Library, Preview, Launch, and History
+**Status**: ✅ MVP Ready
+
+Supports reusable campaign definitions, multi-user campaign planning before a notification is sent, and audit records after launch.
+
+**What It Does**:
+- Saves reusable campaigns with campaign ID, name, category, message, channel, delivery mode, priority, value, urgency, and max delay
+- Lets admins load a saved campaign instead of retyping values for every future launch
+- Accepts multiple user IDs for batch preview
+- Shows who is send-ready, deferred, missing, or skipped
+- Lets admins optionally include deferred users before launch
+- Sends immediate campaigns through `/v1/events`
+- Schedules optimized campaigns through the decision service
+- Records campaign launch summaries for future review
+- Shows recent launch history and campaign-level outcome snapshots
+
+**Campaign Launch Metrics**:
+- Recipient count
+- Previewed users
+- Send-ready users
+- Deferred users
+- Deferred users included by admin override
+- Accepted and failed sends
+- Campaign `sourceId`
+- Average attention value, cost, fatigue, and probability
+- Estimated attention saved
+- Model source and confidence summary
+
+**API Endpoints**:
+- `POST /v1/campaigns` - Create reusable campaign
+- `GET /v1/campaigns` - List reusable campaigns
+- `GET /v1/campaigns/{campaignId}` - Get reusable campaign
+- `PUT /v1/campaigns/{campaignId}` - Update reusable campaign
+- `DELETE /v1/campaigns/{campaignId}` - Delete reusable campaign while keeping launch history
+- `POST /v1/decisions/batch-preview` - Batch attention preview
+- `POST /v1/campaigns/launches` - Record launch summary
+- `GET /v1/campaigns/launches` - List recent launch summaries
+- `GET /v1/attention/summary?sourceId=...` - Campaign outcome snapshot
+
+**Files**:
+- Frontend: `frontend/src/pages/Campaigns.tsx`
+- Campaign API client: `frontend/src/api/campaigns.ts`
+- Campaign types: `frontend/src/types/campaign.ts`
+- Control Plane: `services/control-plane/`
+- Decision Service: `services/decision-service/`
+
+---
+
+### 8. SES Bounce & Complaint Handling
 **Status**: ✅ Production Ready (AWS SES Compliance)
 
 Automatic suppression of bounced/complained emails to maintain sender reputation.
@@ -216,7 +332,7 @@ Before every email send:
 
 ---
 
-### 6. Template Rendering
+### 9. Template Rendering
 **Status**: ✅ Production Ready
 
 Handlebars template engine for dynamic content.
@@ -246,7 +362,7 @@ Handlebars template engine for dynamic content.
 
 ---
 
-### 7. EventBridge Scheduler Integration
+### 10. EventBridge Scheduler Integration
 **Status**: ✅ Production Ready
 
 Schedules notifications at ML-predicted optimal times.
@@ -262,6 +378,7 @@ Schedules notifications at ML-predicted optimal times.
 - ✅ Automatic cleanup after execution
 - ✅ Flexible time window (1-48 hours)
 - ✅ UTC timezone
+- ✅ Prevents scheduling into the past by resolving the next valid UTC time inside the delivery window
 
 **Schedule Format**:
 ```
@@ -276,7 +393,7 @@ at(2026-06-17T14:00:00)  // Send at 2 PM UTC
 
 ---
 
-### 8. Analytics Dashboard
+### 11. Analytics Dashboard
 **Status**: ✅ Production Ready
 
 Real-time analytics showing engagement, ML performance, and system health.
@@ -314,7 +431,7 @@ Real-time analytics showing engagement, ML performance, and system health.
 
 ---
 
-### 9. Authentication & Authorization
+### 12. Authentication & Authorization
 **Status**: ✅ Production Ready
 
 AWS Cognito-based authentication with JWT tokens.
@@ -344,7 +461,7 @@ AWS Cognito-based authentication with JWT tokens.
 
 ---
 
-### 10. Data Lake & ETL Pipeline
+### 13. Data Lake & ETL Pipeline
 **Status**: ✅ Production Ready
 
 S3 data lake with AWS Glue ETL for ML training.
@@ -379,6 +496,11 @@ curated/validation/features.parquet
 
 **Glue ETL Job**: `glue-jobs/build_hourly_features.py`
 
+**Training Pipeline**:
+- Step Functions orchestrates Glue feature generation, SageMaker training, and endpoint deployment
+- Nightly training can be enabled from configuration
+- New adopters can run the system immediately with fallback scoring while ML quotas/data mature
+
 **Files**:
 - Data Stack: `infra/cdk/lib/data-stack.ts`
 - Glue Job: `glue-jobs/build_hourly_features.py`
@@ -387,7 +509,7 @@ curated/validation/features.parquet
 
 ## 🎨 Frontend Features
 
-### 11. User Dashboard
+### 14. User Dashboard
 **Status**: 🚧 In Progress
 
 Customer-facing interface for notification management.
@@ -405,7 +527,7 @@ Customer-facing interface for notification management.
 
 ---
 
-### 12. Admin Analytics Dashboard
+### 15. Admin Analytics Dashboard
 **Status**: ✅ Production Ready
 
 Business intelligence dashboard for system operators.
@@ -422,7 +544,7 @@ Business intelligence dashboard for system operators.
 
 ---
 
-### 13. Responsive UI
+### 16. Responsive UI
 **Status**: ✅ Production Ready
 
 Mobile-first design with Tailwind CSS.
@@ -440,7 +562,7 @@ Mobile-first design with Tailwind CSS.
 
 ---
 
-### 14. Promotional Banner System
+### 17. Promotional Banner System
 **Status**: ✅ Production Ready
 
 Dismissible banner promoting SNRE deployment to organizations.
@@ -461,7 +583,7 @@ Dismissible banner promoting SNRE deployment to organizations.
 
 ## 🏗️ Infrastructure Features
 
-### 15. Infrastructure as Code (AWS CDK)
+### 18. Infrastructure as Code (AWS CDK)
 **Status**: ✅ Production Ready
 
 Complete AWS infrastructure defined in TypeScript CDK.
@@ -486,7 +608,7 @@ Complete AWS infrastructure defined in TypeScript CDK.
 
 ---
 
-### 16. Automated Deployment
+### 19. Automated Deployment
 **Status**: ✅ Production Ready
 
 One-command deployment via CDK.
@@ -512,7 +634,7 @@ npx cdk deploy --all
 
 ---
 
-### 17. Monitoring & Observability
+### 20. Monitoring & Observability
 **Status**: ✅ Production Ready
 
 CloudWatch-based monitoring.
@@ -536,7 +658,7 @@ CloudWatch-based monitoring.
 
 ---
 
-### 18. Security Features
+### 21. Security Features
 **Status**: ✅ Implemented Core Controls
 
 AWS-native security controls for self-hosted deployments.
@@ -562,19 +684,20 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 ## 📈 Planned Features (Roadmap)
 
 ### Phase 2: Enhanced User Experience
-- 🔜 Quiet hours enforcement (no sends during user's sleep hours)
-- 🔜 Timezone-aware scheduling
 - 🔜 User notification preferences (frequency caps)
 - 🔜 Unsubscribe management
+- 🔜 Campaign audience upload from CSV
+- 🔜 Category analytics and category-level fatigue controls
 
 ### Phase 3: Advanced Analytics
 - 🔜 A/B testing framework (ML vs random vs fixed time)
-- 🔜 Campaign management (group notifications by business goal)
 - 🔜 Cohort analysis
 - 🔜 Real-time dashboards (WebSocket updates)
+- 🔜 Campaign conversion/outcome import
 
 ### Phase 4: ML Enhancements
 - 🔜 Per-user personalized models (vs global model)
+- 🔜 Attention Escrow learned model with confidence intervals
 - 🔜 Content optimization (ML predicts best message variant)
 - 🔜 Churn prediction (identify users likely to unsubscribe)
 - 🔜 Anomaly detection (unusual engagement patterns)
@@ -608,6 +731,15 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 
 ## 🔄 Version History
 
+### v2.3.0+ (June 2026)
+- ✅ Attention Escrow MVP
+- ✅ Notification categories
+- ✅ Batch campaign preview
+- ✅ Campaign launch history
+- ✅ Campaign outcome snapshots
+- ✅ Immediate campaign delivery tracking by source
+- ✅ SageMaker/fallback model transparency
+
 ### v1.0.0 (June 2026)
 - ✅ ML-powered send-time optimization
 - ✅ Multi-channel delivery (Email, SMS)
@@ -640,4 +772,4 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 
 ---
 
-**Last Updated**: June 17, 2026 by AI Assistant
+**Last Updated**: June 24, 2026 by AI Assistant

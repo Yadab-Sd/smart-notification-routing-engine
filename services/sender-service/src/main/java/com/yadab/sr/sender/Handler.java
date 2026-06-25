@@ -202,7 +202,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
 
     /**
      * Record delivery attempt outcomes for Attention Escrow.
-     * Only scheduled sends produced by Decision Service include attentionDecisionId.
+     * Scheduled sends include attentionDecisionId. Immediate campaign sends may only include sourceId,
+     * but still need delivery records for campaign outcome snapshots.
      */
     private void recordAttentionDelivery(
             Map<String, Object> event,
@@ -213,7 +214,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             Context context
     ) {
         Object decisionId = event.get("attentionDecisionId");
-        if (decisionId == null || attentionTable == null || attentionTable.isBlank()) {
+        Object sourceId = event.get("sourceId");
+        if ((decisionId == null && sourceId == null) || attentionTable == null || attentionTable.isBlank()) {
             return;
         }
 
@@ -225,13 +227,14 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
             item.put("sk", AttributeValue.builder().s("DELIVERY#" + deliveryId).build());
             item.put("recordType", AttributeValue.builder().s("ATTENTION_DELIVERY").build());
             item.put("deliveryId", AttributeValue.builder().s(deliveryId).build());
-            item.put("decisionId", AttributeValue.builder().s(decisionId.toString()).build());
+            item.put("decisionId", AttributeValue.builder().s(
+                    decisionId == null ? "immediate_" + deliveryId : decisionId.toString()
+            ).build());
             item.put("userId", AttributeValue.builder().s(userId).build());
             item.put("status", AttributeValue.builder().s(status).build());
             item.put("channel", AttributeValue.builder().s(channel).build());
             item.put("createdAt", AttributeValue.builder().s(now).build());
 
-            Object sourceId = event.get("sourceId");
             if (sourceId != null) {
                 item.put("sourceId", AttributeValue.builder().s(sourceId.toString()).build());
             }
