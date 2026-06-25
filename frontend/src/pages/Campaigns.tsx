@@ -57,13 +57,21 @@ const timeLabel = (value?: string) => {
 
 const campaignSourceId = (campaignId: string) => `campaign:${campaignId.trim()}`
 
+const priorityClasses: PriorityClass[] = ['LOW', 'STANDARD', 'HIGH', 'URGENT', 'CRITICAL', 'EMERGENCY']
+
+const normalizePriorityClass = (value?: string): PriorityClass => {
+  const normalized = value?.trim().toUpperCase()
+  if (normalized === 'TRANSACTIONAL') return 'STANDARD'
+  return priorityClasses.includes(normalized as PriorityClass) ? normalized as PriorityClass : 'STANDARD'
+}
+
 const categoryDefaults = (category?: NotificationCategory) => {
   if (!category) return undefined
   return {
     categoryId: category.categoryId,
     channel: category.allowedChannels?.[0] || 'EMAIL',
     messageCategory: category.messageCategory,
-    priorityClass: category.priorityClass,
+    priorityClass: normalizePriorityClass(category.priorityClass),
     businessValue: category.businessValue,
     urgency: category.urgency,
     defaultDeliveryMode: category.defaultDeliveryMode,
@@ -106,10 +114,13 @@ const Campaigns = () => {
   const [launchNotice, setLaunchNotice] = useState('')
   const [includeDeferred, setIncludeDeferred] = useState(false)
   const [launches, setLaunches] = useState<CampaignLaunch[]>([])
+  const [launchFilterCampaignId, setLaunchFilterCampaignId] = useState('')
   const [launchesLoading, setLaunchesLoading] = useState(false)
   const [outcomeLoadingSource, setOutcomeLoadingSource] = useState<string | null>(null)
   const [selectedOutcome, setSelectedOutcome] = useState<{
-    launch: CampaignLaunch
+    title: string
+    subtitle: string
+    badge: string
     summary: AttentionSummaryResponse
   } | null>(null)
 
@@ -145,11 +156,15 @@ const Campaigns = () => {
     loadCampaigns()
   }, [])
 
-  const loadLaunches = async () => {
+  const loadLaunches = async (campaignIdFilter = launchFilterCampaignId) => {
     setLaunchesLoading(true)
     try {
-      const data = await listCampaignLaunches({ limit: 10 })
+      const data = await listCampaignLaunches({
+        campaignId: campaignIdFilter || undefined,
+        limit: 25,
+      })
       setLaunches(data.launches || [])
+      setLaunchFilterCampaignId(campaignIdFilter)
     } catch (err) {
       console.warn('Unable to load campaign launches', err)
     } finally {
@@ -167,7 +182,7 @@ const Campaigns = () => {
     if (!category) return
     setChannel((category.allowedChannels?.[0] || 'EMAIL') as NotificationChannel)
     setMessageCategory(category.messageCategory)
-    setPriorityClass(category.priorityClass)
+    setPriorityClass(normalizePriorityClass(category.priorityClass))
     setBusinessValue(category.businessValue)
     setUrgency(category.urgency)
     setMaxDelayHours(category.defaultDeliveryMode === 'IMMEDIATE' ? 0 : category.maxDelayHours || 24)
@@ -183,7 +198,7 @@ const Campaigns = () => {
     message: message.trim(),
     channel,
     messageCategory,
-    priorityClass,
+    priorityClass: normalizePriorityClass(priorityClass),
     businessValue: Number(businessValue),
     urgency: Number(urgency),
     maxDelayHours: selectedCategory?.defaultDeliveryMode === 'IMMEDIATE' ? 0 : Number(maxDelayHours),
@@ -202,13 +217,15 @@ const Campaigns = () => {
     setMessage(campaign.message)
     setChannel(campaign.channel)
     setMessageCategory(campaign.messageCategory)
-    setPriorityClass(campaign.priorityClass)
+    setPriorityClass(normalizePriorityClass(campaign.priorityClass))
     setBusinessValue(campaign.businessValue)
     setUrgency(campaign.urgency)
     setMaxDelayHours(campaign.defaultDeliveryMode === 'IMMEDIATE' ? 0 : campaign.maxDelayHours || 24)
     setPreview(null)
     setLaunchNotice('')
+    setSelectedOutcome(null)
     setError('')
+    loadLaunches(campaign.campaignId)
   }
 
   const saveCampaign = async () => {
@@ -236,6 +253,7 @@ const Campaigns = () => {
         : await createCampaign(payload)
       setSelectedCampaignId(saved.campaignId)
       await loadCampaigns()
+      await loadLaunches(saved.campaignId)
       setLaunchNotice(exists ? 'Campaign updated.' : 'Campaign saved.')
     } catch (err) {
       setError(normalizeError(err))
@@ -253,6 +271,8 @@ const Campaigns = () => {
       await loadCampaigns()
       if (selectedCampaignId === campaign.campaignId) {
         setSelectedCampaignId('')
+        setLaunchFilterCampaignId('')
+        await loadLaunches('')
       }
       setLaunchNotice('Campaign deleted. Existing launch history remains available.')
     } catch (err) {
@@ -303,7 +323,7 @@ const Campaigns = () => {
           categoryId: selectedCategory?.categoryId,
           channel,
           messageCategory,
-          priorityClass,
+          priorityClass: normalizePriorityClass(priorityClass),
           businessValue,
           urgency,
           maxDelayHours: delayHours,
@@ -338,7 +358,7 @@ const Campaigns = () => {
       sourceId: campaignSourceId(campaignId),
       campaignId: campaignId.trim(),
       messageCategory,
-      priorityClass,
+      priorityClass: normalizePriorityClass(priorityClass),
       businessValue,
       urgency,
       metadata: {
@@ -423,6 +443,7 @@ const Campaigns = () => {
         recommendation: preview.recommendation,
       })
       setLaunches((items) => [launch, ...items].slice(0, 10))
+      setLaunchFilterCampaignId(campaignId.trim())
     } catch (err) {
       console.warn('Unable to record campaign launch', err)
       setError('Launch submitted, but launch history could not be recorded.')
@@ -440,7 +461,31 @@ const Campaigns = () => {
     setError('')
     try {
       const summary = await getAttentionSummary({ sourceId, limit: 200 })
-      setSelectedOutcome({ launch, summary })
+      setSelectedOutcome({
+        title: `${launch.campaignId} overall`,
+        subtitle: `${sourceId} · includes all launches using this campaign source`,
+        badge: 'Campaign summary',
+        summary,
+      })
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Unable to load campaign outcome summary.')
+    } finally {
+      setOutcomeLoadingSource(null)
+    }
+  }
+
+  const loadCampaignOutcome = async (campaign: Campaign) => {
+    const sourceId = campaignSourceId(campaign.campaignId)
+    setOutcomeLoadingSource(sourceId)
+    setError('')
+    try {
+      const summary = await getAttentionSummary({ sourceId, limit: 500 })
+      setSelectedOutcome({
+        title: `${campaign.name} overall`,
+        subtitle: `${sourceId} · all launches for ${campaign.campaignId}`,
+        badge: 'Campaign summary',
+        summary,
+      })
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Unable to load campaign outcome summary.')
     } finally {
@@ -559,6 +604,16 @@ const Campaigns = () => {
                           <button className="btn-secondary text-xs" onClick={() => loadSavedCampaign(campaign)}>
                             <Edit3 size={14} />
                             Load
+                          </button>
+                          <button
+                            className="btn-secondary text-xs"
+                            onClick={() => loadCampaignOutcome(campaign)}
+                            disabled={outcomeLoadingSource === campaignSourceId(campaign.campaignId)}
+                          >
+                            {outcomeLoadingSource === campaignSourceId(campaign.campaignId)
+                              ? <Loader2 size={14} className="animate-spin" />
+                              : <Activity size={14} />}
+                            Outcome
                           </button>
                           <button className="btn-secondary text-xs text-danger-700" onClick={() => removeCampaign(campaign)}>
                             <Trash2 size={14} />
@@ -874,13 +929,22 @@ const Campaigns = () => {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Recent launches</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Launch history is recorded after campaign events are submitted.
+                {launchFilterCampaignId
+                  ? `Showing launches for ${launchFilterCampaignId}.`
+                  : 'Launch history is recorded after campaign events are submitted.'}
               </p>
             </div>
-            <button className="btn-secondary" onClick={loadLaunches} disabled={launchesLoading}>
-              {launchesLoading ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
-              Refresh
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {launchFilterCampaignId && (
+                <button className="btn-secondary" onClick={() => loadLaunches('')} disabled={launchesLoading}>
+                  Show all
+                </button>
+              )}
+              <button className="btn-secondary" onClick={() => loadLaunches()} disabled={launchesLoading}>
+                {launchesLoading ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+                Refresh
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -952,10 +1016,10 @@ const Campaigns = () => {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Campaign outcome snapshot</h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  {selectedOutcome.launch.campaignId} · {selectedOutcome.launch.sourceId || campaignSourceId(selectedOutcome.launch.campaignId)}
+                  {selectedOutcome.title} · {selectedOutcome.subtitle}
                 </p>
               </div>
-              <span className="badge badge-info">Campaign summary</span>
+              <span className="badge badge-info">{selectedOutcome.badge}</span>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

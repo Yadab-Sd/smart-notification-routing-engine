@@ -6,6 +6,35 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 
 ---
 
+## [2.4.0] - 2026-06-25
+
+### Added
+
+- Reusable Campaign Library with saved campaign create/list/update/delete APIs
+- Campaign library UI for saving, loading, updating, deleting, and relaunching campaign configurations
+- Campaign-scoped launch history filtering after loading a saved campaign
+- Campaign-wide outcome action from the campaign library, aggregating all launches for the same campaign source
+- Campaign model stored as organization-scoped configuration records
+
+### Changed
+
+- Campaigns page now treats a campaign as a reusable plan and a launch as one execution of that plan
+- Recent launches can switch between a selected campaign view and all launches
+- Campaign documentation and feature list now explain saved campaigns, launches, and campaign-wide outcomes
+
+### Fixed
+
+- Campaign priority compatibility for older/stale `TRANSACTIONAL` priority values by mapping them to `STANDARD`
+- Category listing now filters only category records when campaigns share the same configuration table
+
+### Compatibility
+
+- **Backward Compatible**: Yes. Existing campaign launch history and event ingestion continue to work.
+- **CDK Deploy Required**: Yes, because this release adds `/v1/campaigns` API routes.
+- **Recommended Version Type**: Minor release, because this adds reusable campaign management without intentionally removing existing behavior.
+
+---
+
 ## [2.3.0] - 2026-06-24
 
 ### Added

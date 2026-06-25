@@ -1398,6 +1398,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             campaign.priorityClass = "STANDARD";
         } else {
             campaign.priorityClass = campaign.priorityClass.trim().toUpperCase();
+            if ("TRANSACTIONAL".equals(campaign.priorityClass)) {
+                campaign.priorityClass = "STANDARD";
+            }
         }
 
         if (campaign.businessValue == null) {

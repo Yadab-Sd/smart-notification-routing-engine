@@ -3,7 +3,7 @@
 Complete list of all features in the Smart Notification Routing Engine.
 
 **Last Updated**: June 24, 2026  
-**Version**: 2.3.0+
+**Version**: 2.4.0
 
 ---
 
@@ -250,6 +250,8 @@ Supports reusable campaign definitions, multi-user campaign planning before a no
 - Schedules optimized campaigns through the decision service
 - Records campaign launch summaries for future review
 - Shows recent launch history and campaign-level outcome snapshots
+- Filters recent launches to the loaded campaign so admins can inspect repeated launches of the same saved campaign
+- Provides campaign-wide outcome from the campaign library, aggregating all launches that share `sourceId = campaign:{campaignId}`
 
 **Campaign Launch Metrics**:
 - Recipient count
@@ -731,7 +733,15 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 
 ## 🔄 Version History
 
-### v2.3.0+ (June 2026)
+### v2.4.0 (June 2026)
+- ✅ Reusable Campaign Library
+- ✅ Saved campaign create/list/update/delete APIs
+- ✅ Campaign library UI with load, update, delete, and outcome actions
+- ✅ Campaign-scoped launch history filtering
+- ✅ Campaign-wide outcome summaries across repeated launches
+- ✅ Legacy campaign priority compatibility for older `TRANSACTIONAL` priority values
+
+### v2.3.0 (June 2026)
 - ✅ Attention Escrow MVP
 - ✅ Notification categories
 - ✅ Batch campaign preview

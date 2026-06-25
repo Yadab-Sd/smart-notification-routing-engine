@@ -372,6 +372,8 @@ Campaigns are saved notification plans. They prevent admins from retyping the sa
 
 A campaign is reusable configuration. A campaign launch is one execution of that configuration.
 
+In the admin UI, loading a saved campaign populates the campaign draft form and filters recent launch history to that campaign. The campaign library `Outcome` action shows campaign-wide performance across all launches for the same `campaignId`.
+
 **POST /v1/campaigns** - Create reusable campaign
 
 ```json
