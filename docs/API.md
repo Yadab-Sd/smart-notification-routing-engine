@@ -366,6 +366,103 @@ If the user does not exist, the Control Plane can auto-create the user when the 
 
 ---
 
+### Reusable Campaigns
+
+Campaigns are saved notification plans. They prevent admins from retyping the same campaign ID, message, category, priority, business value, urgency, and delivery settings every time they want to run another launch.
+
+A campaign is reusable configuration. A campaign launch is one execution of that configuration.
+
+**POST /v1/campaigns** - Create reusable campaign
+
+```json
+{
+  "campaignId": "renewal_reminder_june",
+  "name": "Renewal Reminder June",
+  "description": "Reminder campaign for June renewals",
+  "categoryId": "renewal_reminder",
+  "eventType": "CAMPAIGN_NOTIFICATION",
+  "subject": "Your renewal is coming up",
+  "message": "Please review your renewal details.",
+  "channel": "EMAIL",
+  "messageCategory": "TRANSACTIONAL",
+  "priorityClass": "STANDARD",
+  "businessValue": 7.0,
+  "urgency": 0.5,
+  "maxDelayHours": 24,
+  "defaultDeliveryMode": "OPTIMIZED",
+  "active": true
+}
+```
+
+**GET /v1/campaigns** - List reusable campaigns
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_URL/v1/campaigns"
+```
+
+**GET /v1/campaigns/{campaignId}** - Get one campaign
+
+**PUT /v1/campaigns/{campaignId}** - Update campaign
+
+**DELETE /v1/campaigns/{campaignId}** - Delete campaign configuration. Existing launch history remains stored separately.
+
+---
+
+### Campaign Launch History
+
+Campaign launch history stores the result of launching a campaign batch after preview. It is an audit summary, not the delivery outcome itself. Delivery, bounce, complaint, and suppression outcomes are still tracked by sender and SES event flows.
+
+Launch records are stored in `AttentionLedger` with `recordType: "CAMPAIGN_LAUNCH"` and organization scope.
+
+The Campaigns page loads a campaign outcome snapshot by querying `GET /v1/attention/summary?sourceId=campaign:{campaignId}`. That summary intentionally aggregates all launches for the same campaign, so admins can see overall campaign performance over time. Immediate campaign sends carry `sourceId` to Sender Service so delivery records can still be counted even when no scheduled Attention decision exists.
+
+**POST /v1/campaigns/launches** - Record campaign launch summary
+
+The Campaigns page calls this after submitting campaign events through `/v1/events`.
+
+**Request**:
+```json
+{
+  "campaignId": "renewal_reminder_june",
+  "categoryId": "renewal_reminder",
+  "sourceId": "campaign:renewal_reminder_june",
+  "deliveryMode": "OPTIMIZED",
+  "recipientCount": 100,
+  "previewedCount": 98,
+  "sendReadyCount": 76,
+  "deferredCount": 22,
+  "deferredIncludedCount": 3,
+  "notFoundSkippedCount": 2,
+  "acceptedCount": 79,
+  "failedCount": 0,
+  "avgAttentionCost": 2.4,
+  "avgAttentionValue": 6.1,
+  "avgFatigueScore": 0.18,
+  "avgProbability": 0.71,
+  "estimatedAttentionSaved": 11.2,
+  "modelSource": "SAGEMAKER",
+  "modelConfidence": "TRAINED_MODEL",
+  "recommendation": "Batch looks healthy: most recipients clear the attention gate with value above cost."
+}
+```
+
+**GET /v1/campaigns/launches** - List recent campaign launch summaries
+
+Query parameters:
+
+| Parameter | Meaning |
+| --- | --- |
+| `campaignId` | Optional campaign filter |
+| `limit` | Optional result limit, default 25 |
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_URL/v1/campaigns/launches?limit=10"
+```
+
+---
+
 ### Decision & Scheduling
 
 **POST /v1/decisions/preview** - Get optimal send time
@@ -643,7 +740,7 @@ Query parameters:
 - `userId`: optional user scope, for example `pilot_user_3`
 - `limit`: optional number of recent records to inspect, default `200`, max `500`
 
-Use this endpoint for the Attention Escrow dashboard. It aggregates `ATTENTION_DECISION` records from `AttentionLedger`.
+Use this endpoint for the Attention Escrow dashboard. It aggregates `ATTENTION_DECISION` records from `AttentionLedger` and includes `ATTENTION_DELIVERY` counts when delivery records are available for the same scope.
 
 **Response 200**:
 ```json
@@ -664,6 +761,10 @@ Use this endpoint for the Attention Escrow dashboard. It aggregates `ATTENTION_D
   "avgSourceTrustScore": 0.75,
   "attentionProtected": 9,
   "estimatedAttentionSaved": 34.2,
+  "deliveryRecords": 18,
+  "sentDeliveries": 17,
+  "failedDeliveries": 1,
+  "deliverySuccessRate": 0.9444,
   "recommendation": "Mixed performance: compare message categories, priority classes, and source trust before increasing volume.",
   "topSources": [
     {

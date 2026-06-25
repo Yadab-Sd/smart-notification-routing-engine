@@ -23,3 +23,11 @@ export type {
   NotificationChannel,
   RiskClass,
 } from './category'
+export type {
+  Campaign,
+  CampaignDeliveryMode,
+  CampaignLaunch,
+  CampaignLaunchListResponse,
+  CampaignLaunchRequest,
+  CampaignListResponse,
+} from './campaign'
