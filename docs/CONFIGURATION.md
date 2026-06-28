@@ -305,8 +305,9 @@ const controlPlane = new lambda.Function(this, 'ControlPlaneFn', {
 ## API Gateway Configuration
 
 **Rate limiting**:
-- Burst: 5000 requests/second
-- Steady: 10000 requests/second
+- Configure based on expected workload, AWS account quotas, and pilot load-test
+  results.
+- Do not assume sample throttle settings are production capacity.
 
 **CORS**:
 - Local origins are included automatically: localhost:3000, localhost:5173

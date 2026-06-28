@@ -79,7 +79,9 @@ The ML pipeline trains an XGBoost model nightly to predict optimal notification 
    - Get probability score
 3. Select hour with highest score
 
-**Latency**: ~50ms p50, ~100ms p99
+**Latency**: Not guaranteed. Measure p50/p95/p99 in the adopter's own AWS
+account after deployment, because endpoint type, traffic, region, quotas, and
+model size affect performance.
 
 ---
 
@@ -190,14 +192,16 @@ aws stepfunctions describe-execution \
 
 ## Model Performance Metrics
 
-**Evaluation**:
-- AUC-ROC: ~0.75-0.80
-- Precision: ~0.65
-- Recall: ~0.70
+No production model-performance metrics are claimed yet. AUC, precision,
+recall, lift, and engagement impact must be measured from each adopter's own
+training data and pilot outcomes.
 
-**Baseline** (random send time): 0.50 AUC
-
-**Improvement**: 50-60% better engagement vs fixed-time
+Recommended pilot reporting:
+- Baseline send-time policy
+- Model or heuristic policy used
+- Sample size and observation window
+- Engagement, unsubscribe, complaint, bounce, and defer rates
+- Confidence notes and known data limitations
 
 ---
 
@@ -253,8 +257,8 @@ aws logs tail /aws/sagemaker/TrainingJobs --follow
    - ml.m5.2xlarge for >50M events (requires quota increase)
 
 3. **Serverless inference**:
-   - For <10K predictions/day
-   - $0.20 per 1M requests (vs $160/month always-on)
+   - Evaluate when traffic is intermittent or still in pilot
+   - Compare current AWS pricing and quota availability before enabling
 
 ---
 

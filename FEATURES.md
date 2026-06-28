@@ -7,10 +7,20 @@ Complete list of all features in the Smart Notification Routing Engine.
 
 ---
 
+## ⚖️ Metrics & Production Disclaimer
+
+This project has not yet been validated with production customer data. Any
+engagement lift, latency, throughput, accuracy, cost, ROI, or reliability metric
+must be measured in the adopter's own AWS account and operating environment.
+The documentation should be treated as technical guidance for pilots and
+self-hosted evaluation, not as a promise of production performance.
+
+---
+
 ## 📊 Core Features
 
 ### 1. ML-Powered Send-Time Optimization
-**Status**: ✅ Production Ready
+**Status**: ✅ Implemented
 
 Predicts optimal notification delivery time using XGBoost machine learning model.
 
@@ -29,7 +39,8 @@ Predicts optimal notification delivery time using XGBoost machine learning model
   - Send count per hour
 - **Training**: Glue ETL job processes S3 events → Parquet → SageMaker
 - **Inference**: SageMaker endpoint (real-time predictions)
-- **Performance**: AUC-PR ~0.78
+- **Performance**: Measure model quality with adopter-specific training and
+  pilot data before production use
 
 **API Endpoint**: `POST /v1/decisions/preview` or `/schedule`
 
@@ -243,6 +254,9 @@ Supports reusable campaign definitions, multi-user campaign planning before a no
 **What It Does**:
 - Saves reusable campaigns with campaign ID, name, category, message, channel, delivery mode, priority, value, urgency, and max delay
 - Lets admins load a saved campaign instead of retyping values for every future launch
+- Saves reusable audiences with audience ID, name, notes, and user IDs
+- Lets admins load a saved audience into the campaign draft while still allowing edits before preview
+- Provides a built-in demo campaign/audience loader for quick walkthroughs and outreach recordings
 - Accepts multiple user IDs for batch preview
 - Shows who is send-ready, deferred, missing, or skipped
 - Lets admins optionally include deferred users before launch
@@ -261,6 +275,7 @@ Supports reusable campaign definitions, multi-user campaign planning before a no
 - Deferred users included by admin override
 - Accepted and failed sends
 - Campaign `sourceId`
+- Optional `audienceId`
 - Average attention value, cost, fatigue, and probability
 - Estimated attention saved
 - Model source and confidence summary
@@ -271,6 +286,11 @@ Supports reusable campaign definitions, multi-user campaign planning before a no
 - `GET /v1/campaigns/{campaignId}` - Get reusable campaign
 - `PUT /v1/campaigns/{campaignId}` - Update reusable campaign
 - `DELETE /v1/campaigns/{campaignId}` - Delete reusable campaign while keeping launch history
+- `POST /v1/audiences` - Create reusable audience
+- `GET /v1/audiences` - List reusable audiences
+- `GET /v1/audiences/{audienceId}` - Get reusable audience
+- `PUT /v1/audiences/{audienceId}` - Update reusable audience
+- `DELETE /v1/audiences/{audienceId}` - Delete reusable audience while keeping launch history
 - `POST /v1/decisions/batch-preview` - Batch attention preview
 - `POST /v1/campaigns/launches` - Record launch summary
 - `GET /v1/campaigns/launches` - List recent launch summaries
@@ -279,7 +299,10 @@ Supports reusable campaign definitions, multi-user campaign planning before a no
 **Files**:
 - Frontend: `frontend/src/pages/Campaigns.tsx`
 - Campaign API client: `frontend/src/api/campaigns.ts`
+- Audience API client: `frontend/src/api/audiences.ts`
 - Campaign types: `frontend/src/types/campaign.ts`
+- Audience types: `frontend/src/types/audience.ts`
+- Demo walkthrough: `docs/outreach/DEMO_WALKTHROUGH.md`
 - Control Plane: `services/control-plane/`
 - Decision Service: `services/decision-service/`
 
@@ -415,12 +438,12 @@ Real-time analytics showing engagement, ML performance, and system health.
 - SageMaker model metadata
 
 **Dashboard Components**:
-1. **Metrics Overview**: KPIs (events, users, engagement, model accuracy)
-2. **Engagement Trends**: Baseline vs ML-optimized (line chart)
-3. **ML Model Performance**: Training curves, feature importance
+1. **Metrics Overview**: KPIs for events, users, engagement, and validation metrics
+2. **Engagement Trends**: Baseline vs pilot policy comparison
+3. **ML Model Performance**: Training curves and feature importance when model data is available
 4. **Send-Time Heatmap**: 24×7 grid showing optimal hours
-5. **System Health**: Lambda metrics, Kinesis throughput, SageMaker latency
-6. **Impact Calculator**: ROI calculator (engagement lift → revenue impact)
+5. **System Health**: Lambda, Kinesis, API Gateway, and SageMaker metrics
+6. **Impact Calculator**: Planning calculator; validate assumptions with pilot results
 
 **API Endpoints**:
 - `GET /v1/analytics/metrics` - KPI overview
@@ -637,7 +660,7 @@ npx cdk deploy --all
 ---
 
 ### 20. Monitoring & Observability
-**Status**: ✅ Production Ready
+**Status**: ✅ Implemented
 
 CloudWatch-based monitoring.
 
@@ -724,8 +747,8 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 
 ## 📊 Feature Status Legend
 
-- ✅ **Production Ready**: Fully implemented, tested, deployed
-- 🚧 **In Progress**: Partially implemented, not production-ready
+- ✅ **Implemented**: Feature exists and can be tested by adopters
+- 🚧 **In Progress**: Partially implemented or still being validated
 - 🔜 **Planned**: Designed but not yet implemented
 - ❌ **Deprecated**: Removed or replaced
 

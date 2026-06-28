@@ -560,8 +560,9 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Rate Limiting
 
 API Gateway throttling:
-- **Burst limit**: 5000 requests/second
-- **Steady state**: 10000 requests/second
+- Configure throttling based on expected workload, AWS account quotas, and
+  controlled load-test results.
+- Do not treat sample settings as a production capacity guarantee.
 
 ### Data Privacy
 

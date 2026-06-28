@@ -30,6 +30,7 @@ export interface CampaignListResponse {
 export interface CampaignLaunchRequest {
   campaignId: string
   categoryId?: string
+  audienceId?: string
   sourceId?: string
   deliveryMode: CampaignDeliveryMode
   recipientCount: number

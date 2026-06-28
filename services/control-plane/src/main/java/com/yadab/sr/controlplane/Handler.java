@@ -8,6 +8,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.yadab.sr.models.User;
 import com.yadab.sr.models.NotificationCategory;
 import com.yadab.sr.models.Campaign;
+import com.yadab.sr.models.Audience;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
@@ -43,6 +44,11 @@ import java.util.UUID;
  * - GET /v1/categories/{id} - Get notification category
  * - PUT /v1/categories/{id} - Update notification category
  * - DELETE /v1/categories/{id} - Delete notification category
+ * - POST /v1/audiences - Create reusable audience
+ * - GET /v1/audiences - List reusable audiences
+ * - GET /v1/audiences/{id} - Get reusable audience
+ * - PUT /v1/audiences/{id} - Update reusable audience
+ * - DELETE /v1/audiences/{id} - Delete reusable audience
  * - POST /v1/campaigns - Create reusable campaign
  * - GET /v1/campaigns - List reusable campaigns
  * - GET /v1/campaigns/{id} - Get reusable campaign
@@ -157,6 +163,30 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             if (path.matches("/v1/categories/[^/]+") && "DELETE".equals(method)) {
                 String categoryId = extractPathId(path);
                 return deleteCategory(categoryId, e, ctx);
+            }
+
+            // Reusable Audience Configuration Endpoints
+            if (path.equals("/v1/audiences") && "POST".equals(method)) {
+                return createAudience(e, ctx);
+            }
+
+            if (path.equals("/v1/audiences") && "GET".equals(method)) {
+                return listAudiences(e, ctx);
+            }
+
+            if (path.matches("/v1/audiences/[^/]+") && "GET".equals(method)) {
+                String audienceId = extractPathId(path);
+                return getAudience(audienceId, e, ctx);
+            }
+
+            if (path.matches("/v1/audiences/[^/]+") && "PUT".equals(method)) {
+                String audienceId = extractPathId(path);
+                return updateAudience(audienceId, e, ctx);
+            }
+
+            if (path.matches("/v1/audiences/[^/]+") && "DELETE".equals(method)) {
+                String audienceId = extractPathId(path);
+                return deleteAudience(audienceId, e, ctx);
             }
 
             // Campaign Launch Audit Endpoints
@@ -619,6 +649,116 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "categoryId", categoryId, "deleted", true)));
     }
 
+    private APIGatewayV2HTTPResponse createAudience(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        Audience audience = mapper.readValue(body, Audience.class);
+        audience.organizationId = organizationId(e);
+        applyAudienceDefaults(audience);
+        validateAudience(audience);
+
+        if (audienceExists(audience.organizationId, audience.audienceId)) {
+            throw new ConflictException("Audience already exists: " + audience.audienceId);
+        }
+
+        String now = Instant.now().toString();
+        audience.createdAt = now;
+        audience.updatedAt = now;
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(audience.toItem())
+                .build());
+
+        ctx.getLogger().log("Audience created: " + audience.audienceId);
+        return json(201, mapper.writeValueAsString(audience));
+    }
+
+    private APIGatewayV2HTTPResponse listAudiences(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                ":prefix", AttributeValue.builder().s("AUDIENCE#").build()
+        );
+
+        QueryResponse queryRes = ddb.query(QueryRequest.builder()
+                .tableName(categoryTable())
+                .keyConditionExpression("pk = :pk AND begins_with(sk, :prefix)")
+                .expressionAttributeValues(expressionValues)
+                .build());
+
+        List<Audience> audiences = new ArrayList<>();
+        for (Map<String, AttributeValue> item : queryRes.items()) {
+            Audience audience = Audience.fromItem(item);
+            if (audience != null && audience.audienceId != null) {
+                audiences.add(audience);
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("organizationId", organizationId);
+        response.put("audiences", audiences);
+        response.put("count", audiences.size());
+
+        ctx.getLogger().log(String.format("Listed %d audiences", audiences.size()));
+        return json(200, mapper.writeValueAsString(response));
+    }
+
+    private APIGatewayV2HTTPResponse getAudience(String audienceId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        Audience audience = fetchAudience(organizationId(e), audienceId);
+        if (audience == null) {
+            throw new ResourceNotFoundException("Audience not found: " + audienceId);
+        }
+        return json(200, mapper.writeValueAsString(audience));
+    }
+
+    private APIGatewayV2HTTPResponse updateAudience(String audienceId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        String organizationId = organizationId(e);
+        Audience existing = fetchAudience(organizationId, audienceId);
+        if (existing == null) {
+            throw new ResourceNotFoundException("Audience not found: " + audienceId);
+        }
+
+        Audience audience = mapper.readValue(body, Audience.class);
+        audience.organizationId = organizationId;
+        audience.audienceId = audienceId;
+        applyAudienceDefaults(audience);
+        validateAudience(audience);
+        audience.createdAt = existing.createdAt;
+        audience.updatedAt = Instant.now().toString();
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(audience.toItem())
+                .build());
+
+        ctx.getLogger().log("Audience updated: " + audience.audienceId);
+        return json(200, mapper.writeValueAsString(audience));
+    }
+
+    private APIGatewayV2HTTPResponse deleteAudience(String audienceId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        if (!audienceExists(organizationId, audienceId)) {
+            throw new ResourceNotFoundException("Audience not found: " + audienceId);
+        }
+
+        ddb.deleteItem(DeleteItemRequest.builder()
+                .tableName(categoryTable())
+                .key(audienceKey(organizationId, audienceId))
+                .build());
+
+        ctx.getLogger().log("Audience deleted: " + audienceId);
+        return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "audienceId", audienceId, "deleted", true)));
+    }
+
     private APIGatewayV2HTTPResponse createCampaign(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
         String body = e.getBody();
         if (body == null || body.isEmpty()) {
@@ -769,6 +909,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         item.put("createdAt", AttributeValue.builder().s(now).build());
 
         putStringAttr(item, "categoryId", text(request, "categoryId"));
+        putStringAttr(item, "audienceId", text(request, "audienceId"));
         putStringAttr(item, "sourceId", text(request, "sourceId"));
         putStringAttr(item, "deliveryMode", text(request, "deliveryMode"));
         putStringAttr(item, "modelSource", text(request, "modelSource"));
@@ -1193,6 +1334,33 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         );
     }
 
+    private boolean audienceExists(String organizationId, String audienceId) {
+        return fetchAudience(organizationId, audienceId) != null;
+    }
+
+    private Audience fetchAudience(String organizationId, String audienceId) {
+        if (audienceId == null || audienceId.isBlank()) {
+            return null;
+        }
+
+        GetItemResponse res = ddb.getItem(GetItemRequest.builder()
+                .tableName(categoryTable())
+                .key(audienceKey(organizationId, audienceId))
+                .build());
+
+        if (!res.hasItem() || res.item().isEmpty()) {
+            return null;
+        }
+        return Audience.fromItem(res.item());
+    }
+
+    private Map<String, AttributeValue> audienceKey(String organizationId, String audienceId) {
+        return Map.of(
+                "pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                "sk", AttributeValue.builder().s("AUDIENCE#" + audienceId).build()
+        );
+    }
+
     private boolean campaignExists(String organizationId, String campaignId) {
         return fetchCampaign(organizationId, campaignId) != null;
     }
@@ -1284,6 +1452,38 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
         if (campaign.maxDelayHours != null && (campaign.maxDelayHours < 0 || campaign.maxDelayHours > 48)) {
             throw new ValidationException("maxDelayHours must be between 0 and 48");
+        }
+    }
+
+    private void validateAudience(Audience audience) throws ValidationException {
+        if (audience.audienceId == null || audience.audienceId.isBlank()) {
+            throw new ValidationException("audienceId is required");
+        }
+        if (audience.organizationId == null || audience.organizationId.isBlank()) {
+            throw new ValidationException("organizationId is required");
+        }
+        if (!audience.audienceId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("audienceId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (!audience.organizationId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("organizationId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (audience.name == null || audience.name.isBlank()) {
+            throw new ValidationException("name is required");
+        }
+        if (audience.userIds == null || audience.userIds.isEmpty()) {
+            throw new ValidationException("userIds must include at least one user");
+        }
+        if (audience.userIds.size() > 1000) {
+            throw new ValidationException("Audience MVP supports up to 1000 users");
+        }
+        for (String userId : audience.userIds) {
+            if (userId == null || userId.isBlank()) {
+                throw new ValidationException("userIds cannot contain blank values");
+            }
+            if (userId.length() > 160) {
+                throw new ValidationException("userIds cannot exceed 160 characters");
+            }
         }
     }
 
@@ -1420,6 +1620,22 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private void applyAudienceDefaults(Audience audience) {
+        audience.audienceId = audience.audienceId == null ? null : audience.audienceId.trim();
+        audience.name = audience.name == null ? null : audience.name.trim();
+        audience.description = audience.description == null ? null : audience.description.trim();
+        if (audience.userIds != null) {
+            audience.userIds = audience.userIds.stream()
+                    .filter(userId -> userId != null && !userId.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .toList();
+        }
+        if (audience.active == null) {
+            audience.active = true;
+        }
+    }
+
     private String organizationId(APIGatewayV2HTTPEvent event) {
         if (event != null && event.getHeaders() != null) {
             String header = event.getHeaders().get("x-organization-id");
@@ -1548,6 +1764,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         putStringNode(node, item, "launchId");
         putStringNode(node, item, "campaignId");
         putStringNode(node, item, "categoryId");
+        putStringNode(node, item, "audienceId");
         putStringNode(node, item, "sourceId");
         putStringNode(node, item, "deliveryMode");
         putStringNode(node, item, "modelSource");

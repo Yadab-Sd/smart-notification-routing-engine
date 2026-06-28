@@ -103,7 +103,7 @@ const MLModelPerformance = () => {
             {finalMetrics.trainAUC}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Improvement: +{((finalMetrics.trainAUC - 0.65) * 100).toFixed(1)}%
+            Synthetic demo curve
           </p>
         </div>
         <div className="bg-purple-50 rounded-lg p-4">
@@ -112,7 +112,7 @@ const MLModelPerformance = () => {
             {finalMetrics.valAUC}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Improvement: +{((finalMetrics.valAUC - 0.62) * 100).toFixed(1)}%
+            Validate with pilot data
           </p>
         </div>
       </div>

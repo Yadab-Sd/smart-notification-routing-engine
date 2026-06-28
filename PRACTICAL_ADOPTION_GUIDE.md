@@ -466,13 +466,13 @@ Let me know if you have questions!
 - Help debug API errors
 - Verify first events arriving in S3
 
-**Week 2-3: Production Rollout**
+**Week 2-3: Controlled Pilot Rollout**
 - Start with 10% traffic
 - Monitor CloudWatch logs for errors
 - Measure baseline engagement rate
 
-**Week 4-12: Full Production**
-- 100% traffic
+**Week 4-12: Pilot Expansion**
+- Expand only if the adopter approves the risk, compliance posture, and operating plan
 - Weekly metrics review
 - Collect feedback for improvements
 
@@ -485,13 +485,13 @@ Let me know if you have questions!
 Pilot Results - Acme Healthcare
 
 Notifications Sent: 28,450
-Engagement Rate Before: 12%
-Engagement Rate After: 54%
-Improvement: +350%
+Baseline Metrics: measured during pilot setup
+Pilot Metrics: measured during the controlled pilot
+Result: report actual observed change, including neutral or negative results
 
 AWS Costs: $127.42 (paid by Intelligent Routing)
 
-User Feedback: "Patients respond much better now"
+User Feedback: "[Use the adopter's exact approved feedback here]"
 ```
 
 **7b. Request Testimonial**:
@@ -501,9 +501,9 @@ Dear [Name],
 Would you be willing to provide a brief testimonial for our NIW case?
 
 Example:
-"Intelligent Routing Engine improved our appointment reminder 
-engagement by 350%. Implementation was straightforward and 
-support was excellent."
+"Intelligent Routing Engine helped us evaluate notification timing and
+attention-aware routing in our own AWS environment. The setup support was
+clear, and the pilot gave us measurable data for deciding whether to expand."
 
 This helps demonstrate national impact for my immigration case.
 ```

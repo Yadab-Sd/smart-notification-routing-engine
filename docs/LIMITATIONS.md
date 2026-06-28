@@ -21,9 +21,12 @@
 - User demographics (age, location)
 - A/B test variant tracking
 
-**Impact**: Predictions are less accurate than they could be. Adding these features could improve model performance by 20-30%.
+**Impact**: Predictions are less mature than they could be. Any performance
+gain from additional features must be measured with adopter-specific data.
 
-**Workaround**: System still provides 40-60% lift over fixed-time delivery with current features.
+**Workaround**: Use the current heuristic/model output as pilot guidance, compare
+it against the adopter's baseline, and avoid making production claims until
+results are measured.
 
 ---
 
@@ -232,7 +235,7 @@
 - Distributed tracing (AWS X-Ray not enabled)
 - Custom metrics dashboard (CloudWatch dashboard exists but limited)
 - Model performance degradation alerts
-- Data drift detection (model accuracy declining over time)
+- Data drift detection and measured model-performance monitoring over time
 
 **Current**: Logs and basic metrics only.
 

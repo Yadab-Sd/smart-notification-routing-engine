@@ -20,7 +20,8 @@ Patients not taking medications as prescribed costs the US healthcare system $30
 **How This System Helps**:
 - **Optimized medication reminders**: Send SMS/push notifications when patient is most likely to see and act on them
 - **Personalized timing**: Learn each patient's medication-taking patterns
-- **Improved response rates**: 40-60% higher engagement vs fixed-time reminders
+- **Pilot measurement**: Compare reminder timing, response, complaint, and opt-out
+  metrics against the organization's existing baseline
 
 **Government Sources**:
 - [CDC - Medication Adherence](https://www.cdc.gov/medication-safety/php/about/medication-adherence.html)
@@ -57,7 +58,8 @@ Delayed response to emergency alerts (tornado warnings, AMBER alerts, evacuation
 
 **Statistics**:
 - Average tornado warning lead time: 13 minutes
-- Only 50-60% of people receive and act on emergency alerts in time
+- Alert reach and response vary significantly by channel, geography, and
+  population
 - 489 tornado fatalities (2011-2020) could be reduced with better alert response
 
 **How This System Helps**:
@@ -89,7 +91,8 @@ Delayed response to emergency alerts (tornado warnings, AMBER alerts, evacuation
 **How This System Helps**:
 - **Optimized recovery emails**: Send cart reminders when user is most likely to convert
 - **Personalized timing**: Learn when each customer shops (evening vs weekend)
-- **Higher conversion**: 40-60% improvement over fixed-time recovery campaigns
+- **Pilot measurement**: Compare conversion, unsubscribe, complaint, and delivery
+  metrics against the organization's existing baseline
 
 **Sources**:
 - [US Census Bureau - E-Commerce Statistics](https://www.census.gov/retail/ecommerce.html)
@@ -214,37 +217,36 @@ Poor communication timing contributes to 40% of college students missing importa
 
 ## How to Measure Impact
 
-### Key Performance Indicators
+### Pilot Measurement Indicators
 
-| Use Case | Metric | Baseline | With ML Optimization | Source |
-|----------|--------|----------|---------------------|--------|
-| Medication adherence | % taking meds on time | 50% | 70-80% | CDC |
-| Appointment no-shows | No-show rate | 20% | 10-12% | CMS |
-| Emergency alerts | Response within 5 min | 40% | 65-75% | FEMA |
-| Cart recovery | Conversion rate | 10% | 15-18% | Commerce Dept |
-| Fraud alerts | Response within 15 min | 40% | 70-80% | Federal Reserve |
+These are measurement categories, not promised outcomes:
 
-### ROI Calculation Examples
+| Use Case | Metric To Measure | Baseline Source | Pilot Result |
+|----------|-------------------|-----------------|--------------|
+| Medication adherence | Reminder response or adherence proxy | Adopter baseline | Measure during pilot |
+| Appointment reminders | No-show rate and reminder response | Adopter baseline | Measure during pilot |
+| Emergency/public alerts | Timely acknowledgement where appropriate | Adopter baseline | Measure during pilot |
+| Cart recovery | Conversion, unsubscribe, and complaint rate | Adopter baseline | Measure during pilot |
+| Fraud alerts | Timely response and false-positive feedback | Adopter baseline | Measure during pilot |
 
-**Healthcare Provider (10,000 patients)**:
-- Current no-show rate: 20% (2,000 missed appointments/year)
-- Cost per no-show: $200
-- Current loss: $400,000/year
-- With ML optimization: 12% no-show rate (800 fewer misses)
-- **Savings: $160,000/year**
-- System cost: $500/month = $6,000/year
-- **Net benefit: $154,000/year**
+### ROI Measurement Examples
 
-**E-Commerce (1M monthly visitors)**:
-- Cart abandonment: 70% (700K abandoned carts)
-- Recoverable: 15% (105K)
-- Current conversion of reminders: 10% (10.5K orders)
-- Average order value: $50
-- Current recovered revenue: $525K/month
-- With ML: 15% conversion (15.75K orders = $787.5K/month)
-- **Additional revenue: $262.5K/month**
-- System cost: $500/month
-- **ROI: 525x**
+Do not claim ROI before production data exists. Use this template during a
+controlled pilot:
+
+**Healthcare Provider**
+- Baseline no-show rate: measured by the adopter
+- Pilot no-show rate: measured during the pilot
+- Cost per no-show: provided by the adopter
+- AWS cost: measured in the adopter's AWS account
+- Net result: calculated only from measured baseline and pilot values
+
+**E-Commerce**
+- Baseline cart reminder conversion: measured by the adopter
+- Pilot cart reminder conversion: measured during the pilot
+- Complaint and unsubscribe rates: measured during the pilot
+- AWS cost: measured in the adopter's AWS account
+- Net result: calculated only from measured baseline and pilot values
 
 ---
 

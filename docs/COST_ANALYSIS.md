@@ -91,7 +91,8 @@ Monthly AWS costs at different scales (us-west-2 pricing) by using [AWS Pricing 
 **Optimization**: Use SageMaker Serverless Inference
 - $0.20 per 1M inference requests
 - $0.0000625 per second of inference compute time
-- **1M predictions/day**: 30M * $0.20/1M = $6 (85% savings!)
+- Estimate savings with current AWS pricing and the adopter's actual usage.
+  Do not rely on sample pricing as a production commitment.
 
 ### Glue Costs
 - **G.1X DPU**: $0.44 per DPU-hour
@@ -125,30 +126,28 @@ Monthly AWS costs at different scales (us-west-2 pricing) by using [AWS Pricing 
 - No internet egress needed
 
 ### 2. SageMaker Serverless Inference
-**Savings**: $150/month (at low traffic)
-- Good for <10K predictions/day
-- Cold start: ~500ms vs <100ms for always-on
-- Break-even at ~500K predictions/month
+Potentially useful for intermittent or pilot traffic.
+- Compare serverless and always-on endpoints using current AWS pricing.
+- Measure cold start and latency in the adopter's region and account.
+- Choose the endpoint type after a pilot workload test.
 
 ### 3. S3 Intelligent-Tiering
-**Savings**: 30-50% on storage
 - Auto-moves infrequent data to cheaper tiers
 - $0.023/GB (Frequent) → $0.0125/GB (Infrequent)
 - Good for historical event data >30 days old
+Potential savings depend on storage patterns and AWS pricing.
 
 ### 4. DynamoDB Reserved Capacity
-**Savings**: 50-75% (if predictable traffic)
 - Reserved capacity: $0.0065 per WCU/month (vs $0.00065 per write on-demand)
 - Only beneficial if traffic is consistent
+Potential savings depend on predictable traffic and current AWS pricing.
 
 ### 5. Lambda SnapStart
-**Savings**: Reduces cold starts by 80%
 - Already enabled for Java functions
 - Reduces duration = lower costs
-- ~10-15% cost reduction on Lambda
+Measure cold-start and duration impact in the adopter's environment.
 
 ### 6. Glue Job Optimization
-**Savings**: 20-40% on ETL costs
 - Use G.2X workers instead of multiple G.1X (better parallelism)
 - Optimize Spark partitions
 - Cache intermediate results
@@ -170,7 +169,8 @@ Monthly AWS costs at different scales (us-west-2 pricing) by using [AWS Pricing 
 | **Twilio Segment** | $1,000-5,000 | CDP + messaging |
 | **This System** | $240-500 | AWS costs, no vendor markup |
 
-**Savings**: 80-95% compared to commercial alternatives at similar scale.
+Open-source self-hosting can reduce vendor dependency, but total cost depends
+on AWS usage, support needs, staffing, compliance, and operating maturity.
 
 ### Open Source Alternatives
 
@@ -180,37 +180,19 @@ Monthly AWS costs at different scales (us-west-2 pricing) by using [AWS Pricing 
 | **Knock** | $300-500/month | Kubernetes cluster required |
 | **This System** | $240-500/month | Serverless, no cluster management |
 
-## ROI Calculation
+## ROI Measurement
 
-### Engagement Improvement Value
+No ROI or revenue lift is claimed before production use. Each adopter should
+measure:
 
-**Assumptions**:
-- E-commerce with 1M active users
-- Average order value: $50
-- Current conversion: 3%
-- ML optimization: +50% relative improvement (3% → 4.5%)
+- Baseline engagement, conversion, complaint, bounce, and unsubscribe rates
+- Pilot engagement and delivery outcomes
+- AWS costs for the pilot workload
+- Staff time required for setup and operation
+- Any compliance, security, or legal review costs
 
-**Revenue Impact**:
-- Current: 1M * 3% * $50 = $1.5M/month
-- Optimized: 1M * 4.5% * $50 = $2.25M/month
-- **Increase**: $750K/month
-
-**Cost**: $500/month
-
-**ROI**: ($750K - $500) / $500 = **1,499% monthly ROI**
-
-### Break-Even Analysis
-
-**At what engagement lift does the system pay for itself?**
-
-Formula: `Lift% = (System Cost) / (Current Revenue * Current Conversion)`
-
-Example:
-- System cost: $500/month
-- Current revenue: $1.5M/month
-- Break-even lift: $500 / $1.5M = **0.033% improvement needed**
-
-The system pays for itself if it improves conversion by just 0.033 percentage points (3.00% → 3.03%).
+ROI should be calculated only from the adopter's measured baseline and pilot
+results.
 
 ## Scaling Projections
 
@@ -222,7 +204,8 @@ The system pays for itself if it improves conversion by just 0.033 percentage po
 | Large | 50M | $1,665 | $0.0011 |
 | Enterprise | 100M | $3,100 | $0.0010 |
 
-**Observation**: Cost per event decreases significantly with scale (economies of scale).
+**Observation**: Cost projections are estimates only. Validate actual costs with
+AWS Cost Explorer and a pilot workload before committing to production use.
 
 ## Cost Monitoring
 
