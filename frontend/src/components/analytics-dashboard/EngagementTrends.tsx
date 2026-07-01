@@ -14,7 +14,7 @@ import { generateEngagementData } from '@/utils/demo-data'
 const EngagementTrends = () => {
   const data = useMemo(() => generateEngagementData(30), [])
 
-  // Calculate average improvement
+  // Calculate illustrative demo delta. This is not a production claim.
   const avgImprovement = useMemo(() => {
     const totalUplift = data.reduce((sum, d) => sum + d.uplift, 0)
     return (totalUplift / data.length).toFixed(1)
@@ -24,10 +24,11 @@ const EngagementTrends = () => {
     <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Engagement Rate: Baseline vs ML-Optimized
+          Engagement Rate: Baseline vs Pilot Policy
         </h3>
         <p className="text-sm text-gray-600">
-          Comparing standard 9 AM send time vs ML-predicted optimal send times
+          Demo-only comparison for planning pilot measurement. Validate with
+          real adopter data before making claims.
         </p>
         <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium">
           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -37,7 +38,7 @@ const EngagementTrends = () => {
               clipRule="evenodd"
             />
           </svg>
-          Average {avgImprovement}% improvement
+          Synthetic demo delta: {avgImprovement}%
         </div>
       </div>
 
@@ -89,7 +90,7 @@ const EngagementTrends = () => {
             stroke="#3b82f6"
             strokeWidth={2}
             dot={false}
-            name="ML-Optimized"
+            name="Pilot Policy (Demo)"
           />
         </LineChart>
       </ResponsiveContainer>
@@ -102,13 +103,13 @@ const EngagementTrends = () => {
           </p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">ML-Optimized Avg</p>
+          <p className="text-sm text-gray-600">Pilot Policy Avg</p>
           <p className="text-xl font-semibold text-blue-600">
             {(data.reduce((sum, d) => sum + d.ml, 0) / data.length).toFixed(2)}%
           </p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">Improvement</p>
+          <p className="text-sm text-gray-600">Demo Delta</p>
           <p className="text-xl font-semibold text-green-600">
             +{avgImprovement}%
           </p>

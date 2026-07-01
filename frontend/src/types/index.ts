@@ -31,3 +31,7 @@ export type {
   CampaignLaunchRequest,
   CampaignListResponse,
 } from './campaign'
+export type {
+  Audience,
+  AudienceListResponse,
+} from './audience'

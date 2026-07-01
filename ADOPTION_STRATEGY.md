@@ -10,7 +10,7 @@
 
 ### Objectives:
 1. ✅ Validate technical feasibility across different use cases
-2. ✅ Demonstrate measurable engagement improvements (40-60%)
+2. ✅ Measure engagement, deliverability, and fatigue outcomes in real pilots
 3. ✅ Collect case studies and testimonials
 4. ✅ Support NIW petition with real-world US impact evidence
 5. ✅ Refine deployment process and documentation
@@ -24,8 +24,8 @@
 
 ### Success Metrics:
 - ✅ 3+ successful deployments
-- ✅ 40%+ engagement rate improvement (avg across pilots)
-- ✅ <2 hour deployment time (per organization)
+- ✅ Documented before/after pilot metrics, without promising a specific lift
+- ✅ Smooth setup experience measured and improved per organization
 - ✅ 2+ case studies published
 - ✅ 1+ testimonial/reference letter for NIW
 
@@ -186,9 +186,9 @@ Metrics: Deployments started, API requests, support queries
 **4. Adoption (Production Use)**
 
 Success Factors:
-- ✅ Smooth onboarding (<2 hours to production)
-- ✅ Clear value realization (<2 weeks to see engagement lift)
-- ✅ Reliable infrastructure (99.9%+ uptime)
+- ✅ Smooth onboarding validated with each adopter
+- ✅ Clear pilot measurement plan before production use
+- ✅ Reliability measured in the adopter's own AWS environment
 - ✅ Responsive support (Discord, GitHub Issues)
 - ✅ Regular updates and improvements
 
@@ -216,11 +216,11 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 **Positioning**: "Improve patient outcomes with ML-optimized health reminders"
 
 **Key Messages:**
-- 40-60% higher engagement = better medication adherence
+- Pilot can measure whether better timing improves patient communication outcomes
 - Customer-owned AWS deployment; healthcare compliance must be reviewed and operated
   by the adopting organization
-- Reduces no-show rates for appointments
-- Improves chronic disease management
+- May support appointment reminder and chronic-care communication workflows after
+  organization-specific validation
 
 **Channels:**
 - Health IT conferences (HIMSS, HLTH)
@@ -263,10 +263,10 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 **Positioning**: "Boost conversions with ML-optimized send times"
 
 **Key Messages:**
-- 40-60% higher click-through rates = more revenue
+- Pilot can measure whether timing optimization improves click-through or conversion
 - Works with existing ESP (SendGrid, Mailgun)
-- ROI positive within first month
-- Scales from startup to enterprise
+- ROI must be calculated from the adopter's own baseline, audience, and AWS costs
+- Deployment scale depends on AWS account quotas, architecture settings, and usage
 
 **Channels:**
 - E-commerce conferences (ShopTalk, eTail)
@@ -317,10 +317,10 @@ Metrics: Referrals, testimonials, case study participation, GitHub contributions
 
 ### Product Metrics:
 - Active deployments (target: 3-5 pilot, 20+ by month 12)
-- Monthly notifications sent (target: 1M+ by month 12)
-- Avg engagement rate improvement (target: 40-60%)
-- System uptime (target: 99.9%+)
-- Deployment time (target: <2 hours)
+- Monthly notifications sent, tracked only after adopters opt into measurement
+- Engagement, conversion, defer rate, complaint rate, and unsubscribe rate by pilot
+- System reliability measured in each adopter-owned AWS environment
+- Deployment time measured during guided setup and improved from feedback
 
 ### Growth Metrics:
 - GitHub stars (target: 500+ by month 12)

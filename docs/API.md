@@ -366,6 +366,41 @@ If the user does not exist, the Control Plane can auto-create the user when the 
 
 ---
 
+### Reusable Audiences
+
+Audiences are saved recipient lists. They prevent admins from re-pasting the same user IDs every time they preview or launch a campaign.
+
+An audience is reusable configuration. A campaign launch can reference the audience used at launch time with `audienceId`.
+
+In the admin UI, loading an audience fills the campaign draft user IDs box. Admins can still edit the user IDs before preview.
+
+**POST /v1/audiences** - Create reusable audience
+
+```json
+{
+  "audienceId": "pilot-users",
+  "name": "Pilot Users",
+  "description": "Initial pilot testing group",
+  "userIds": ["pilot_user_1", "pilot_user_2", "pilot_user_3"],
+  "active": true
+}
+```
+
+**GET /v1/audiences** - List reusable audiences
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API_URL/v1/audiences"
+```
+
+**GET /v1/audiences/{audienceId}** - Get one audience
+
+**PUT /v1/audiences/{audienceId}** - Update audience
+
+**DELETE /v1/audiences/{audienceId}** - Delete audience configuration. Existing campaign launch history remains stored separately.
+
+---
+
 ### Reusable Campaigns
 
 Campaigns are saved notification plans. They prevent admins from retyping the same campaign ID, message, category, priority, business value, urgency, and delivery settings every time they want to run another launch.
@@ -428,6 +463,7 @@ The Campaigns page calls this after submitting campaign events through `/v1/even
 {
   "campaignId": "renewal_reminder_june",
   "categoryId": "renewal_reminder",
+  "audienceId": "pilot-users",
   "sourceId": "campaign:renewal_reminder_june",
   "deliveryMode": "OPTIMIZED",
   "recipientCount": 100,
@@ -834,8 +870,10 @@ Use this endpoint for the Attention Escrow dashboard. It aggregates `ATTENTION_D
 
 ## Rate Limits
 
-- **Burst**: 5000 requests/second
-- **Steady state**: 10000 requests/second
+- Rate limits depend on API Gateway configuration, AWS account quotas, and the
+  adopter's deployment settings.
+- Do not treat sample limits as production capacity. Run load tests in a
+  controlled environment before production traffic.
 
 Exceeding limits returns HTTP 429 (Too Many Requests).
 

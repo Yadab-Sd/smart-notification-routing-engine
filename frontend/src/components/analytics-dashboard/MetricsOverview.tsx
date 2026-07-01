@@ -86,28 +86,28 @@ const MetricsOverview = () => {
         title="Total Events"
         value={metrics.totalEvents.toLocaleString()}
         icon={<Activity className="w-6 h-6 text-blue-600" />}
-        trend="12.5%"
+        trend="demo sample"
         trendUp={true}
       />
       <MetricCard
         title="Active Users"
         value={metrics.activeUsers.toLocaleString()}
         icon={<Users className="w-6 h-6 text-blue-600" />}
-        trend="8.3%"
+        trend="demo sample"
         trendUp={true}
       />
       <MetricCard
         title="Avg Engagement Rate"
         value={`${metrics.avgEngagementRate}%`}
         icon={<TrendingUp className="w-6 h-6 text-blue-600" />}
-        trend="45-60% vs baseline"
+        trend="validate in pilot"
         trendUp={true}
       />
       <MetricCard
         title="ML Model AUC"
         value={metrics.modelAUC}
         icon={<Target className="w-6 h-6 text-blue-600" />}
-        trend="0.02 improvement"
+        trend="demo only"
         trendUp={true}
       />
     </div>

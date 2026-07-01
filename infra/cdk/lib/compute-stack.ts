@@ -290,6 +290,41 @@ export class ComputeStack extends Stack {
             authorizer: jwtAuth,
         });
 
+        new apigwv2.HttpRoute(this, 'CreateAudienceRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/audiences', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'ListAudiencesRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/audiences', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'GetAudienceRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/audiences/{id}', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'UpdateAudienceRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/audiences/{id}', apigwv2.HttpMethod.PUT),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'DeleteAudienceRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/audiences/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
         new apigwv2.HttpRoute(this, 'CreateCampaignRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns', apigwv2.HttpMethod.POST),

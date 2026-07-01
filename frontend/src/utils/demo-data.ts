@@ -7,13 +7,13 @@ import type {
 } from '@/types'
 
 /**
- * Generate engagement data comparing baseline vs ML-optimized
- * Shows 40-60% improvement in engagement rates
+ * Generate illustrative engagement data for demo mode.
+ * These values are synthetic and must not be presented as production results.
  */
 export const generateEngagementData = (days: number): EngagementData[] => {
   const data: EngagementData[] = []
   const baselineRate = 0.035 // 3.5% baseline click rate
-  const mlRate = 0.058 // 5.8% ML-optimized rate (~65% improvement)
+  const pilotRate = 0.037 // illustrative pilot value, not a measured claim
 
   for (let i = 0; i < days; i++) {
     const date = subDays(new Date(), days - i - 1)
@@ -27,16 +27,16 @@ export const generateEngagementData = (days: number): EngagementData[] => {
 
     // Add some realistic noise
     const noiseBaseline = (Math.random() - 0.5) * 0.005
-    const noiseML = (Math.random() - 0.5) * 0.008
+    const noisePilot = (Math.random() - 0.5) * 0.006
 
     const baseline = Math.max(0.01, baselineRate + weekendBoost + noiseBaseline)
-    const ml = Math.max(0.02, mlRate + weekendBoost * 1.5 + noiseML)
+    const pilot = Math.max(0.01, pilotRate + weekendBoost + noisePilot)
 
     data.push({
       date: format(date, 'MMM dd'),
       baseline: baseline * 100, // Convert to percentage
-      ml: ml * 100,
-      uplift: ((ml - baseline) / baseline) * 100,
+      ml: pilot * 100,
+      uplift: ((pilot - baseline) / baseline) * 100,
     })
   }
 
@@ -45,7 +45,7 @@ export const generateEngagementData = (days: number): EngagementData[] => {
 
 /**
  * Generate hourly heatmap data showing engagement probability by hour and day
- * Higher engagement in evenings and weekends
+ * Synthetic values for demo mode only.
  */
 export const generateHourlyHeatmap = (): HourlyHeatmapData[] => {
   const data: HourlyHeatmapData[] = []
@@ -115,26 +115,26 @@ export const generateHourlyHeatmap = (): HourlyHeatmapData[] => {
 
 /**
  * Generate ML model training curve data
- * Shows model improving from 0.65 to 0.78 AUC over 200 epochs
+ * Synthetic validation curve for demo mode only.
  */
 export const generateMLTrainingCurve = (): MLTrainingData[] => {
   const data: MLTrainingData[] = []
-  let trainAUC = 0.65
-  let valAUC = 0.62
+  let trainAUC = 0.58
+  let valAUC = 0.56
 
   for (let epoch = 1; epoch <= 200; epoch++) {
-    // Gradual improvement with diminishing returns
+    // Gradual illustrative movement with diminishing returns
     const improvementFactor = 1 - epoch / 250
     trainAUC = Math.min(
-      0.89,
+      0.7,
       trainAUC +
-        (0.89 - trainAUC) * 0.05 * improvementFactor +
+        (0.7 - trainAUC) * 0.05 * improvementFactor +
         (Math.random() - 0.5) * 0.01
     )
     valAUC = Math.min(
-      0.78,
+      0.66,
       valAUC +
-        (0.78 - valAUC) * 0.04 * improvementFactor +
+        (0.66 - valAUC) * 0.04 * improvementFactor +
         (Math.random() - 0.5) * 0.015
     )
 
@@ -155,11 +155,11 @@ export const generateMLTrainingCurve = (): MLTrainingData[] => {
  * Generate metrics overview for KPI cards
  */
 export const generateMetricsOverview = (): MetricsOverview => {
-  // Simulate growth
-  const baseEvents = 2400000
-  const baseUsers = 15234
-  const baseEngagement = 5.8
-  const modelAUC = 0.78
+  // Synthetic sample values for demo mode only.
+  const baseEvents = 24000
+  const baseUsers = 420
+  const baseEngagement = 3.7
+  const modelAUC = 0.62
 
   // Add some variation to make it look live
   const variation = (Math.random() - 0.5) * 0.02
@@ -178,15 +178,15 @@ export const generateMetricsOverview = (): MetricsOverview => {
 export const generateSystemHealth = () => {
   return {
     apiLatency: {
-      p50: Math.floor(45 + Math.random() * 10),
-      p95: Math.floor(85 + Math.random() * 15),
-      p99: Math.floor(120 + Math.random() * 30),
+      p50: Math.floor(90 + Math.random() * 30),
+      p95: Math.floor(180 + Math.random() * 60),
+      p99: Math.floor(260 + Math.random() * 90),
     },
-    errorRate: Number((Math.random() * 0.5).toFixed(2)), // 0-0.5% error rate
-    lambdaInvocations: Math.floor(450000 + Math.random() * 50000),
-    kinesisLag: Math.floor(Math.random() * 500), // milliseconds
-    sagemakerInferences: Math.floor(125000 + Math.random() * 15000),
-    notificationsSent: Math.floor(89000 + Math.random() * 5000),
+    errorRate: Number((Math.random() * 1.5).toFixed(2)),
+    lambdaInvocations: Math.floor(4500 + Math.random() * 500),
+    kinesisLag: Math.floor(Math.random() * 1500),
+    sagemakerInferences: Math.floor(1250 + Math.random() * 150),
+    notificationsSent: Math.floor(890 + Math.random() * 50),
   }
 }
 

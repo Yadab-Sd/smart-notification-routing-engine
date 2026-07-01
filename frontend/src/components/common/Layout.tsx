@@ -81,9 +81,9 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
 }
 
 const notifItems = [
-  { title: 'XGBoost model retrained', desc: 'AUC-PR up to 0.78', ago: '12 min ago', color: 'success' },
-  { title: 'Ingestion spike detected', desc: '12k events/sec at 14:32 UTC', ago: '1 h ago', color: 'warning' },
-  { title: 'SageMaker endpoint stable', desc: 'p99 = 87 ms (target 100 ms)', ago: '3 h ago', color: 'info' },
+  { title: 'Model training completed', desc: 'Review validation metrics before rollout', ago: '12 min ago', color: 'success' },
+  { title: 'Ingestion activity detected', desc: 'Monitor stream capacity before scaling', ago: '1 h ago', color: 'warning' },
+  { title: 'SageMaker endpoint available', desc: 'Measure latency in your AWS account', ago: '3 h ago', color: 'info' },
 ]
 
 const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {

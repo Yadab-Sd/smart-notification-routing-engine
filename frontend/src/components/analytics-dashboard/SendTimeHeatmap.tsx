@@ -97,7 +97,7 @@ const SendTimeHeatmap = () => {
         <h4 className="text-sm font-medium text-gray-900 mb-2">Key Insights</h4>
         <ul className="text-sm text-gray-700 space-y-1">
           <li>• Peak engagement: Evenings (6 PM - 10 PM) across all days</li>
-          <li>• Weekend mornings show higher engagement than weekdays</li>
+          <li>• Weekend mornings are a demo pattern; validate with pilot data</li>
           <li>• Lowest engagement: Late night/early morning (12 AM - 6 AM)</li>
           <li>• Weekday work hours (9 AM - 5 PM) show moderate engagement</li>
         </ul>

@@ -136,8 +136,8 @@ const SystemHealth = () => {
           icon={<AlertCircle className="w-4 h-4 text-blue-600" />}
           metrics={[
             { label: 'Current', value: `${health.errorRate}%`, status: getErrorRateStatus(health.errorRate) },
-            { label: 'Target', value: '< 0.1%', status: 'good' },
-            { label: 'Status', value: health.errorRate < 0.1 ? 'Healthy' : 'Warning', status: getErrorRateStatus(health.errorRate) },
+            { label: 'Target', value: 'Set per pilot' },
+            { label: 'Status', value: 'Validate', status: getErrorRateStatus(health.errorRate) },
           ]}
         />
 
@@ -146,8 +146,8 @@ const SystemHealth = () => {
           icon={<Zap className="w-4 h-4 text-blue-600" />}
           metrics={[
             { label: 'Invocations', value: health.lambdaInvocations.toLocaleString() },
-            { label: 'Success Rate', value: '99.8%', status: 'good' },
-            { label: 'Avg Duration', value: '42ms' },
+            { label: 'Success Rate', value: 'Measure live' },
+            { label: 'Avg Duration', value: 'Measure live' },
           ]}
         />
 
@@ -156,7 +156,7 @@ const SystemHealth = () => {
           icon={<Database className="w-4 h-4 text-blue-600" />}
           metrics={[
             { label: 'Lag', value: `${health.kinesisLag}ms`, status: health.kinesisLag < 1000 ? 'good' : 'warning' },
-            { label: 'Records/sec', value: '1,247' },
+            { label: 'Records/sec', value: 'Measure live' },
             { label: 'Status', value: 'Active', status: 'good' },
           ]}
         />
@@ -166,8 +166,8 @@ const SystemHealth = () => {
           icon={<Cpu className="w-4 h-4 text-blue-600" />}
           metrics={[
             { label: 'Inferences', value: health.sagemakerInferences.toLocaleString() },
-            { label: 'Avg Latency', value: '87ms', status: 'good' },
-            { label: 'Model Version', value: 'v2.3.1' },
+            { label: 'Avg Latency', value: 'Measure live' },
+            { label: 'Model Version', value: 'Environment' },
           ]}
         />
 
@@ -176,8 +176,8 @@ const SystemHealth = () => {
           icon={<Send className="w-4 h-4 text-blue-600" />}
           metrics={[
             { label: 'Sent (24h)', value: health.notificationsSent.toLocaleString() },
-            { label: 'Delivery Rate', value: '98.5%', status: 'good' },
-            { label: 'Avg Cost', value: '$0.0004' },
+            { label: 'Delivery Rate', value: 'Measure live' },
+            { label: 'Avg Cost', value: 'Use Cost Explorer' },
           ]}
         />
       </div>

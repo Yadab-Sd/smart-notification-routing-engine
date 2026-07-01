@@ -8,11 +8,11 @@
 - REST API for event ingestion and user management
 - Endpoints: `/v1/events`, `/v1/users/{id}`, `/v1/users/{id}/preferences`
 - Authentication: Cognito JWT validation
-- Rate limiting: API Gateway throttling (5000 req/sec)
+- Rate limiting: API Gateway throttling configured per deployment
 
 **Kinesis Data Streams**
 - Real-time event streaming
-- Auto-sharding based on throughput
+- Shard capacity sized per deployment and validated during pilot/load testing
 - 24-hour retention period
 - Partition key: userId for ordered processing
 
@@ -67,7 +67,7 @@
 **SageMaker Endpoint**
 - Instance: ml.m5.large (2 vCPU, 8GB)
 - Auto-scaling: Min 1, Max 3 instances
-- Latency: ~45ms p50, ~95ms p99
+- Latency: environment-specific; measure p50/p95/p99 after deployment
 - Model format: XGBoost binary (joblib)
 
 ---
@@ -90,7 +90,8 @@
 
 **EventBridge Scheduler**
 - One-time schedules (not recurring)
-- Precision: second-level accuracy
+- Schedule execution follows EventBridge Scheduler behavior and AWS service
+  characteristics; validate timing tolerance during pilot testing
 - Schedule format: `at(YYYY-MM-DDTHH:mm:ss)`
 - Target: Sender Lambda ARN
 - Payload: `{ userId }`
@@ -360,15 +361,17 @@ SR-Data (S3, DynamoDB, Kinesis)
 
 ### Kinesis Sharding Strategy
 
-- **1 shard** = 1MB/sec write, 2MB/sec read
-- **Events/sec per shard**: ~4000 (250 bytes/event)
-- **Auto-scaling**: Based on iterator age (CloudWatch alarm)
+- Size shard count from expected event volume, record size, and current AWS
+  Kinesis quotas.
+- Use CloudWatch iterator age and throttling metrics to validate capacity during
+  pilot and production rollout.
 
 ### Lambda Concurrency
 
 - **Reserved concurrency**: 100 per function (adjustable)
 - **Burst limit**: 3000 (account-level)
-- **SnapStart**: Enabled for Java functions (80% cold start reduction)
+- **SnapStart**: Enabled for Java functions where supported; measure cold-start
+  impact in the adopter's environment
 
 ### DynamoDB Scaling
 

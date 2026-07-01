@@ -30,6 +30,11 @@ Learns when each user is most likely to engage with notifications, then automati
 
 **Pilot goal**: Validate whether user-specific timing and attention-aware routing improve engagement, reduce fatigue, and lower risky sends compared with fixed-time delivery.
 
+**Production metrics note**: This project has not yet been validated with
+production customer data. Engagement lift, accuracy, latency, throughput, ROI,
+cost, and reliability must be measured in each adopter's own AWS account before
+making production claims.
+
 ---
 
 ## Architecture

@@ -131,8 +131,8 @@ const Register = () => {
               </h2>
               <p className="mt-4 text-white/80 max-w-lg">
                 Uses predictive models to send messages via the channel the user
-                is most likely to interact with. built to scale to 10M+
-                events/day.
+                is most likely to interact with. Pilot results and production
+                capacity should be validated in your own AWS environment.
               </p>
             </div>
 
