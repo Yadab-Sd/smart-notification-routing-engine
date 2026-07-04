@@ -3,7 +3,7 @@
 Complete list of all features in the Smart Notification Routing Engine.
 
 **Last Updated**: June 24, 2026  
-**Version**: 2.4.0
+**Version**: 2.5.0
 
 ---
 
@@ -755,6 +755,14 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 ---
 
 ## 🔄 Version History
+
+### v2.5.0 (July 2026)
+- ✅ Reusable Audience Library
+- ✅ Saved audience create/list/get/update/delete APIs
+- ✅ Audience admin UI with copy, edit, delete, and use-in-campaign actions
+- ✅ Campaign draft audience selector
+- ✅ Campaign launch history `audienceId` tracking
+- ✅ Missing user-management API Gateway routes for Users and production statistics
 
 ### v2.4.0 (June 2026)
 - ✅ Reusable Campaign Library

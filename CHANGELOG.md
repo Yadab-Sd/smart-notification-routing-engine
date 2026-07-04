@@ -6,6 +6,30 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 
 ---
 
+## [2.5.0] - 2026-07-04
+
+### Added
+
+- Reusable Audience Library with saved audience create/list/get/update/delete APIs
+- Audience admin page for creating, editing, deleting, copying, and reusing recipient lists
+- Campaign draft audience selector that loads saved recipient lists into batch preview
+- Campaign launch history now records `audienceId` when a saved audience is used unchanged
+- Direct navigation from an audience to the Campaigns page with the audience preloaded
+
+### Fixed
+
+- Added missing API Gateway routes for `GET /v1/users`, `POST /v1/users/bulk`, and `GET /v1/users/stats`
+- Fixed production statistics and Users page access that could return 404 when routes were not registered
+- Removed incomplete template type export from the audience release branch so frontend CI can build without untracked template files
+
+### Compatibility
+
+- **Backward Compatible**: Yes. Existing campaigns and event ingestion continue to work.
+- **CDK Deploy Required**: Yes, because this release adds `/v1/audiences` routes and missing user-management routes.
+- **Recommended Version Type**: Minor release, because this adds reusable audience management without intentionally removing existing behavior.
+
+---
+
 ## [2.4.0] - 2026-06-25
 
 ### Added
