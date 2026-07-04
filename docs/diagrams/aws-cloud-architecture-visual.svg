@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180" role="img" aria-labelledby="title desc">
+  <title id="title">Smart Notification Routing Engine AWS Cloud Architecture</title>
+  <desc id="desc">AWS cloud architecture diagram for the Smart Notification Routing Engine showing senders, frontend, API, decision logic, data stores, ML pipeline, delivery channels, feedback loops, and adopter-owned deployment boundary.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fbff"/>
+      <stop offset="48%" stop-color="#f5f7fb"/>
+      <stop offset="100%" stop-color="#fff8ef"/>
+    </linearGradient>
+    <linearGradient id="awsBand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fff4df"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="decisionBand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5efff"/>
+      <stop offset="100%" stop-color="#eef7ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#1f2937" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow-blue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#dc2626"/>
+    </marker>
+    <style>
+      .title { font: 700 34px Arial, Helvetica, sans-serif; fill: #172033; }
+      .subtitle { font: 400 16px Arial, Helvetica, sans-serif; fill: #526071; }
+      .section { font: 700 15px Arial, Helvetica, sans-serif; letter-spacing: .8px; fill: #334155; }
+      .label { font: 700 17px Arial, Helvetica, sans-serif; fill: #172033; }
+      .small { font: 400 13px Arial, Helvetica, sans-serif; fill: #475569; }
+      .tiny { font: 400 12px Arial, Helvetica, sans-serif; fill: #64748b; }
+      .chip { font: 700 12px Arial, Helvetica, sans-serif; fill: #334155; }
+      .box { rx: 18; ry: 18; filter: url(#shadow); }
+      .flow-blue { fill: none; stroke: #2563eb; stroke-width: 3; marker-end: url(#arrow-blue); }
+      .flow-purple { fill: none; stroke: #7c3aed; stroke-width: 3; marker-end: url(#arrow-purple); }
+      .flow-green { fill: none; stroke: #059669; stroke-width: 3; marker-end: url(#arrow-green); }
+      .flow-red { fill: none; stroke: #dc2626; stroke-width: 3; marker-end: url(#arrow-red); }
+      .flow-gray { fill: none; stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 8 8; marker-end: url(#arrow-blue); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1180" fill="url(#bg)"/>
+  <text x="900" y="56" text-anchor="middle" class="title">Smart Notification Routing Engine - AWS Cloud Architecture</text>
+  <text x="900" y="84" text-anchor="middle" class="subtitle">Reusable, adopter-owned critical-communication infrastructure for event ingestion, attention-aware routing, delivery, feedback, and ML improvement.</text>
+
+  <rect x="55" y="125" width="1690" height="920" rx="28" fill="#ffffff" stroke="#d7dee8" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="80" y="160" width="1640" height="840" rx="22" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="14 10"/>
+  <text x="108" y="145" class="section">ADOPTER-OWNED AWS ACCOUNT BOUNDARY</text>
+
+  <rect x="95" y="185" width="250" height="160" rx="20" fill="#eef6ff" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
+  <text x="220" y="218" text-anchor="middle" class="label">Organization Senders</text>
+  <text x="220" y="248" text-anchor="middle" class="small">Admin console</text>
+  <text x="220" y="272" text-anchor="middle" class="small">CRM / EHR / LMS</text>
+  <text x="220" y="296" text-anchor="middle" class="small">Civic or nonprofit system</text>
+  <rect x="130" y="315" width="180" height="22" rx="11" fill="#dbeafe"/>
+  <text x="220" y="331" text-anchor="middle" class="chip">Message intent + audience</text>
+
+  <rect x="425" y="185" width="270" height="160" rx="20" fill="#ecfdf5" stroke="#86efac" stroke-width="2" filter="url(#shadow)"/>
+  <text x="560" y="218" text-anchor="middle" class="label">Frontend + Identity</text>
+  <text x="560" y="248" text-anchor="middle" class="small">CloudFront + S3 admin UI</text>
+  <text x="560" y="272" text-anchor="middle" class="small">Amazon Cognito JWT</text>
+  <text x="560" y="296" text-anchor="middle" class="small">Protected API access</text>
+  <rect x="462" y="315" width="196" height="22" rx="11" fill="#dcfce7"/>
+  <text x="560" y="331" text-anchor="middle" class="chip">Auth, CORS, session control</text>
+
+  <rect x="770" y="185" width="290" height="160" rx="20" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="915" y="218" text-anchor="middle" class="label">API + Control Plane</text>
+  <text x="915" y="248" text-anchor="middle" class="small">API Gateway HTTP API</text>
+  <text x="915" y="272" text-anchor="middle" class="small">ControlPlaneFn Java Lambda</text>
+  <text x="915" y="296" text-anchor="middle" class="small">Events, users, categories, campaigns</text>
+  <rect x="812" y="315" width="206" height="22" rx="11" fill="#e2e8f0"/>
+  <text x="915" y="331" text-anchor="middle" class="chip">Validation + policy context</text>
+
+  <rect x="1135" y="185" width="270" height="160" rx="20" fill="url(#decisionBand)" stroke="#c4b5fd" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1270" y="218" text-anchor="middle" class="label">Decision Intelligence</text>
+  <text x="1270" y="248" text-anchor="middle" class="small">DecisionFn Java Lambda</text>
+  <text x="1270" y="272" text-anchor="middle" class="small">SageMaker or fallback heuristic</text>
+  <text x="1270" y="296" text-anchor="middle" class="small">Attention Escrow gate</text>
+  <rect x="1172" y="315" width="196" height="22" rx="11" fill="#ede9fe"/>
+  <text x="1270" y="331" text-anchor="middle" class="chip">SEND / SCHEDULE / DEFER</text>
+
+  <rect x="1480" y="185" width="220" height="160" rx="20" fill="#fff7ed" stroke="#fdba74" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1590" y="218" text-anchor="middle" class="label">Scheduling</text>
+  <text x="1590" y="248" text-anchor="middle" class="small">EventBridge Scheduler</text>
+  <text x="1590" y="272" text-anchor="middle" class="small">One-time future delivery</text>
+  <text x="1590" y="296" text-anchor="middle" class="small">Schedule metadata passed</text>
+  <rect x="1514" y="315" width="152" height="22" rx="11" fill="#ffedd5"/>
+  <text x="1590" y="331" text-anchor="middle" class="chip">Timing execution</text>
+
+  <rect x="95" y="430" width="360" height="300" rx="24" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="275" y="464" text-anchor="middle" class="label">Operational State</text>
+  <text x="130" y="502" class="small">DynamoDB tables</text>
+  <text x="154" y="532" class="tiny">UserProfiles</text>
+  <text x="154" y="556" class="tiny">NotificationCategories</text>
+  <text x="154" y="580" class="tiny">Campaign and launch records</text>
+  <text x="154" y="604" class="tiny">AttentionLedger</text>
+  <text x="154" y="628" class="tiny">Email suppression list</text>
+  <text x="130" y="668" class="small">Purpose</text>
+  <text x="154" y="696" class="tiny">Explain decisions, preserve audit trail,</text>
+  <text x="154" y="718" class="tiny">protect recipients from repeated failures.</text>
+
+  <rect x="535" y="430" width="340" height="300" rx="24" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2" filter="url(#shadow)"/>
+  <text x="705" y="464" text-anchor="middle" class="label">Event Data Plane</text>
+  <text x="570" y="502" class="small">Kinesis UserEvents stream</text>
+  <text x="570" y="532" class="small">EventsConsumerFn</text>
+  <text x="570" y="562" class="small">S3 raw event lake</text>
+  <text x="570" y="592" class="small">S3 curated feature data</text>
+  <rect x="585" y="640" width="240" height="54" rx="16" fill="#dbeafe" stroke="#93c5fd"/>
+  <text x="705" y="662" text-anchor="middle" class="chip">Input for analytics + training</text>
+  <text x="705" y="682" text-anchor="middle" class="tiny">No central vendor data store required</text>
+
+  <rect x="955" y="430" width="360" height="300" rx="24" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1135" y="464" text-anchor="middle" class="label">ML Improvement Loop</text>
+  <text x="990" y="502" class="small">EventBridge nightly trigger</text>
+  <text x="990" y="532" class="small">Step Functions pipeline</text>
+  <text x="990" y="562" class="small">AWS Glue feature engineering</text>
+  <text x="990" y="592" class="small">SageMaker XGBoost training</text>
+  <text x="990" y="622" class="small">Endpoint deployer Lambda</text>
+  <rect x="1002" y="660" width="266" height="34" rx="17" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="1135" y="682" text-anchor="middle" class="chip">send-time-v1 when available</text>
+
+  <rect x="1395" y="430" width="305" height="300" rx="24" fill="#fff7ed" stroke="#fdba74" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1548" y="464" text-anchor="middle" class="label">Delivery Layer</text>
+  <text x="1430" y="502" class="small">SenderFn Java Lambda</text>
+  <text x="1430" y="532" class="small">Channel selection + fallback</text>
+  <text x="1430" y="562" class="small">Template rendering</text>
+  <text x="1430" y="592" class="small">Suppression check before email</text>
+  <rect x="1430" y="635" width="105" height="50" rx="16" fill="#dcfce7" stroke="#86efac"/>
+  <text x="1482" y="666" text-anchor="middle" class="chip">SES email</text>
+  <rect x="1562" y="635" width="105" height="50" rx="16" fill="#dcfce7" stroke="#86efac"/>
+  <text x="1614" y="666" text-anchor="middle" class="chip">SNS SMS</text>
+
+  <rect x="1265" y="810" width="435" height="150" rx="24" fill="#fff1f2" stroke="#fca5a5" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1482" y="844" text-anchor="middle" class="label">Feedback and Suppression</text>
+  <text x="1300" y="882" class="small">SES configuration set publishes bounce/complaint events</text>
+  <text x="1300" y="910" class="small">SNS topics invoke SESEventProcessor</text>
+  <text x="1300" y="938" class="small">Suppression and SES event logs protect future sends</text>
+
+  <rect x="685" y="810" width="390" height="150" rx="24" fill="#ecfdf5" stroke="#86efac" stroke-width="2" filter="url(#shadow)"/>
+  <text x="880" y="844" text-anchor="middle" class="label">Observability and Governance</text>
+  <text x="720" y="882" class="small">CloudWatch logs and metrics</text>
+  <text x="720" y="910" class="small">KMS-backed encryption controls</text>
+  <text x="720" y="938" class="small">IAM scoped service roles and audit records</text>
+
+  <rect x="95" y="810" width="510" height="150" rx="24" fill="#ecfeff" stroke="#67e8f9" stroke-width="2" filter="url(#shadow)"/>
+  <text x="350" y="844" text-anchor="middle" class="label">Reusable Adoption Path</text>
+  <text x="130" y="882" class="small">1. Deploy CDK stacks in the adopter AWS account</text>
+  <text x="130" y="910" class="small">2. Configure categories, campaigns, users, and sender identity</text>
+  <text x="130" y="938" class="small">3. Integrate API/UI, monitor outcomes, then improve policy/model behavior</text>
+
+  <path class="flow-blue" d="M 345 265 C 375 265 395 265 425 265"/>
+  <path class="flow-blue" d="M 695 265 C 725 265 740 265 770 265"/>
+  <path class="flow-blue" d="M 1060 265 C 1090 265 1105 265 1135 265"/>
+  <path class="flow-purple" d="M 1405 265 C 1430 265 1452 265 1480 265"/>
+  <path class="flow-purple" d="M 1270 345 C 1270 380 1225 400 1170 430"/>
+  <path class="flow-blue" d="M 915 345 C 900 390 850 412 775 430"/>
+  <path class="flow-blue" d="M 915 345 C 840 383 735 395 705 430"/>
+  <path class="flow-green" d="M 1590 345 C 1590 382 1572 400 1548 430"/>
+  <path class="flow-green" d="M 1270 345 C 1370 392 1430 410 1500 430"/>
+  <path class="flow-purple" d="M 1135 730 C 1120 785 1050 800 880 810"/>
+  <path class="flow-red" d="M 1548 730 L 1548 810"/>
+  <path class="flow-green" d="M 1265 885 C 1205 885 1138 885 1075 885"/>
+  <path class="flow-gray" d="M 880 810 C 820 760 550 745 300 730"/>
+  <path class="flow-gray" d="M 350 810 C 390 755 300 735 300 730"/>
+  <path class="flow-gray" d="M 880 810 C 930 760 1020 740 1120 730"/>
+  <path class="flow-purple" d="M 1315 580 C 1340 580 1365 580 1395 580"/>
+
+  <rect x="80" y="1060" width="1640" height="62" rx="20" fill="url(#awsBand)" stroke="#fed7aa"/>
+  <text x="112" y="1086" class="small">Claim boundary:</text>
+  <text x="232" y="1086" class="tiny">This diagram describes pilot-ready open-source infrastructure. Production accuracy, throughput, compliance status, and regulated deployment readiness must be validated by each adopting organization.</text>
+  <text x="112" y="1110" class="small">Current delivery:</text>
+  <text x="232" y="1110" class="tiny">Email uses Amazon SES v2. SMS uses Amazon SNS. SageMaker is optional at runtime because the decision service can fall back to transparent heuristic scoring.</text>
+</svg>

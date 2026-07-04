@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Layout from '@/components/common/Layout'
-import { createAudience, deleteAudience, listAudiences, updateAudience } from '@/api/audiences'
+import { listAudiences } from '@/api/audiences'
 import { listCategories } from '@/api/categories'
 import { createCampaign, deleteCampaign, listCampaigns, listCampaignLaunches, recordCampaignLaunch, updateCampaign } from '@/api/campaigns'
 import { getAttentionSummary, previewBatchDecision } from '@/api/decisions'
@@ -99,15 +100,13 @@ const normalizeError = (err: unknown) => {
 }
 
 const Campaigns = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [categories, setCategories] = useState<NotificationCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [audiences, setAudiences] = useState<Audience[]>([])
   const [audiencesLoading, setAudiencesLoading] = useState(false)
   const [selectedAudienceId, setSelectedAudienceId] = useState('')
-  const [audienceName, setAudienceName] = useState('Pilot Audience')
-  const [audienceDescription, setAudienceDescription] = useState('')
   const [audienceModified, setAudienceModified] = useState(false)
-  const [savingAudience, setSavingAudience] = useState(false)
   const [savedCampaigns, setSavedCampaigns] = useState<Campaign[]>([])
   const [campaignsLoading, setCampaignsLoading] = useState(false)
   const [selectedCampaignId, setSelectedCampaignId] = useState('')
@@ -142,8 +141,10 @@ const Campaigns = () => {
     badge: string
     summary: AttentionSummaryResponse
   } | null>(null)
+  const requestedAudienceId = searchParams.get('audienceId') || ''
 
   const selectedCategory = categories.find((category) => category.categoryId === categoryId)
+  const currentAudience = audiences.find((audience) => audience.audienceId === selectedAudienceId)
   const userIds = useMemo(() => uniqueUserIds(userIdsText), [userIdsText])
   const policyLocked = Boolean(selectedCategory)
 
@@ -312,18 +313,8 @@ const Campaigns = () => {
     }
   }
 
-  const audiencePayload = (): Audience => ({
-    audienceId: selectedAudienceId || audienceName.trim().toLowerCase().replace(/[^a-z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '') || 'audience',
-    name: audienceName.trim(),
-    description: audienceDescription.trim(),
-    userIds,
-    active: true,
-  })
-
   const loadAudience = (audience: Audience) => {
     setSelectedAudienceId(audience.audienceId)
-    setAudienceName(audience.name)
-    setAudienceDescription(audience.description || '')
     setUserIdsText((audience.userIds || []).join('\n'))
     setAudienceModified(false)
     setPreview(null)
@@ -331,54 +322,42 @@ const Campaigns = () => {
     setError('')
   }
 
-  const saveAudience = async () => {
-    setError('')
-    setLaunchNotice('')
-    const payload = audiencePayload()
-    if (!payload.audienceId) {
-      setError('Audience ID is required before saving.')
-      return
-    }
-    if (!payload.name) {
-      setError('Audience name is required before saving.')
-      return
-    }
-    if (!payload.userIds.length) {
-      setError('Add at least one user ID before saving an audience.')
+  useEffect(() => {
+    if (!requestedAudienceId || audiences.length === 0) return
+    if (selectedAudienceId === requestedAudienceId && !audienceModified) return
+
+    const audience = audiences.find((item) => item.audienceId === requestedAudienceId)
+    if (!audience) {
+      setError(`Audience "${requestedAudienceId}" was not found. It may have been deleted or is inactive.`)
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.delete('audienceId')
+        return next
+      }, { replace: true })
       return
     }
 
-    setSavingAudience(true)
-    try {
-      const exists = audiences.some((audience) => audience.audienceId === payload.audienceId)
-      const saved = exists
-        ? await updateAudience(payload.audienceId, payload)
-        : await createAudience(payload)
-      setSelectedAudienceId(saved.audienceId)
+    loadAudience(audience)
+    setLaunchNotice(`Loaded audience "${audience.name}" into the campaign draft.`)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('audienceId')
+      return next
+    }, { replace: true })
+  }, [audiences, requestedAudienceId])
+
+  const selectAudienceForDraft = (nextAudienceId: string) => {
+    if (!nextAudienceId) {
+      setSelectedAudienceId('')
       setAudienceModified(false)
-      await loadAudiences()
-      setLaunchNotice(exists ? 'Audience updated.' : 'Audience saved.')
-    } catch (err) {
-      setError(normalizeError(err))
-    } finally {
-      setSavingAudience(false)
+      setPreview(null)
+      return
     }
-  }
 
-  const removeAudience = async (audience: Audience) => {
-    if (!window.confirm(`Delete audience "${audience.name}"? Campaign launch history will remain.`)) return
-    setError('')
-    setLaunchNotice('')
-    try {
-      await deleteAudience(audience.audienceId)
-      await loadAudiences()
-      if (selectedAudienceId === audience.audienceId) {
-        setSelectedAudienceId('')
-        setAudienceModified(false)
-      }
-      setLaunchNotice('Audience deleted. Existing campaign launch history remains available.')
-    } catch (err) {
-      setError(normalizeError(err))
+    const audience = audiences.find((item) => item.audienceId === nextAudienceId)
+    if (audience) {
+      loadAudience(audience)
+      setLaunchNotice(`Loaded audience "${audience.name}" into the campaign draft.`)
     }
   }
 
@@ -398,8 +377,6 @@ const Campaigns = () => {
     setUrgency(0.5)
     setMaxDelayHours(24)
     setSelectedAudienceId('demo-public-health-pilot')
-    setAudienceName('Demo Public Health Pilot')
-    setAudienceDescription('Demo audience used for a public health reminder walkthrough.')
     setUserIdsText(demoUserIds.join('\n'))
     setAudienceModified(false)
     setPreview(null)
@@ -765,105 +742,6 @@ const Campaigns = () => {
           </div>
         </section>
 
-        <section className="card-flush">
-          <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Audience library</h2>
-              <p className="text-sm text-slate-500 mt-1">
-                Save reusable recipient lists and load them into the campaign draft.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-secondary" onClick={loadAudiences} disabled={audiencesLoading}>
-                {audiencesLoading ? <Loader2 size={16} className="animate-spin" /> : <Users size={16} />}
-                Refresh
-              </button>
-              <button className="btn-primary" onClick={saveAudience} disabled={savingAudience}>
-                {savingAudience ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                {selectedAudienceId && audiences.some((audience) => audience.audienceId === selectedAudienceId) ? 'Update audience' : 'Save audience'}
-              </button>
-            </div>
-          </div>
-
-          <div className="grid xl:grid-cols-[minmax(0,1fr)_360px] gap-5 p-5">
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Audience</th>
-                    <th>Users</th>
-                    <th>Updated</th>
-                    <th className="text-right pr-6">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {audiences.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="text-center text-slate-500 py-8">
-                        {audiencesLoading ? 'Loading audiences...' : 'No saved audiences yet. Save the current user IDs to reuse them later.'}
-                      </td>
-                    </tr>
-                  ) : (
-                    audiences.map((audience) => (
-                      <tr key={audience.audienceId} className={selectedAudienceId === audience.audienceId ? 'bg-primary-50/60' : ''}>
-                        <td>
-                          <div className="font-medium text-slate-900">{audience.name}</div>
-                          <div className="text-xs text-slate-400 font-mono">{audience.audienceId}</div>
-                        </td>
-                        <td>{audience.userIds?.length || 0}</td>
-                        <td className="text-slate-600">{timeLabel(audience.updatedAt || audience.createdAt)}</td>
-                        <td className="text-right pr-6">
-                          <div className="flex justify-end gap-2">
-                            <button className="btn-secondary text-xs" onClick={() => loadAudience(audience)}>
-                              <Edit3 size={14} />
-                              Load
-                            </button>
-                            <button className="btn-secondary text-xs text-danger-700" onClick={() => removeAudience(audience)}>
-                              <Trash2 size={14} />
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="label">Audience name</label>
-                <input className="input" value={audienceName} onChange={(event) => setAudienceName(event.target.value)} />
-              </div>
-              <div>
-                <label className="label">Selected audience ID</label>
-                <input
-                  className="input"
-                value={selectedAudienceId}
-                  onChange={(event) => {
-                    setSelectedAudienceId(event.target.value)
-                    setAudienceModified(false)
-                  }}
-                  placeholder="Auto-created from name if blank"
-                />
-              </div>
-              <div>
-                <label className="label">Audience notes</label>
-                <textarea
-                  className="input min-h-20"
-                  value={audienceDescription}
-                  onChange={(event) => setAudienceDescription(event.target.value)}
-                  placeholder="Optional internal notes"
-                />
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                Saving uses the user IDs currently in the campaign draft. Loading an audience replaces the user IDs box, and you can still edit before preview.
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div className="grid xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6">
           <section className="card-flush p-5 space-y-5">
             <div>
@@ -923,6 +801,47 @@ const Campaigns = () => {
                 onChange={(event) => setCampaignDescription(event.target.value)}
                 placeholder="Optional notes for admins. Not sent to users."
               />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <label className="label mb-1">Audience</label>
+                  <p className="text-xs text-slate-500">
+                    Choose a saved recipient list. It fills the User IDs below, then preview decides who should send, defer, or be skipped.
+                  </p>
+                </div>
+                {currentAudience && !audienceModified && (
+                  <span className="badge badge-success">Saved list</span>
+                )}
+                {selectedAudienceId && audienceModified && (
+                  <span className="badge badge-warning">Edited after load</span>
+                )}
+              </div>
+              <select
+                className="input"
+                value={selectedAudienceId}
+                onChange={(event) => selectAudienceForDraft(event.target.value)}
+                disabled={audiencesLoading}
+              >
+                <option value="">Manual recipients - paste user IDs below</option>
+                {audiences.map((audience) => (
+                  <option key={audience.audienceId} value={audience.audienceId}>
+                    {audience.name} ({audience.userIds?.length || 0} users)
+                  </option>
+                ))}
+              </select>
+              {currentAudience && (
+                <div className="text-xs text-slate-600">
+                  Loaded <span className="font-medium text-slate-800">{currentAudience.name}</span>
+                  {currentAudience.description ? ` - ${currentAudience.description}` : ''}.
+                </div>
+              )}
+              {selectedAudienceId && audienceModified && (
+                <div className="text-xs text-warning-700">
+                  Recipient edits are unsaved. Save/update the audience if you want launch history to reference this saved audience.
+                </div>
+              )}
             </div>
 
             <div>
