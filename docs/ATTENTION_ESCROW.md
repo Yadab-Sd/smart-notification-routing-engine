@@ -7,6 +7,8 @@ Attention Escrow is the system's trust-aware notification gate. It adds a second
 
 The goal is to protect users from fatigue while helping organizations avoid long-term trust damage from over-sending.
 
+![Attention Escrow UI](docs/diagrams/AttentionEscrow.png)
+
 ---
 
 ## Current Implementation

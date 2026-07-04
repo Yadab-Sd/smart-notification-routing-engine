@@ -39,6 +39,8 @@ making production claims.
 
 ## Architecture
 
+![High Level Architecture Diagram](docs/diagrams/SNRE_TECHNICAL_ARCHITECTURE.svg)
+
 ![Data Flow](docs/diagrams/data-flow.svg)
 
 **Core Components**:
