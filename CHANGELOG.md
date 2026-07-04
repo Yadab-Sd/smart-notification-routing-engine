@@ -6,6 +6,32 @@ All notable changes to Smart Notification Routing Engine will be documented in t
 
 ---
 
+## [2.6.0] - 2026-07-04
+
+### Added
+
+- Reusable Notification Template Library with create/list/get/update/delete APIs
+- Admin Templates page backed by the API instead of static demo data
+- Template selection in Campaigns, Send Event, and Attention Escrow workflows
+- Template variable detection with fill-in fields for custom placeholders
+- Built-in profile variables for templates: `userId`, `name`, `firstName`, `lastName`, `email`, and `phone`
+- User profile support for display name, first name, and last name
+
+### Changed
+
+- Sender Service now renders template placeholders for both subject and message content before delivery
+- Plain-text email bodies preserve line breaks when sent through SES
+- Campaigns can persist `templateId` and template variables for reusable structured messages
+- API and feature documentation now describe template storage, profile variables, and rendering behavior
+
+### Compatibility
+
+- **Backward Compatible**: Yes. Existing `/v1/events`, campaigns, and user profiles continue to work.
+- **CDK Deploy Required**: Yes, because this release adds `/v1/templates` routes and user profile fields used by Sender Service.
+- **Recommended Version Type**: Minor release, because this adds reusable template management without intentionally removing existing behavior.
+
+---
+
 ## [2.5.0] - 2026-07-04
 
 ### Added

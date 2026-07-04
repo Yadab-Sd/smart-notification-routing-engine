@@ -2,8 +2,8 @@
 
 Complete list of all features in the Smart Notification Routing Engine.
 
-**Last Updated**: June 24, 2026  
-**Version**: 2.5.0
+**Last Updated**: July 4, 2026  
+**Version**: 2.6.0
 
 ---
 
@@ -358,32 +358,39 @@ Before every email send:
 ---
 
 ### 9. Template Rendering
-**Status**: ✅ Production Ready
+**Status**: ✅ MVP Ready
 
-Handlebars template engine for dynamic content.
+Reusable notification templates for structured subject/body content and profile-aware personalization.
 
 **Features**:
-- ✅ HTML + plain text versions
-- ✅ Variable substitution ({{userId}}, {{email}}, etc.)
-- ✅ S3-based template storage
-- ✅ Fallback inline template
-- ✅ Custom templates per notification
+- ✅ Create, list, edit, copy, preview, and delete notification templates from the admin UI
+- ✅ Template APIs: `POST/GET/PUT/DELETE /v1/templates`
+- ✅ Template selection in Campaigns, Send Event, and Attention Escrow workflows
+- ✅ Built-in profile variables: `{{userId}}`, `{{name}}`, `{{firstName}}`, `{{lastName}}`, `{{email}}`, `{{phone}}`
+- ✅ Custom placeholder detection and fill-in fields, such as `{{appointmentTime}}`
+- ✅ Subject and body rendering before delivery
+- ✅ Plain-text email bodies preserve line breaks in SES-rendered email
 
 **Example Template**:
-```html
-<html>
-<body>
-  <h1>Hello {{userId}}!</h1>
-  <p>Your email is {{email}}</p>
-  <p>Notification sent at optimal time for your engagement.</p>
-</body>
-</html>
+```text
+Subject: Appointment reminder for {{name}}
+
+Hi {{firstName}},
+
+This is a reminder for {{appointmentTime}}.
 ```
 
-**Template Storage**: `s3://{curated-bucket}/templates/`
+**Template Storage**:
+- Table: `NotificationCategories`
+- Partition key: `ORG#{organizationId}`
+- Sort key: `TEMPLATE#{templateId}`
 
 **Files**:
-- Sender Handler: `services/sender-service/src/main/java/com/yadab/sr/sender/Handler.java` (renderTemplate method)
+- Template model: `services/control-plane/src/main/java/com/yadab/sr/models/NotificationTemplate.java`
+- Control Plane: `services/control-plane/src/main/java/com/yadab/sr/controlplane/Handler.java`
+- Sender Handler: `services/sender-service/src/main/java/com/yadab/sr/sender/Handler.java`
+- Frontend: `frontend/src/pages/Templates.tsx`
+- Utility: `frontend/src/utils/template-variables.ts`
 
 ---
 
@@ -755,6 +762,15 @@ Adopting organizations remain responsible for legal and regulatory compliance.
 ---
 
 ## 🔄 Version History
+
+### v2.6.0 (July 2026)
+- ✅ Reusable Notification Template Library
+- ✅ `/v1/templates` create/list/get/update/delete APIs
+- ✅ Admin Templates page backed by real API data
+- ✅ Template selection across Campaigns, Send Event, and Attention Escrow
+- ✅ Built-in user profile variables: `userId`, `name`, `firstName`, `lastName`, `email`, `phone`
+- ✅ User profile display name, first name, and last name support
+- ✅ Sender-side subject/body rendering with line break preservation
 
 ### v2.5.0 (July 2026)
 - ✅ Reusable Audience Library
