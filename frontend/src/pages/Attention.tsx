@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   Code2,
+  FileText,
   Gauge,
   Loader2,
   RefreshCw,
@@ -17,8 +18,10 @@ import {
 } from 'lucide-react'
 import { apiClient } from '@/api/client'
 import { listCategories } from '@/api/categories'
+import { listTemplates } from '@/api/templates'
 import { getAttentionSummary, previewDecision, scheduleDecision } from '@/api/decisions'
-import type { AttentionSummaryResponse, DecisionResponse, MessageCategory, NotificationCategory, PriorityClass } from '@/types'
+import type { AttentionSummaryResponse, DecisionResponse, MessageCategory, NotificationCategory, NotificationTemplate, PriorityClass } from '@/types'
+import { compactTemplateVariables, templateVariableNames } from '@/utils/template-variables'
 
 type Channel = 'AUTO' | 'EMAIL' | 'SMS' | 'PUSH'
 
@@ -158,7 +161,10 @@ const Attention = () => {
   const [summaryError, setSummaryError] = useState('')
   const [summaryData, setSummaryData] = useState<AttentionSummaryResponse | null>(null)
   const [notificationCategories, setNotificationCategories] = useState<NotificationCategory[]>([])
+  const [templates, setTemplates] = useState<NotificationTemplate[]>([])
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({})
   const [categoryLoadError, setCategoryLoadError] = useState('')
+  const [templateLoadError, setTemplateLoadError] = useState('')
   const [showAllRows, setShowAllRows] = useState(false)
   const [filters, setFilters] = useState({
     sourceId: '',
@@ -168,6 +174,7 @@ const Attention = () => {
   const [form, setForm] = useState({
     userId: 'pilot_user_3',
     categoryId: '',
+    templateId: '',
     sourceId: 'campaign:abandoned_cart',
     channel: 'EMAIL' as Channel,
     messageCategory: 'MARKETING' as MessageCategory,
@@ -183,6 +190,11 @@ const Attention = () => {
     () => notificationCategories.find((category) => category.categoryId === form.categoryId),
     [notificationCategories, form.categoryId]
   )
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.templateId === form.templateId),
+    [templates, form.templateId]
+  )
+  const selectedTemplateVariables = useMemo(() => templateVariableNames(selectedTemplate), [selectedTemplate])
   const categoryLocked = Boolean(selectedCategory)
   const immediateCategorySelected = selectedCategory?.defaultDeliveryMode === 'IMMEDIATE'
   const selectableChannels = selectedCategory?.allowedChannels?.length
@@ -236,6 +248,21 @@ const Attention = () => {
     loadCategories()
   }, [])
 
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const data = await listTemplates()
+        setTemplates((data.templates || []).filter((template) => template.active !== false))
+        setTemplateLoadError('')
+      } catch (err: any) {
+        const status = err.response?.status
+        const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Unable to load templates'
+        setTemplateLoadError(status ? `HTTP ${status}: ${message}` : message)
+      }
+    }
+    loadTemplates()
+  }, [])
+
   const applyCategory = (categoryId: string) => {
     const category = notificationCategories.find((item) => item.categoryId === categoryId)
     if (!category) {
@@ -257,6 +284,27 @@ const Attention = () => {
     if (category.defaultDeliveryMode === 'OPTIMIZED') {
       setDeliveryWindow(categoryDeliveryWindow(category.maxDelayHours))
     }
+  }
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((item) => item.templateId === templateId)
+    if (!template) {
+      setForm({ ...form, templateId })
+      setTemplateVariables({})
+      return
+    }
+
+    const variableNames = templateVariableNames(template)
+    setTemplateVariables((current) => Object.fromEntries(variableNames.map((name) => [name, current[name] || ''])))
+    setForm({
+      ...form,
+      templateId,
+      subject: template.subject || form.subject,
+      message: template.body,
+      channel: selectedCategory ? form.channel : template.channel as Channel,
+      messageCategory: selectedCategory ? form.messageCategory : template.messageCategory,
+      sourceId: form.sourceId || `template:${template.templateId}`,
+    })
   }
 
   const rows = useMemo<DecisionRow[]>(() => {
@@ -352,21 +400,29 @@ const Attention = () => {
     })
   }
 
-  const buildDecisionRequest = () => ({
-    userId: form.userId,
-    windowStart: epochSecondsFromLocalInput(deliveryWindow.start),
-    windowEnd: epochSecondsFromLocalInput(deliveryWindow.end),
-    channel: form.channel,
-    sourceId: form.sourceId,
-    categoryId: form.categoryId || undefined,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    messageCategory: form.messageCategory,
-    priorityClass: form.priorityClass,
-    businessValue: form.businessValue,
-    urgency: form.urgency,
-    message: form.message,
-    metadata: form.subject ? { subject: form.subject } : undefined,
-  })
+  const buildDecisionRequest = () => {
+    const variables = compactTemplateVariables(templateVariables)
+    const metadata: Record<string, unknown> = {}
+    if (form.subject) metadata.subject = form.subject
+    if (Object.keys(variables).length > 0) metadata.templateVariables = variables
+
+    return {
+      userId: form.userId,
+      windowStart: epochSecondsFromLocalInput(deliveryWindow.start),
+      windowEnd: epochSecondsFromLocalInput(deliveryWindow.end),
+      channel: form.channel,
+      sourceId: form.sourceId,
+      categoryId: form.categoryId || undefined,
+      templateId: form.templateId || undefined,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      messageCategory: form.messageCategory,
+      priorityClass: form.priorityClass,
+      businessValue: form.businessValue,
+      urgency: form.urgency,
+      message: form.message,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    }
+  }
 
   const runDecision = async (mode: 'preview' | 'schedule') => {
     setLoading(mode)
@@ -420,11 +476,12 @@ const Attention = () => {
           message: form.message,
           sourceId: form.sourceId,
           categoryId: form.categoryId || undefined,
+          templateId: form.templateId || undefined,
           messageCategory: form.messageCategory,
           priorityClass: form.priorityClass,
           businessValue: form.businessValue,
           urgency: form.urgency,
-          metadata: form.subject ? { subject: form.subject } : undefined,
+          metadata: buildDecisionRequest().metadata,
         },
       })
       setActionNotice('Immediate send event submitted.')
@@ -888,6 +945,57 @@ const Attention = () => {
                   </div>
                 </div>
               )}
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="stat-icon-wrap bg-primary-100 flex-shrink-0">
+                    <FileText size={18} className="text-primary-700" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Message Template</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Optional reusable content. Selecting one fills subject/message and passes `templateId` into the decision.
+                    </div>
+                  </div>
+                </div>
+                <select
+                  className="select"
+                  value={form.templateId}
+                  onChange={(e) => applyTemplate(e.target.value)}
+                >
+                  <option value="">No template - manual message</option>
+                  {templates.map((template) => (
+                    <option key={template.templateId} value={template.templateId}>
+                      {template.name} ({template.channel})
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-slate-500 mt-2">
+                  {selectedTemplate
+                    ? `Template ID: ${selectedTemplate.templateId}`
+                    : templateLoadError || 'Use a saved template to keep previews aligned with campaign/event content.'}
+                </div>
+                {selectedTemplateVariables.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-primary-100 bg-white p-3">
+                    <div className="text-sm font-semibold text-slate-900 mb-2">Template Variables</div>
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedTemplateVariables.map((variable) => (
+                        <div key={variable}>
+                          <label className="label font-mono">{`{{${variable}}}`}</label>
+                          <input
+                            className="input"
+                            value={templateVariables[variable] || ''}
+                            onChange={(e) => setTemplateVariables({ ...templateVariables, [variable]: e.target.value })}
+                            placeholder={variable === 'name' ? form.userId : variable}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">
+                      Used when scheduled or sent now; preview still shows the decision score.
+                    </div>
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="label">Subject</label>
                 <input

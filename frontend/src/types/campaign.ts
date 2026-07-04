@@ -6,6 +6,8 @@ export interface Campaign {
   name: string
   description?: string
   categoryId?: string
+  templateId?: string
+  templateVariables?: Record<string, string>
   eventType: string
   subject?: string
   message: string

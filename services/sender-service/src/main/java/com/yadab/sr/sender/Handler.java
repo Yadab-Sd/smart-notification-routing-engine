@@ -131,6 +131,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         NotificationChannel channel = selection.getChannel();
         String recipient = getRecipient(user, channel);
 
+        Map<String, Object> templateVariables = templateVariables(user, event);
+
         // Extract subject from metadata if provided
         String subject = "Notification from Smart Routing Engine"; // Default
         if (event.containsKey("metadata") && event.get("metadata") instanceof Map) {
@@ -141,16 +143,17 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
                 context.getLogger().log("Using custom subject from metadata: " + subject);
             }
         }
+        subject = renderTemplate(subject, templateVariables, context);
 
         // Use custom message if provided, otherwise fetch template
         String renderedBody;
 
         if (customMessage != null && !customMessage.isEmpty()) {
-            renderedBody = customMessage;
-            context.getLogger().log("Using custom message from event");
+            renderedBody = renderTemplate(customMessage, templateVariables, context);
+            context.getLogger().log("Using rendered custom message from event");
         } else {
             String templateContent = fetchTemplate(context);
-            renderedBody = renderTemplate(templateContent, user, context);
+            renderedBody = renderTemplate(templateContent, templateVariables, context);
             context.getLogger().log("Using template-based message");
         }
 
@@ -309,11 +312,17 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         ResponseBytes<GetObjectResponse> s3Object = s3.getObjectAsBytes(getReq);
         String templateContent = s3Object.asUtf8String();
 
-        String renderedBody = renderTemplate(templateContent, req.getVariables(), context);
+        Map<String, Object> variables = templateVariables(user, event);
+        if (req.getVariables() != null) {
+            variables.putAll(req.getVariables());
+        }
+
+        String renderedBody = renderTemplate(templateContent, variables, context);
+        String renderedSubject = renderTemplate(req.getSubject(), variables, context);
 
         // Send via selected channel
         try {
-            channel.send(recipient, req.getSubject(), renderedBody, context);
+            channel.send(recipient, renderedSubject, renderedBody, context);
         } catch (Exception e) {
             context.getLogger().log("Failed to send via " + channel.getChannelType() + ": " + e.getMessage());
             throw new RuntimeException("Notification delivery failed", e);
@@ -356,6 +365,18 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
         UserProfile user = new UserProfile();
         user.setUserId(userId);
 
+        if (item.containsKey("name")) {
+            user.setName(item.get("name").s());
+        }
+        if (item.containsKey("displayName")) {
+            user.setName(item.get("displayName").s());
+        }
+        if (item.containsKey("firstName")) {
+            user.setFirstName(item.get("firstName").s());
+        }
+        if (item.containsKey("lastName")) {
+            user.setLastName(item.get("lastName").s());
+        }
         if (item.containsKey("email")) {
             user.setEmail(item.get("email").s());
         }
@@ -398,23 +419,84 @@ public class Handler implements RequestHandler<Map<String, Object>, Map<String, 
      * Render Handlebars template with user data.
      */
     private String renderTemplate(String templateContent, UserProfile user, Context context) {
-        Map<String, String> variables = new HashMap<>();
-        variables.put("userId", user.getUserId());
-        variables.put("email", user.getEmail());
-        variables.put("phone", user.getPhone());
-        return renderTemplate(templateContent, variables, context);
+        return renderTemplate(templateContent, templateVariables(user, Map.of()), context);
     }
 
     /**
      * Render Handlebars template with provided variables.
      */
-    private String renderTemplate(String templateContent, Map<String, String> variables, Context context) {
+    private String renderTemplate(String templateContent, Map<String, Object> variables, Context context) {
+        if (templateContent == null || templateContent.isBlank()) {
+            return "";
+        }
         try {
             Template template = handlebars.compileInline(templateContent);
             return template.apply(variables);
         } catch (Exception e) {
             throw new RuntimeException("Failed to render template: " + e.getMessage(), e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> templateVariables(UserProfile user, Map<String, Object> event) {
+        Map<String, Object> variables = new HashMap<>();
+        if (user != null) {
+            putIfPresent(variables, "userId", user.getUserId());
+            putIfPresent(variables, "name", firstNonBlank(user.getName(), user.getFirstName(), user.getUserId()));
+            putIfPresent(variables, "firstName", user.getFirstName());
+            putIfPresent(variables, "lastName", user.getLastName());
+            putIfPresent(variables, "email", user.getEmail());
+            putIfPresent(variables, "phone", user.getPhone());
+        }
+
+        if (event != null) {
+            for (Map.Entry<String, Object> entry : event.entrySet()) {
+                if (isScalar(entry.getValue())) {
+                    putIfPresent(variables, entry.getKey(), entry.getValue());
+                }
+            }
+
+            Object metadataObj = event.get("metadata");
+            if (metadataObj instanceof Map<?, ?> metadata) {
+                for (Map.Entry<?, ?> entry : metadata.entrySet()) {
+                    if (entry.getKey() != null && isScalar(entry.getValue())) {
+                        putIfPresent(variables, entry.getKey().toString(), entry.getValue());
+                    }
+                }
+
+                Object templateVariablesObj = metadata.get("templateVariables");
+                if (templateVariablesObj instanceof Map<?, ?> templateVariables) {
+                    for (Map.Entry<?, ?> entry : templateVariables.entrySet()) {
+                        if (entry.getKey() != null && isScalar(entry.getValue())) {
+                            putIfPresent(variables, entry.getKey().toString(), entry.getValue());
+                        }
+                    }
+                }
+            }
+        }
+        return variables;
+    }
+
+    private boolean isScalar(Object value) {
+        return value == null || value instanceof String || value instanceof Number || value instanceof Boolean;
+    }
+
+    private void putIfPresent(Map<String, Object> values, String key, Object value) {
+        if (key != null && value != null && !value.toString().isBlank()) {
+            values.put(key, value);
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**

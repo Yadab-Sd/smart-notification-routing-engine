@@ -87,8 +87,8 @@ public class EmailChannel implements NotificationChannel {
         }
 
         try {
-            // Strip HTML for text version
-            String textBody = body.replaceAll("<[^>]+>", "").trim();
+            String htmlBody = looksLikeHtml(body) ? body : plainTextToHtml(body);
+            String textBody = htmlToPlainText(htmlBody);
 
             Content subjectContent = Content.builder()
                     .data(subject)
@@ -96,7 +96,7 @@ public class EmailChannel implements NotificationChannel {
                     .build();
 
             Content htmlContent = Content.builder()
-                    .data(body)
+                    .data(htmlBody)
                     .charset("UTF-8")
                     .build();
 
@@ -142,5 +142,43 @@ public class EmailChannel implements NotificationChannel {
     @Override
     public double getCostPerMessage() {
         return 0.0001; // $0.10 per 1,000 emails = $0.0001 per email
+    }
+
+    private boolean looksLikeHtml(String value) {
+        return value != null && value.matches("(?is).*<\\s*(html|body|div|p|br|table|h[1-6]|ul|ol|li|span|strong|em|a)\\b.*");
+    }
+
+    private String plainTextToHtml(String value) {
+        String escaped = escapeHtml(value == null ? "" : value);
+        return "<html><body><div style=\"font-family:Arial,sans-serif;font-size:14px;line-height:1.5;white-space:pre-wrap;\">"
+                + escaped
+                + "</div></body></html>";
+    }
+
+    private String htmlToPlainText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replaceAll("(?i)<\\s*br\\s*/?>", "\n")
+                .replaceAll("(?i)</\\s*p\\s*>", "\n\n")
+                .replaceAll("(?i)</\\s*div\\s*>", "\n")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .trim();
+    }
+
+    private String escapeHtml(String value) {
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

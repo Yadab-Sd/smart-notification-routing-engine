@@ -6,6 +6,8 @@ import { listCategories } from '@/api/categories'
 import { createCampaign, deleteCampaign, listCampaigns, listCampaignLaunches, recordCampaignLaunch, updateCampaign } from '@/api/campaigns'
 import { getAttentionSummary, previewBatchDecision } from '@/api/decisions'
 import { ingestNotificationEvent } from '@/api/events'
+import { listTemplates } from '@/api/templates'
+import { compactTemplateVariables, templateVariableNames } from '@/utils/template-variables'
 import type {
   AttentionSummaryResponse,
   Audience,
@@ -16,6 +18,7 @@ import type {
   MessageCategory,
   NotificationCategory,
   NotificationChannel,
+  NotificationTemplate,
   PriorityClass,
 } from '@/types'
 import {
@@ -32,6 +35,7 @@ import {
   Save,
   Trash2,
   Edit3,
+  FileText,
   PlayCircle,
 } from 'lucide-react'
 
@@ -103,6 +107,8 @@ const Campaigns = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [categories, setCategories] = useState<NotificationCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [templates, setTemplates] = useState<NotificationTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
   const [audiences, setAudiences] = useState<Audience[]>([])
   const [audiencesLoading, setAudiencesLoading] = useState(false)
   const [selectedAudienceId, setSelectedAudienceId] = useState('')
@@ -115,6 +121,8 @@ const Campaigns = () => {
   const [campaignName, setCampaignName] = useState('Pilot Campaign')
   const [campaignDescription, setCampaignDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [templateId, setTemplateId] = useState('')
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({})
   const [userIdsText, setUserIdsText] = useState('pilot_user_1\npilot_user_2\npilot_user_3')
   const [message, setMessage] = useState('A helpful reminder from your organization.')
   const [subject, setSubject] = useState('A helpful reminder')
@@ -144,6 +152,8 @@ const Campaigns = () => {
   const requestedAudienceId = searchParams.get('audienceId') || ''
 
   const selectedCategory = categories.find((category) => category.categoryId === categoryId)
+  const selectedTemplate = templates.find((template) => template.templateId === templateId)
+  const selectedTemplateVariables = useMemo(() => templateVariableNames(selectedTemplate), [selectedTemplate])
   const currentAudience = audiences.find((audience) => audience.audienceId === selectedAudienceId)
   const userIds = useMemo(() => uniqueUserIds(userIdsText), [userIdsText])
   const policyLocked = Boolean(selectedCategory)
@@ -172,6 +182,18 @@ const Campaigns = () => {
     }
   }
 
+  const loadTemplates = async () => {
+    setTemplatesLoading(true)
+    try {
+      const data = await listTemplates()
+      setTemplates((data.templates || []).filter((template) => template.active !== false))
+    } catch (err) {
+      console.warn('Unable to load templates', err)
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }
+
   useEffect(() => {
     const loadCategories = async () => {
       setCategoriesLoading(true)
@@ -187,6 +209,7 @@ const Campaigns = () => {
     loadCategories()
     loadCampaigns()
     loadAudiences()
+    loadTemplates()
   }, [])
 
   const loadLaunches = async (campaignIdFilter = launchFilterCampaignId) => {
@@ -221,11 +244,33 @@ const Campaigns = () => {
     setMaxDelayHours(category.defaultDeliveryMode === 'IMMEDIATE' ? 0 : category.maxDelayHours || 24)
   }
 
+  const applyTemplate = (nextTemplateId: string) => {
+    setTemplateId(nextTemplateId)
+    const template = templates.find((item) => item.templateId === nextTemplateId)
+    if (!template) {
+      setTemplateVariables({})
+      return
+    }
+
+    const variableNames = templateVariableNames(template)
+    setTemplateVariables((current) => Object.fromEntries(variableNames.map((name) => [name, current[name] || ''])))
+    setSubject(template.subject || subject)
+    setMessage(template.body)
+    if (!selectedCategory) {
+      setChannel(template.channel as NotificationChannel)
+      setMessageCategory(template.messageCategory)
+    }
+    setLaunchNotice(`Loaded template "${template.name}" into the campaign draft.`)
+    setPreview(null)
+  }
+
   const campaignPayload = (): Campaign => ({
     campaignId: campaignId.trim(),
     name: campaignName.trim(),
     description: campaignDescription.trim(),
     categoryId: selectedCategory?.categoryId || categoryId || undefined,
+    templateId: templateId || undefined,
+    templateVariables: compactTemplateVariables(templateVariables),
     eventType: eventType.trim() || 'CAMPAIGN_NOTIFICATION',
     subject: subject.trim(),
     message: message.trim(),
@@ -245,6 +290,8 @@ const Campaigns = () => {
     setCampaignName(campaign.name)
     setCampaignDescription(campaign.description || '')
     setCategoryId(campaign.categoryId || '')
+    setTemplateId(campaign.templateId || '')
+    setTemplateVariables(campaign.templateVariables || {})
     setEventType(campaign.eventType || 'CAMPAIGN_NOTIFICATION')
     setSubject(campaign.subject || '')
     setMessage(campaign.message)
@@ -367,6 +414,8 @@ const Campaigns = () => {
     setCampaignName('Demo Public Health Reminder')
     setCampaignDescription('Demo scenario for appointment reminders and community outreach messages.')
     setCategoryId('')
+    setTemplateId('')
+    setTemplateVariables({})
     setEventType('PUBLIC_HEALTH_REMINDER')
     setSubject('Reminder: please review your appointment details')
     setMessage('This is a helpful reminder from your public health team. Please review your appointment details or outreach instructions when convenient.')
@@ -419,11 +468,16 @@ const Campaigns = () => {
         windowEnd: end,
         channel,
         sourceId: campaignSourceId(campaignId),
+        templateId: templateId || undefined,
         messageCategory,
         priorityClass,
         businessValue,
         urgency,
         message,
+        metadata: {
+          subject: subject.trim(),
+          templateVariables: compactTemplateVariables(templateVariables),
+        },
         categoryDefaults: categoryDefaults(selectedCategory),
         effectivePolicy: {
           categoryId: selectedCategory?.categoryId,
@@ -467,15 +521,19 @@ const Campaigns = () => {
       priorityClass: normalizePriorityClass(priorityClass),
       businessValue,
       urgency,
-      metadata: {
-        subject: subject.trim(),
-        campaignPreviewDecisionId: result.decisionId,
-        recommendedSendTime: result.recommendedSendTime,
-      },
+        metadata: {
+          subject: subject.trim(),
+          templateVariables: compactTemplateVariables(templateVariables),
+          campaignPreviewDecisionId: result.decisionId,
+          recommendedSendTime: result.recommendedSendTime,
+        },
     }
 
     if (selectedCategory?.categoryId) {
       notification.categoryId = selectedCategory.categoryId
+    }
+    if (templateId) {
+      notification.templateId = templateId
     }
     if (deliveryMode === 'OPTIMIZED') {
       notification.maxDelayHours = selectedCategory?.defaultDeliveryMode === 'IMMEDIATE' ? 0 : maxDelayHours
@@ -684,6 +742,7 @@ const Campaigns = () => {
                 <tr>
                   <th>Campaign</th>
                   <th>Category</th>
+                  <th>Template</th>
                   <th>Mode</th>
                   <th>Priority</th>
                   <th>Value / urgency</th>
@@ -693,7 +752,7 @@ const Campaigns = () => {
               <tbody>
                 {savedCampaigns.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-slate-500 py-8">
+                    <td colSpan={7} className="text-center text-slate-500 py-8">
                       {campaignsLoading ? 'Loading campaigns...' : 'No saved campaigns yet. Save the draft below to reuse it later.'}
                     </td>
                   </tr>
@@ -705,6 +764,7 @@ const Campaigns = () => {
                         <div className="text-xs text-slate-400 font-mono">{campaign.campaignId}</div>
                       </td>
                       <td>{campaign.categoryId || 'Manual policy'}</td>
+                      <td>{campaign.templateId || 'Manual message'}</td>
                       <td>
                         <span className={campaign.defaultDeliveryMode === 'IMMEDIATE' ? 'badge badge-info' : 'badge badge-success'}>
                           {campaign.defaultDeliveryMode === 'IMMEDIATE' ? 'Immediate' : 'Optimized'}
@@ -772,10 +832,6 @@ const Campaigns = () => {
                 <input className="input" value={eventType} onChange={(event) => setEventType(event.target.value)} />
               </div>
               <div>
-                <label className="label">Subject</label>
-                <input className="input" value={subject} onChange={(event) => setSubject(event.target.value)} />
-              </div>
-              <div>
                 <label className="label">Configured category</label>
                 <select
                   className="input"
@@ -801,6 +857,85 @@ const Campaigns = () => {
                 onChange={(event) => setCampaignDescription(event.target.value)}
                 placeholder="Optional notes for admins. Not sent to users."
               />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText size={18} className="text-slate-600" />
+                <h3 className="font-semibold text-slate-900">Message content</h3>
+              </div>
+
+              <div>
+                <label className="label">Message template</label>
+                <select
+                  className="input"
+                  value={templateId}
+                  onChange={(event) => applyTemplate(event.target.value)}
+                  disabled={templatesLoading}
+                >
+                  <option value="">No template - manual message</option>
+                  {templates.map((template) => (
+                    <option key={template.templateId} value={template.templateId}>
+                      {template.name} ({template.channel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedTemplate && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-start gap-3">
+                  <div className="stat-icon-wrap bg-primary-100 flex-shrink-0">
+                    <FileText size={18} className="text-primary-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900">Loaded template: {selectedTemplate.name}</div>
+                    <div className="text-sm text-slate-600 mt-1">
+                      {selectedTemplate.description || `Template ID: ${selectedTemplate.templateId}`}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="badge badge-info">{selectedTemplate.channel}</span>
+                      <span className="badge badge-neutral">{selectedTemplate.messageCategory}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedTemplateVariables.length > 0 && (
+                <div className="rounded-lg border border-primary-100 bg-white p-3">
+                  <div className="text-sm font-semibold text-slate-900 mb-2">Template Variables</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedTemplateVariables.map((variable) => (
+                      <div key={variable}>
+                        <label className="label font-mono">{`{{${variable}}}`}</label>
+                        <input
+                          className="input"
+                          value={templateVariables[variable] || ''}
+                          onChange={(event) => setTemplateVariables({ ...templateVariables, [variable]: event.target.value })}
+                          placeholder={variable === 'name' ? 'Falls back to userId if blank' : variable}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    These values are saved with the campaign and rendered before delivery.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="label">Subject</label>
+                <input className="input" value={subject} onChange={(event) => setSubject(event.target.value)} />
+              </div>
+
+              <div>
+                <label className="label">Message</label>
+                <textarea
+                  className="input min-h-20"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder="Message body used for preview context"
+                />
+              </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
@@ -864,16 +999,6 @@ const Campaigns = () => {
                     : ` Loaded audience: ${selectedAudienceId}.`
                   : ''}
               </div>
-            </div>
-
-            <div>
-              <label className="label">Message</label>
-              <textarea
-                className="input min-h-20"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Message body used for preview context"
-              />
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">

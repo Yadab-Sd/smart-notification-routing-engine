@@ -24,6 +24,12 @@ public class Campaign {
     @JsonProperty("categoryId")
     public String categoryId;
 
+    @JsonProperty("templateId")
+    public String templateId;
+
+    @JsonProperty("templateVariables")
+    public Map<String, String> templateVariables;
+
     @JsonProperty("eventType")
     public String eventType;
 
@@ -85,6 +91,8 @@ public class Campaign {
         campaign.name = stringValue(item, "name");
         campaign.description = stringValue(item, "description");
         campaign.categoryId = stringValue(item, "categoryId");
+        campaign.templateId = stringValue(item, "templateId");
+        campaign.templateVariables = stringMapValue(item, "templateVariables");
         campaign.eventType = stringValue(item, "eventType");
         campaign.subject = stringValue(item, "subject");
         campaign.message = stringValue(item, "message");
@@ -111,6 +119,8 @@ public class Campaign {
         putString(item, "name", name);
         putString(item, "description", description);
         putString(item, "categoryId", categoryId);
+        putString(item, "templateId", templateId);
+        putStringMap(item, "templateVariables", templateVariables);
         putString(item, "eventType", eventType);
         putString(item, "subject", subject);
         putString(item, "message", message);
@@ -152,6 +162,20 @@ public class Campaign {
         return value != null && value.bool() != null ? value.bool() : null;
     }
 
+    private static Map<String, String> stringMapValue(Map<String, AttributeValue> item, String key) {
+        AttributeValue value = item.get(key);
+        if (value == null || value.m() == null || value.m().isEmpty()) {
+            return null;
+        }
+        Map<String, String> values = new HashMap<>();
+        for (Map.Entry<String, AttributeValue> entry : value.m().entrySet()) {
+            if (entry.getValue().s() != null) {
+                values.put(entry.getKey(), entry.getValue().s());
+            }
+        }
+        return values;
+    }
+
     private static void putString(Map<String, AttributeValue> item, String key, String value) {
         if (value != null && !value.isBlank()) {
             item.put(key, AttributeValue.builder().s(value).build());
@@ -173,6 +197,22 @@ public class Campaign {
     private static void putBool(Map<String, AttributeValue> item, String key, Boolean value) {
         if (value != null) {
             item.put(key, AttributeValue.builder().bool(value).build());
+        }
+    }
+
+    private static void putStringMap(Map<String, AttributeValue> item, String key, Map<String, String> values) {
+        if (values == null || values.isEmpty()) {
+            return;
+        }
+        Map<String, AttributeValue> cleaned = new HashMap<>();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (entry.getKey() != null && !entry.getKey().isBlank()
+                    && entry.getValue() != null && !entry.getValue().isBlank()) {
+                cleaned.put(entry.getKey(), AttributeValue.builder().s(entry.getValue()).build());
+            }
+        }
+        if (!cleaned.isEmpty()) {
+            item.put(key, AttributeValue.builder().m(cleaned).build());
         }
     }
 }

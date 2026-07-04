@@ -35,3 +35,7 @@ export type {
   Audience,
   AudienceListResponse,
 } from './audience'
+export type {
+  NotificationTemplate,
+  TemplateListResponse,
+} from './template'

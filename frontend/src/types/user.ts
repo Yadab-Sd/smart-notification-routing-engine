@@ -1,13 +1,20 @@
 export interface User {
-  pk: string
-  sk: string
-  email: string
+  pk?: string
+  sk?: string
+  userId?: string
+  name?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
   counters: {
     events: number
     clicks: number
     sends: number
   }
-  lastSeenAt: string
+  createdAt?: string
+  createdBy?: string
+  lastSeenAt?: string
   prefs?: string | UserPreferences
 }
 

@@ -48,6 +48,7 @@ making production claims.
 - **ML Pipeline**: Glue (Spark) → SageMaker (XGBoost) → Endpoint
 - **Attention Escrow**: Decision Lambda scores attention cost/value before scheduling
 - **Category Policies**: Admin console/API manages organization-specific notification defaults that remain overrideable per send
+- **Template Library**: Admin console/API stores reusable subject/body templates with variables like `{{name}}`, `{{firstName}}`, `{{email}}`, and custom placeholders, then loads them into Campaigns, Send Event, and Attention Escrow workflows
 - **Delivery**: EventBridge Scheduler → Sender Lambda → Email (SES) / SMS (SNS)
 - **Feedback**: SES configuration set → SNS bounce/complaint topics → SES Event Processor Lambda → suppression and audit tables
 
@@ -129,7 +130,10 @@ POST /v1/events
 # 3. Optional: create reusable notification categories
 POST /v1/categories
 
-# 4. Get optimal send time
+# 4. Optional: create reusable message templates
+POST /v1/templates
+
+# 5. Get optimal send time
 POST /v1/decisions/preview
 
 # Response
