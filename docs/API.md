@@ -59,6 +59,9 @@ Check API status (no auth required).
 ```json
 {
   "userId": "user_123",
+  "name": "Jane Doe",
+  "firstName": "Jane",
+  "lastName": "Doe",
   "email": "user@example.com",
   "phone": "+14155551234",
   "prefs": {
@@ -87,6 +90,9 @@ Query parameters:
   "users": [
     {
       "userId": "user_123",
+      "name": "Jane Doe",
+      "firstName": "Jane",
+      "lastName": "Doe",
       "email": "user@example.com",
       "phone": "+14155551234",
       "prefs": { "channel": "EMAIL" },
@@ -110,6 +116,9 @@ Query parameters:
 [
   {
     "userId": "user_123",
+    "name": "Jane Doe",
+    "firstName": "Jane",
+    "lastName": "Doe",
     "email": "user@example.com",
     "phone": "+14155551234"
   }
@@ -292,6 +301,114 @@ curl -X DELETE \
   -H "Authorization: Bearer $TOKEN" \
   $API_URL/v1/categories/appointment_reminder
 ```
+
+### Notification Templates
+
+Templates are organization-defined reusable message structures. They are separate from categories and campaigns:
+
+- **Category**: policy defaults for a type of notification.
+- **Template**: reusable subject/body content with variables such as `{{name}}` or `{{appointmentTime}}`.
+- **Campaign**: a saved message plan that may use a category and reference a template ID.
+
+Templates are scoped by organization and stored in the same configuration table as categories, campaigns, and audiences.
+
+Storage shape:
+
+- Table: `NotificationCategories`
+- Partition key: `pk = ORG#{organizationId}`
+- Sort key: `sk = TEMPLATE#{templateId}`
+- CloudFormation output: `SR-Data.NotificationCategoriesTableName`
+
+The MVP stores template metadata and content so admins can manage structured messages from the UI. The Campaigns, Send Event, and Attention Escrow pages can load a template to fill subject/body fields and pass `templateId` through preview, schedule, and event payloads. Sender Service renders Handlebars-style placeholders such as `{{name}}` before delivery using user profile fields and `notification.metadata.templateVariables`.
+
+Direct `/v1/events` sends should still include `notification.message`; `templateId` identifies which reusable template informed the rendered content.
+
+Built-in profile variables:
+
+| Variable | Source |
+| --- | --- |
+| `{{userId}}` | User profile ID. Always available when the user exists. |
+| `{{name}}` | User display name. Falls back to `firstName`, then `userId` if empty. |
+| `{{firstName}}` | Optional user profile first name. |
+| `{{lastName}}` | Optional user profile last name. |
+| `{{email}}` | User email address. |
+| `{{phone}}` | User phone number. |
+
+Any other placeholder, such as `{{appointmentTime}}`, is treated as a custom template variable and should be supplied in `notification.metadata.templateVariables` or filled through the admin UI.
+
+**POST /v1/templates** - Create template
+
+```bash
+curl -X POST $API_URL/v1/templates \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "templateId": "appointment-reminder-v1",
+    "name": "Appointment Reminder",
+    "description": "Reminder before a scheduled appointment",
+    "channel": "EMAIL",
+    "messageCategory": "TRANSACTIONAL",
+    "subject": "Your appointment is coming up",
+    "body": "Hi {{name}}, this is a reminder for {{appointmentTime}}.",
+    "variables": ["name", "appointmentTime"],
+    "active": true
+  }'
+```
+
+**GET /v1/templates** - List templates
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" $API_URL/v1/templates
+```
+
+**Response 200**:
+
+```json
+{
+  "organizationId": "default",
+  "count": 1,
+  "templates": [
+    {
+      "templateId": "appointment-reminder-v1",
+      "organizationId": "default",
+      "name": "Appointment Reminder",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Your appointment is coming up",
+      "body": "Hi {{name}}, this is a reminder for {{appointmentTime}}.",
+      "variables": ["name", "appointmentTime"],
+      "active": true,
+      "createdAt": "2026-07-04T12:00:00Z",
+      "updatedAt": "2026-07-04T12:00:00Z"
+    }
+  ]
+}
+```
+
+**GET /v1/templates/{templateId}** - Get one template
+
+**PUT /v1/templates/{templateId}** - Replace template
+
+**DELETE /v1/templates/{templateId}** - Delete template configuration. Existing campaigns, events, and attention ledger history that reference the template ID remain stored separately.
+
+Template rendering variables can be supplied when sending:
+
+```json
+{
+  "notification": {
+    "templateId": "appointment-reminder-v1",
+    "message": "Hi {{name}}, this is a reminder for {{appointmentTime}}.",
+    "metadata": {
+      "subject": "Appointment reminder for {{name}}",
+      "templateVariables": {
+        "appointmentTime": "Monday at 10:00 AM"
+      }
+    }
+  }
+}
+```
+
+If `name` is not supplied in `templateVariables`, Sender Service falls back to user profile fields where available, then `userId`. Plain-text email bodies are wrapped as HTML with line breaks preserved.
 
 When `/v1/events` includes `notification.categoryId`, Control Plane loads the category and fills missing notification fields. The admin UI locks category policy fields after selection. Direct API callers may still send explicit policy fields; the backend preserves category audit metadata so a future admin UI can re-enable override workflows without backend changes. For example, an event may send only:
 
@@ -480,6 +597,11 @@ In the admin UI, loading a saved campaign populates the campaign draft form and 
   "name": "Renewal Reminder June",
   "description": "Reminder campaign for June renewals",
   "categoryId": "renewal_reminder",
+  "templateId": "renewal-reminder-v1",
+  "templateVariables": {
+    "name": "Member",
+    "renewalDate": "July 31"
+  },
   "eventType": "CAMPAIGN_NOTIFICATION",
   "subject": "Your renewal is coming up",
   "message": "Please review your renewal details.",
@@ -691,13 +813,14 @@ This endpoint is the MVP campaign workflow. It previews multiple users at once, 
 
 Current MVP limit: 100 users per request.
 
-The admin Campaigns page uses this endpoint first, then launches previewed users through the existing `/v1/events` endpoint. By default, only `SEND` users are launched and `DEFER`/missing users are skipped. If deferred users exist, the UI can show an admin override checkbox to include them deliberately. `Send now` submits `deliveryMode: "IMMEDIATE"`. `Schedule optimized` submits `deliveryMode: "OPTIMIZED"` and lets the normal event-consumer/Decision-Service flow create schedules.
+The admin Campaigns page uses this endpoint first, then launches previewed users through the existing `/v1/events` endpoint. A selected template is sent as `templateId`, its subject/body are copied into the preview/event payload, and entered placeholder values are sent as `metadata.templateVariables`. By default, only `SEND` users are launched and `DEFER`/missing users are skipped. If deferred users exist, the UI can show an admin override checkbox to include them deliberately. `Send now` submits `deliveryMode: "IMMEDIATE"`. `Schedule optimized` submits `deliveryMode: "OPTIMIZED"` and lets the normal event-consumer/Decision-Service flow create schedules.
 
 **Request**:
 ```json
 {
   "campaignId": "renewal_reminder_june",
   "categoryId": "renewal_reminder",
+  "templateId": "renewal-reminder-v1",
   "userIds": ["user_123", "user_456", "user_789"],
   "windowStart": 1782345600,
   "windowEnd": 1782432000,
@@ -706,7 +829,13 @@ The admin Campaigns page uses this endpoint first, then launches previewed users
   "priorityClass": "STANDARD",
   "businessValue": 7.0,
   "urgency": 0.6,
-  "message": "Your renewal date is coming up."
+  "message": "Hi {{name}}, your renewal date is coming up.",
+  "metadata": {
+    "subject": "Renewal reminder",
+    "templateVariables": {
+      "name": "Member"
+    }
+  }
 }
 ```
 
@@ -958,6 +1087,9 @@ curl -X POST $API_URL/v1/users \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "pilot_user_1",
+    "name": "Pilot User",
+    "firstName": "Pilot",
+    "lastName": "User",
     "email": "pilot@example.com",
     "phone": "+14155551234",
     "prefs": {"channel": "EMAIL"}

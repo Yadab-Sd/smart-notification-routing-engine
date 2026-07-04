@@ -346,6 +346,41 @@ export class ComputeStack extends Stack {
             authorizer: jwtAuth,
         });
 
+        new apigwv2.HttpRoute(this, 'CreateTemplateRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/templates', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'ListTemplatesRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/templates', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'GetTemplateRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/templates/{id}', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'UpdateTemplateRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/templates/{id}', apigwv2.HttpMethod.PUT),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'DeleteTemplateRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/templates/{id}', apigwv2.HttpMethod.DELETE),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
         new apigwv2.HttpRoute(this, 'CreateCampaignRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/campaigns', apigwv2.HttpMethod.POST),

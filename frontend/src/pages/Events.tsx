@@ -5,6 +5,7 @@ import {
   Bell,
   CheckCircle,
   Copy,
+  FileText,
   Loader2,
   Layers3,
   Mail,
@@ -17,7 +18,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { ENV } from '@/config/env'
 import { listCategories } from '@/api/categories'
-import type { MessageCategory, NotificationCategory, PriorityClass } from '@/types'
+import { listTemplates } from '@/api/templates'
+import type { MessageCategory, NotificationCategory, NotificationTemplate, PriorityClass } from '@/types'
+import { compactTemplateVariables, templateVariableNames } from '@/utils/template-variables'
 
 const API_ENDPOINT = ENV.API_URL
 
@@ -61,6 +64,9 @@ const Events = () => {
   const [eventLogs, setEventLogs] = useState<EventLog[]>([])
   const [categories, setCategories] = useState<NotificationCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [templates, setTemplates] = useState<NotificationTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
   const [error, setError] = useState('')
 
@@ -87,6 +93,8 @@ const Events = () => {
   const shouldSendNotification = formData.deliveryMode !== 'ANALYTICS_ONLY'
   const isOptimized = formData.deliveryMode === 'OPTIMIZED'
   const selectedCategory = categories.find((category) => category.categoryId === formData.categoryId)
+  const selectedTemplate = templates.find((template) => template.templateId === formData.templateId)
+  const selectedTemplateVariables = useMemo(() => templateVariableNames(selectedTemplate), [selectedTemplate])
   const selectableChannels = useMemo(() => {
     const categoryChannels = selectedCategory?.allowedChannels?.filter((channel) => channel !== 'AUTO') as Channel[] | undefined
     return categoryChannels && categoryChannels.length > 0 ? categoryChannels : (['EMAIL', 'SMS', 'PUSH'] as Channel[])
@@ -104,7 +112,19 @@ const Events = () => {
         setCategoriesLoading(false)
       }
     }
+    const loadTemplates = async () => {
+      setTemplatesLoading(true)
+      try {
+        const data = await listTemplates()
+        setTemplates((data.templates || []).filter((template) => template.active !== false))
+      } catch (err) {
+        console.warn('Unable to load templates', err)
+      } finally {
+        setTemplatesLoading(false)
+      }
+    }
     loadCategories()
+    loadTemplates()
   }, [])
 
   const applyCategory = (categoryId: string) => {
@@ -133,6 +153,26 @@ const Events = () => {
     })
   }
 
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((item) => item.templateId === templateId)
+    if (!template) {
+      setFormData({ ...formData, templateId })
+      setTemplateVariables({})
+      return
+    }
+
+    const variableNames = templateVariableNames(template)
+    setTemplateVariables((current) => Object.fromEntries(variableNames.map((name) => [name, current[name] || ''])))
+    setFormData({
+      ...formData,
+      templateId,
+      subject: template.subject || formData.subject,
+      message: template.body,
+      channel: selectedCategory ? formData.channel : template.channel as Channel,
+      messageCategory: selectedCategory ? formData.messageCategory : template.messageCategory,
+    })
+  }
+
   const eventPayload = useMemo(() => {
     const payload: Record<string, unknown> = {
       userId: formData.userId.trim(),
@@ -150,15 +190,17 @@ const Events = () => {
         message: formData.message.trim(),
       }
       if (formData.categoryId.trim()) notification.categoryId = formData.categoryId.trim()
+      if (formData.templateId.trim()) notification.templateId = formData.templateId.trim()
 
       const metadata: Record<string, unknown> = {}
       if (formData.subject.trim()) metadata.subject = formData.subject.trim()
+      const variables = compactTemplateVariables(templateVariables)
+      if (Object.keys(variables).length > 0) metadata.templateVariables = variables
       if (Object.keys(metadata).length > 0) notification.metadata = metadata
 
       if (isOptimized) {
         if (formData.sourceId.trim()) notification.sourceId = formData.sourceId.trim()
         if (formData.campaignId.trim()) notification.campaignId = formData.campaignId.trim()
-        if (formData.templateId.trim()) notification.templateId = formData.templateId.trim()
         notification.messageCategory = formData.messageCategory
         notification.priorityClass = formData.priorityClass
         notification.businessValue = Number(formData.businessValue)
@@ -170,7 +212,7 @@ const Events = () => {
     }
 
     return payload
-  }, [formData, isOptimized, shouldSendNotification])
+  }, [formData, isOptimized, shouldSendNotification, templateVariables])
 
   const resetForm = () => {
     setFormData({
@@ -192,6 +234,7 @@ const Events = () => {
       urgency: 0.3,
       maxDelayHours: 24,
     })
+    setTemplateVariables({})
   }
 
   const handleSendEvent = async (e: React.FormEvent) => {
@@ -459,6 +502,65 @@ const Events = () => {
                       </div>
                     </div>
 
+                    {selectedTemplate && (
+                      <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-start gap-3">
+                        <div className="stat-icon-wrap bg-primary-100 flex-shrink-0">
+                          <FileText size={18} className="text-primary-700" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900">{selectedTemplate.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {selectedTemplate.description || `Template ID: ${selectedTemplate.templateId}`}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="label">Message Template</label>
+                      <select
+                        className="select"
+                        value={formData.templateId}
+                        onChange={(e) => applyTemplate(e.target.value)}
+                        disabled={sending || templatesLoading}
+                      >
+                        <option value="">No template</option>
+                        {templates.map((template) => (
+                          <option key={template.templateId} value={template.templateId}>
+                            {template.name} ({template.channel})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedTemplate && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Loaded {selectedTemplate.templateId}; subject and message can still be edited.
+                        </p>
+                      )}
+                    </div>
+
+                    {selectedTemplateVariables.length > 0 && (
+                      <div className="rounded-lg border border-primary-100 bg-primary-50 p-3">
+                        <div className="text-sm font-semibold text-slate-900 mb-2">Template Variables</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {selectedTemplateVariables.map((variable) => (
+                            <div key={variable}>
+                              <label className="label font-mono">{`{{${variable}}}`}</label>
+                              <input
+                                className="input bg-white"
+                                value={templateVariables[variable] || ''}
+                                onChange={(event) => setTemplateVariables({ ...templateVariables, [variable]: event.target.value })}
+                                placeholder={variable === 'name' ? formData.userId : variable}
+                                disabled={sending}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          These values are sent as `metadata.templateVariables` and rendered before delivery.
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <label className="label">Subject</label>
                       <input
@@ -541,16 +643,6 @@ const Events = () => {
                         onChange={(e) => setFormData({ ...formData, campaignId: e.target.value })}
                         disabled={sending}
                         placeholder="abandoned_cart"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Template ID</label>
-                      <input
-                        className="input"
-                        value={formData.templateId}
-                        onChange={(e) => setFormData({ ...formData, templateId: e.target.value })}
-                        disabled={sending}
-                        placeholder="cart_reminder_v1"
                       />
                     </div>
                     {(!selectedCategory || selectedCategory.defaultDeliveryMode === 'OPTIMIZED') && (

@@ -16,6 +16,9 @@ import { ENV } from '@/config/env'
 
 interface User {
   userId: string
+  name?: string
+  firstName?: string
+  lastName?: string
   email?: string
   phone?: string
   createdAt?: string
@@ -51,6 +54,9 @@ const Users = () => {
   // Form state
   const [formData, setFormData] = useState({
     userId: '',
+    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
   })
@@ -111,6 +117,18 @@ const Users = () => {
         userId: formData.userId.trim(),
       }
 
+      if (formData.name.trim()) {
+        payload.name = formData.name.trim()
+      }
+
+      if (formData.firstName.trim()) {
+        payload.firstName = formData.firstName.trim()
+      }
+
+      if (formData.lastName.trim()) {
+        payload.lastName = formData.lastName.trim()
+      }
+
       if (formData.email.trim()) {
         payload.email = formData.email.trim()
       }
@@ -135,7 +153,7 @@ const Users = () => {
 
       // Success
       setShowCreateModal(false)
-      setFormData({ userId: '', email: '', phone: '' })
+      setFormData({ userId: '', name: '', firstName: '', lastName: '', email: '', phone: '' })
       loadData() // Reload data
     } catch (err: any) {
       setError(err.message || 'Failed to create user')
@@ -149,6 +167,9 @@ const Users = () => {
     const q = search.toLowerCase()
     return (
       u.userId.toLowerCase().includes(q) ||
+      u.name?.toLowerCase().includes(q) ||
+      u.firstName?.toLowerCase().includes(q) ||
+      u.lastName?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
       u.phone?.toLowerCase().includes(q)
     )
@@ -235,7 +256,7 @@ const Users = () => {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               className="input pl-9"
-              placeholder="Search by user ID, email, or phone..."
+              placeholder="Search by user ID, name, email, or phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -277,6 +298,11 @@ const Users = () => {
                     <tr key={u.userId}>
                       <td>
                         <div className="font-mono text-sm text-slate-900">{u.userId}</div>
+                        {(u.name || u.firstName || u.lastName) && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            {u.name || [u.firstName, u.lastName].filter(Boolean).join(' ')}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div className="space-y-1">
@@ -341,7 +367,7 @@ const Users = () => {
                 onClick={() => {
                   setShowCreateModal(false)
                   setError('')
-                  setFormData({ userId: '', email: '', phone: '' })
+                  setFormData({ userId: '', name: '', firstName: '', lastName: '', email: '', phone: '' })
                 }}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -364,6 +390,44 @@ const Users = () => {
                   required
                 />
                 <p className="text-xs text-slate-500 mt-1">Unique identifier for this user</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Display Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Yadab Sutradhar"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={creating}
+                />
+                <p className="text-xs text-slate-500 mt-1">Used by templates as {`{{name}}`}.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Yadab"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    disabled={creating}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Sutradhar"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    disabled={creating}
+                  />
+                </div>
               </div>
 
               <div>
@@ -407,7 +471,7 @@ const Users = () => {
                   onClick={() => {
                     setShowCreateModal(false)
                     setError('')
-                    setFormData({ userId: '', email: '', phone: '' })
+                    setFormData({ userId: '', name: '', firstName: '', lastName: '', email: '', phone: '' })
                   }}
                   className="btn-secondary flex-1"
                   disabled={creating}

@@ -9,6 +9,7 @@ import com.yadab.sr.models.User;
 import com.yadab.sr.models.NotificationCategory;
 import com.yadab.sr.models.Campaign;
 import com.yadab.sr.models.Audience;
+import com.yadab.sr.models.NotificationTemplate;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
@@ -49,6 +50,11 @@ import java.util.UUID;
  * - GET /v1/audiences/{id} - Get reusable audience
  * - PUT /v1/audiences/{id} - Update reusable audience
  * - DELETE /v1/audiences/{id} - Delete reusable audience
+ * - POST /v1/templates - Create reusable notification template
+ * - GET /v1/templates - List reusable notification templates
+ * - GET /v1/templates/{id} - Get reusable notification template
+ * - PUT /v1/templates/{id} - Update reusable notification template
+ * - DELETE /v1/templates/{id} - Delete reusable notification template
  * - POST /v1/campaigns - Create reusable campaign
  * - GET /v1/campaigns - List reusable campaigns
  * - GET /v1/campaigns/{id} - Get reusable campaign
@@ -189,6 +195,30 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                 return deleteAudience(audienceId, e, ctx);
             }
 
+            // Reusable Template Configuration Endpoints
+            if (path.equals("/v1/templates") && "POST".equals(method)) {
+                return createTemplate(e, ctx);
+            }
+
+            if (path.equals("/v1/templates") && "GET".equals(method)) {
+                return listTemplates(e, ctx);
+            }
+
+            if (path.matches("/v1/templates/[^/]+") && "GET".equals(method)) {
+                String templateId = extractPathId(path);
+                return getTemplate(templateId, e, ctx);
+            }
+
+            if (path.matches("/v1/templates/[^/]+") && "PUT".equals(method)) {
+                String templateId = extractPathId(path);
+                return updateTemplate(templateId, e, ctx);
+            }
+
+            if (path.matches("/v1/templates/[^/]+") && "DELETE".equals(method)) {
+                String templateId = extractPathId(path);
+                return deleteTemplate(templateId, e, ctx);
+            }
+
             // Campaign Launch Audit Endpoints
             if (path.equals("/v1/campaigns/launches") && "POST".equals(method)) {
                 return createCampaignLaunch(e, ctx);
@@ -260,6 +290,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (user.userId == null || user.userId.isEmpty()) {
             throw new ValidationException("userId is required");
         }
+        normalizeUserProfileFields(user);
 
         // Validate at least one contact method
         if (!user.hasContactInfo()) {
@@ -330,6 +361,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
                     errors.add("userId is required");
                     continue;
                 }
+                normalizeUserProfileFields(user);
 
                 // Validate at least one contact method
                 if (!user.hasContactInfo()) {
@@ -427,12 +459,22 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         Map<String, AttributeValue> exprValues = new HashMap<>();
         int updateCount = 0;
 
+        // Update optional profile fields
+        if (updates.has("name")) {
+            updateCount = appendStringUpdate(updateExpr, exprValues, updateCount, "name", ":name", updates.get("name").asText());
+        }
+
+        if (updates.has("firstName")) {
+            updateCount = appendStringUpdate(updateExpr, exprValues, updateCount, "firstName", ":firstName", updates.get("firstName").asText());
+        }
+
+        if (updates.has("lastName")) {
+            updateCount = appendStringUpdate(updateExpr, exprValues, updateCount, "lastName", ":lastName", updates.get("lastName").asText());
+        }
+
         // Update email
         if (updates.has("email")) {
-            if (updateCount > 0) updateExpr.append(", ");
-            updateExpr.append("email = :email");
-            exprValues.put(":email", AttributeValue.builder().s(updates.get("email").asText()).build());
-            updateCount++;
+            updateCount = appendStringUpdate(updateExpr, exprValues, updateCount, "email", ":email", updates.get("email").asText());
         }
 
         // Update phone
@@ -441,10 +483,7 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             if (!phone.isEmpty() && !phone.matches("^\\+[1-9]\\d{1,14}$")) {
                 throw new ValidationException("Phone must be in E.164 format (+1XXXXXXXXXX)");
             }
-            if (updateCount > 0) updateExpr.append(", ");
-            updateExpr.append("phone = :phone");
-            exprValues.put(":phone", AttributeValue.builder().s(phone).build());
-            updateCount++;
+            updateCount = appendStringUpdate(updateExpr, exprValues, updateCount, "phone", ":phone", phone);
         }
 
         // Update preferences
@@ -759,6 +798,118 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "audienceId", audienceId, "deleted", true)));
     }
 
+    private APIGatewayV2HTTPResponse createTemplate(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        NotificationTemplate template = mapper.readValue(body, NotificationTemplate.class);
+        template.organizationId = organizationId(e);
+        applyTemplateDefaults(template);
+        validateTemplate(template);
+        validateTemplateEnums(template);
+
+        if (templateExists(template.organizationId, template.templateId)) {
+            throw new ConflictException("Template already exists: " + template.templateId);
+        }
+
+        String now = Instant.now().toString();
+        template.createdAt = now;
+        template.updatedAt = now;
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(template.toItem())
+                .build());
+
+        ctx.getLogger().log("Template created: " + template.templateId);
+        return json(201, mapper.writeValueAsString(template));
+    }
+
+    private APIGatewayV2HTTPResponse listTemplates(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        Map<String, AttributeValue> expressionValues = Map.of(
+                ":pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                ":prefix", AttributeValue.builder().s("TEMPLATE#").build()
+        );
+
+        QueryResponse queryRes = ddb.query(QueryRequest.builder()
+                .tableName(categoryTable())
+                .keyConditionExpression("pk = :pk AND begins_with(sk, :prefix)")
+                .expressionAttributeValues(expressionValues)
+                .build());
+
+        List<NotificationTemplate> templates = new ArrayList<>();
+        for (Map<String, AttributeValue> item : queryRes.items()) {
+            NotificationTemplate template = NotificationTemplate.fromItem(item);
+            if (template != null && template.templateId != null) {
+                templates.add(template);
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("organizationId", organizationId);
+        response.put("templates", templates);
+        response.put("count", templates.size());
+
+        ctx.getLogger().log(String.format("Listed %d templates", templates.size()));
+        return json(200, mapper.writeValueAsString(response));
+    }
+
+    private APIGatewayV2HTTPResponse getTemplate(String templateId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        NotificationTemplate template = fetchTemplate(organizationId(e), templateId);
+        if (template == null) {
+            throw new ResourceNotFoundException("Template not found: " + templateId);
+        }
+        return json(200, mapper.writeValueAsString(template));
+    }
+
+    private APIGatewayV2HTTPResponse updateTemplate(String templateId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String body = e.getBody();
+        if (body == null || body.isEmpty()) {
+            throw new ValidationException("Request body required");
+        }
+
+        String organizationId = organizationId(e);
+        NotificationTemplate existing = fetchTemplate(organizationId, templateId);
+        if (existing == null) {
+            throw new ResourceNotFoundException("Template not found: " + templateId);
+        }
+
+        NotificationTemplate template = mapper.readValue(body, NotificationTemplate.class);
+        template.organizationId = organizationId;
+        template.templateId = templateId;
+        applyTemplateDefaults(template);
+        validateTemplate(template);
+        validateTemplateEnums(template);
+        template.createdAt = existing.createdAt;
+        template.updatedAt = Instant.now().toString();
+
+        ddb.putItem(PutItemRequest.builder()
+                .tableName(categoryTable())
+                .item(template.toItem())
+                .build());
+
+        ctx.getLogger().log("Template updated: " + template.templateId);
+        return json(200, mapper.writeValueAsString(template));
+    }
+
+    private APIGatewayV2HTTPResponse deleteTemplate(String templateId, APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
+        String organizationId = organizationId(e);
+        if (!templateExists(organizationId, templateId)) {
+            throw new ResourceNotFoundException("Template not found: " + templateId);
+        }
+
+        ddb.deleteItem(DeleteItemRequest.builder()
+                .tableName(categoryTable())
+                .key(templateKey(organizationId, templateId))
+                .build());
+
+        ctx.getLogger().log("Template deleted: " + templateId);
+        return json(200, mapper.writeValueAsString(Map.of("organizationId", organizationId, "templateId", templateId, "deleted", true)));
+    }
+
     private APIGatewayV2HTTPResponse createCampaign(APIGatewayV2HTTPEvent e, Context ctx) throws Exception {
         String body = e.getBody();
         if (body == null || body.isEmpty()) {
@@ -1007,6 +1158,9 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             ctx.getLogger().log("User not found, auto-creating: " + userId);
 
             // Extract contact info from event if provided
+            String name = event.has("name") ? event.get("name").asText() : null;
+            String firstName = event.has("firstName") ? event.get("firstName").asText() : null;
+            String lastName = event.has("lastName") ? event.get("lastName").asText() : null;
             String email = event.has("email") ? event.get("email").asText() : null;
             String phone = event.has("phone") ? event.get("phone").asText() : null;
 
@@ -1023,8 +1177,12 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
             // Create user profile
             User newUser = new User();
             newUser.userId = userId;
+            newUser.name = name;
+            newUser.firstName = firstName;
+            newUser.lastName = lastName;
             newUser.email = email;
             newUser.phone = phone;
+            normalizeUserProfileFields(newUser);
             newUser.counters = new User.Counters();
             String now = Instant.now().toString();
             newUser.createdAt = now;
@@ -1361,6 +1519,33 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         );
     }
 
+    private boolean templateExists(String organizationId, String templateId) {
+        return fetchTemplate(organizationId, templateId) != null;
+    }
+
+    private NotificationTemplate fetchTemplate(String organizationId, String templateId) {
+        if (templateId == null || templateId.isBlank()) {
+            return null;
+        }
+
+        GetItemResponse res = ddb.getItem(GetItemRequest.builder()
+                .tableName(categoryTable())
+                .key(templateKey(organizationId, templateId))
+                .build());
+
+        if (!res.hasItem() || res.item().isEmpty()) {
+            return null;
+        }
+        return NotificationTemplate.fromItem(res.item());
+    }
+
+    private Map<String, AttributeValue> templateKey(String organizationId, String templateId) {
+        return Map.of(
+                "pk", AttributeValue.builder().s("ORG#" + organizationId).build(),
+                "sk", AttributeValue.builder().s("TEMPLATE#" + templateId).build()
+        );
+    }
+
     private boolean campaignExists(String organizationId, String campaignId) {
         return fetchCampaign(organizationId, campaignId) != null;
     }
@@ -1444,6 +1629,17 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (campaign.message == null || campaign.message.isBlank()) {
             throw new ValidationException("message is required");
         }
+        if (campaign.templateId != null && !campaign.templateId.isBlank()
+                && !campaign.templateId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("templateId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (campaign.templateVariables != null) {
+            for (String variable : campaign.templateVariables.keySet()) {
+                if (variable == null || !variable.matches("^[A-Za-z_][A-Za-z0-9_]{0,79}$")) {
+                    throw new ValidationException("templateVariables keys must start with a letter or _ and contain only letters, numbers, or _");
+                }
+            }
+        }
         if (campaign.businessValue != null && (campaign.businessValue < 0.0 || campaign.businessValue > 10.0)) {
             throw new ValidationException("businessValue must be between 0.0 and 10.0");
         }
@@ -1487,6 +1683,43 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         }
     }
 
+    private void validateTemplate(NotificationTemplate template) throws ValidationException {
+        if (template.templateId == null || template.templateId.isBlank()) {
+            throw new ValidationException("templateId is required");
+        }
+        if (template.organizationId == null || template.organizationId.isBlank()) {
+            throw new ValidationException("organizationId is required");
+        }
+        if (!template.templateId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("templateId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (!template.organizationId.matches("^[A-Za-z0-9_.:-]{1,80}$")) {
+            throw new ValidationException("organizationId may contain letters, numbers, _, ., :, or - and must be 1-80 characters");
+        }
+        if (template.name == null || template.name.isBlank()) {
+            throw new ValidationException("name is required");
+        }
+        if (template.body == null || template.body.isBlank()) {
+            throw new ValidationException("body is required");
+        }
+        if (template.subject != null && template.subject.length() > 200) {
+            throw new ValidationException("subject cannot exceed 200 characters");
+        }
+        if (template.body.length() > 10000) {
+            throw new ValidationException("body cannot exceed 10000 characters");
+        }
+        if (template.variables != null) {
+            for (String variable : template.variables) {
+                if (variable == null || variable.isBlank()) {
+                    throw new ValidationException("variables cannot contain blank values");
+                }
+                if (!variable.matches("^[A-Za-z_][A-Za-z0-9_]{0,79}$")) {
+                    throw new ValidationException("Template variable names must start with a letter or _ and contain only letters, numbers, or _");
+                }
+            }
+        }
+    }
+
     private void validateCategoryEnums(NotificationCategory category) throws ValidationException {
         requireOneOf("defaultDeliveryMode", category.defaultDeliveryMode, List.of("IMMEDIATE", "OPTIMIZED"));
         requireOneOf("messageCategory", category.messageCategory, List.of(
@@ -1506,6 +1739,13 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         ));
         requireOneOf("priorityClass", campaign.priorityClass, List.of(
                 "LOW", "STANDARD", "HIGH", "URGENT", "CRITICAL", "EMERGENCY"
+        ));
+    }
+
+    private void validateTemplateEnums(NotificationTemplate template) throws ValidationException {
+        requireOneOf("channel", template.channel, List.of("EMAIL", "SMS", "PUSH"));
+        requireOneOf("messageCategory", template.messageCategory, List.of(
+                "GENERAL", "MARKETING", "PROMOTION", "NEWSLETTER", "TRANSACTIONAL", "SECURITY", "EMERGENCY"
         ));
     }
 
@@ -1570,6 +1810,18 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         campaign.name = campaign.name == null ? null : campaign.name.trim();
         campaign.description = campaign.description == null ? null : campaign.description.trim();
         campaign.categoryId = campaign.categoryId == null ? null : campaign.categoryId.trim();
+        campaign.templateId = campaign.templateId == null ? null : campaign.templateId.trim();
+        if (campaign.templateVariables != null) {
+            campaign.templateVariables = campaign.templateVariables.entrySet().stream()
+                    .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+                    .filter(entry -> !entry.getKey().isBlank() && !entry.getValue().isBlank())
+                    .collect(java.util.stream.Collectors.toMap(
+                            entry -> entry.getKey().trim(),
+                            entry -> entry.getValue().trim(),
+                            (left, right) -> right,
+                            java.util.LinkedHashMap::new
+                    ));
+        }
         campaign.eventType = campaign.eventType == null || campaign.eventType.isBlank()
                 ? "CAMPAIGN_NOTIFICATION"
                 : campaign.eventType.trim();
@@ -1634,6 +1886,61 @@ public class Handler implements RequestHandler<APIGatewayV2HTTPEvent, APIGateway
         if (audience.active == null) {
             audience.active = true;
         }
+    }
+
+    private void applyTemplateDefaults(NotificationTemplate template) {
+        template.templateId = template.templateId == null ? null : template.templateId.trim();
+        template.name = template.name == null ? null : template.name.trim();
+        template.description = template.description == null ? null : template.description.trim();
+        template.subject = template.subject == null ? null : template.subject.trim();
+        template.body = template.body == null ? null : template.body.trim();
+
+        if (template.channel == null || template.channel.isBlank()) {
+            template.channel = "EMAIL";
+        } else {
+            template.channel = template.channel.trim().toUpperCase();
+        }
+
+        if (template.messageCategory == null || template.messageCategory.isBlank()) {
+            template.messageCategory = "GENERAL";
+        } else {
+            template.messageCategory = template.messageCategory.trim().toUpperCase();
+        }
+
+        if (template.variables != null) {
+            template.variables = template.variables.stream()
+                    .filter(variable -> variable != null && !variable.isBlank())
+                    .map(String::trim)
+                    .distinct()
+                    .toList();
+        }
+
+        if (template.active == null) {
+            template.active = true;
+        }
+    }
+
+    private void normalizeUserProfileFields(User user) {
+        user.userId = user.userId == null ? null : user.userId.trim();
+        user.name = user.name == null ? null : user.name.trim();
+        user.firstName = user.firstName == null ? null : user.firstName.trim();
+        user.lastName = user.lastName == null ? null : user.lastName.trim();
+        user.email = user.email == null ? null : user.email.trim();
+        user.phone = user.phone == null ? null : user.phone.trim();
+    }
+
+    private int appendStringUpdate(
+            StringBuilder updateExpr,
+            Map<String, AttributeValue> exprValues,
+            int updateCount,
+            String field,
+            String placeholder,
+            String value
+    ) {
+        if (updateCount > 0) updateExpr.append(", ");
+        updateExpr.append(field).append(" = ").append(placeholder);
+        exprValues.put(placeholder, AttributeValue.builder().s(value == null ? "" : value.trim()).build());
+        return updateCount + 1;
     }
 
     private String organizationId(APIGatewayV2HTTPEvent event) {

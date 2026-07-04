@@ -18,6 +18,15 @@ public class User {
     @JsonProperty("userId")
     public String userId;
 
+    @JsonProperty("name")
+    public String name;
+
+    @JsonProperty("firstName")
+    public String firstName;
+
+    @JsonProperty("lastName")
+    public String lastName;
+
     @JsonProperty("email")
     public String email;
 
@@ -101,6 +110,19 @@ public class User {
             user.sk = item.get("sk").s();
         }
 
+        // Extract display/profile info
+        if (item.containsKey("name") && item.get("name").s() != null) {
+            user.name = item.get("name").s();
+        }
+
+        if (item.containsKey("firstName") && item.get("firstName").s() != null) {
+            user.firstName = item.get("firstName").s();
+        }
+
+        if (item.containsKey("lastName") && item.get("lastName").s() != null) {
+            user.lastName = item.get("lastName").s();
+        }
+
         // Extract contact info
         if (item.containsKey("email") && item.get("email").s() != null) {
             user.email = item.get("email").s();
@@ -160,6 +182,17 @@ public class User {
         // Primary key
         item.put("pk", AttributeValue.builder().s("USER#" + userId).build());
         item.put("sk", AttributeValue.builder().s("PROFILE").build());
+
+        // Display/profile info
+        if (name != null && !name.isEmpty()) {
+            item.put("name", AttributeValue.builder().s(name).build());
+        }
+        if (firstName != null && !firstName.isEmpty()) {
+            item.put("firstName", AttributeValue.builder().s(firstName).build());
+        }
+        if (lastName != null && !lastName.isEmpty()) {
+            item.put("lastName", AttributeValue.builder().s(lastName).build());
+        }
 
         // Contact info
         if (email != null && !email.isEmpty()) {
