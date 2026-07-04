@@ -234,6 +234,27 @@ export class ComputeStack extends Stack {
             authorizer: jwtAuth,
         });
 
+        new apigwv2.HttpRoute(this, 'ListUsersRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'BulkCreateUsersRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users/bulk', apigwv2.HttpMethod.POST),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
+        new apigwv2.HttpRoute(this, 'UserStatsRoute', {
+            httpApi,
+            routeKey: apigwv2.HttpRouteKey.with('/v1/users/stats', apigwv2.HttpMethod.GET),
+            integration: integ,
+            authorizer: jwtAuth,
+        });
+
         new apigwv2.HttpRoute(this, 'GetUserRoute', {
             httpApi,
             routeKey: apigwv2.HttpRouteKey.with('/v1/users/{id}', apigwv2.HttpMethod.GET),

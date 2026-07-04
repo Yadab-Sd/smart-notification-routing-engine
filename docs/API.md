@@ -75,6 +75,69 @@ Check API status (no auth required).
 }
 ```
 
+**GET /v1/users** - List users
+
+Query parameters:
+- `limit`: Optional page size. Defaults to `100`; maximum `500`.
+- `lastKey`: Optional pagination key returned as `nextKey`.
+
+**Response 200**:
+```json
+{
+  "users": [
+    {
+      "userId": "user_123",
+      "email": "user@example.com",
+      "phone": "+14155551234",
+      "prefs": { "channel": "EMAIL" },
+      "counters": {
+        "events": 100,
+        "clicks": 45,
+        "sends": 50
+      },
+      "lastSeenAt": "2026-06-12T10:30:00Z"
+    }
+  ],
+  "count": 1,
+  "nextKey": "USER#user_123"
+}
+```
+
+**POST /v1/users/bulk** - Bulk import users
+
+**Request**:
+```json
+[
+  {
+    "userId": "user_123",
+    "email": "user@example.com",
+    "phone": "+14155551234"
+  }
+]
+```
+
+**Response 200**:
+```json
+{
+  "created": 1,
+  "skipped": 0,
+  "errors": []
+}
+```
+
+**GET /v1/users/stats** - User creation statistics
+
+**Response 200**:
+```json
+{
+  "totalUsers": 10,
+  "apiCreated": 7,
+  "autoCreated": 3,
+  "unknownSource": 0,
+  "autoCreatedPercentage": 30.0
+}
+```
+
 **GET /v1/users/{id}** - Get user
 
 **Response 200**:
