@@ -73,18 +73,18 @@ aws sesv2 get-configuration-set --configuration-set-name snre-production
 ```bash
 # Enable DKIM signing for your domain
 aws sesv2 put-email-identity-dkim-attributes \
-  --email-identity intelligent-routing.com \
+  --email-identity yourdomain.com \
   --signing-enabled
 
 # Verify DKIM status
-aws sesv2 get-email-identity --email-identity intelligent-routing.com
+aws sesv2 get-email-identity --email-identity yourdomain.com
 
 # Look for: DkimAttributes.Status = "SUCCESS"
 ```
 
 **Also configure in DNS:**
 - **SPF Record:** `v=spf1 include:amazonses.com ~all`
-- **DMARC Record:** `_dmarc.intelligent-routing.com TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@intelligent-routing.com"`
+- **DMARC Record:** `_dmarc.yourdomain.com TXT "v=DMARC1; p=quarantine; rua=mailto:postmaster@yourdomain.com"`
 
 ### Step 5: Test Bounce Handling (AWS Simulator)
 
@@ -92,7 +92,7 @@ aws sesv2 get-email-identity --email-identity intelligent-routing.com
 
 ```bash
 # Replace with your verified sending address
-FROM_EMAIL="contact@intelligent-routing.com"
+FROM_EMAIL="notifications@yourdomain.com"
 
 # Test bounce handling
 aws sesv2 send-email \
@@ -181,7 +181,7 @@ aws cloudformation describe-stacks --stack-name SR-Messaging \
 
 echo ""
 echo "=== DKIM Status ==="
-aws sesv2 get-email-identity --email-identity intelligent-routing.com \
+aws sesv2 get-email-identity --email-identity yourdomain.com \
   --query 'DkimAttributes.Status' --output text
 ```
 
@@ -202,12 +202,12 @@ I have implemented comprehensive bounce and complaint handling as required for p
 **INFRASTRUCTURE DETAILS:**
 
 **SNS Topics:**
-- Bounce notifications: `arn:aws:sns:us-west-2:952654481597:ses-bounces`
-- Complaint notifications: `arn:aws:sns:us-west-2:952654481597:ses-complaints`
+- Bounce notifications: `[PASTE BOUNCE TOPIC ARN]`
+- Complaint notifications: `[PASTE COMPLAINT TOPIC ARN]`
 
 **Lambda Function:**
 - Name: `SESEventProcessor`
-- ARN: `arn:aws:lambda:us-west-2:952654481597:function:SR-Messaging-SESEventProcessor196D8570-hlyyZi1GTQ5W`
+- ARN: `[PASTE SES EVENT PROCESSOR ARN]`
 - Runtime: Java 21
 - Function: Processes bounce/complaint events and maintains suppression list
 
@@ -244,7 +244,7 @@ I have implemented comprehensive bounce and complaint handling as required for p
 - Sent to: `complaint@simulator.amazonses.com`
 - Result: Email added to suppression list within 10 seconds
 - Lambda processed event successfully  
-- CAN-SPAM compliant (immediate suppression)
+- Complaint suppression workflow verified
 
 ✅ **Suppression Check:**
 - Attempted resend to suppressed addresses
@@ -271,10 +271,10 @@ Email added to DynamoDB suppression list
 Future sends: Sender checks list → blocks if suppressed
 ```
 
-**REQUEST:** Please review and approve production access. All bounce/complaint handlers are active, tested, and compliant with AWS requirements.
+**REQUEST:** Please review and approve production access. All bounce/complaint handlers are active, tested, and implemented for AWS SES review.
 
 Thank you,
-Yadab Sutradhar
+[Your Name]
 
 ---
 
@@ -414,7 +414,7 @@ After deploying, you should see:
 - **Suppression list growth**: Proportional to send volume
 - **Lambda errors**: 0 (all events processed successfully)
 
-**AWS SES will approve** if:
+**AWS SES commonly expects** if:
 1. Bounce/complaint handlers are active ✅
 2. Suppression list is being populated ✅
 3. Sender checks suppression list ✅
@@ -426,7 +426,7 @@ After deploying, you should see:
 
 Once AWS approves production access:
 
-1. **Remove sending limits**: 50,000 emails/day → unlimited
+1. **Remove sending limits**: higher sending quotas after AWS approval
 2. **Update sender email**: Can use any verified domain
 3. **Monitor reputation**: Keep bounce < 5%, complaint < 0.1%
 4. **Scale gradually**: Start with 1,000/day, increase slowly
@@ -441,4 +441,4 @@ Once AWS approves production access:
 
 ---
 
-**Your bounce/complaint handling is now production-ready!** 🎉
+**Your bounce/complaint handling workflow is ready for SES simulator validation.** 🎉

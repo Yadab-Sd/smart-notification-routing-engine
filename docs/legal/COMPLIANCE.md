@@ -4,7 +4,7 @@
 
 Intelligent Routing Engine is **infrastructure software** that deploys to your AWS account. You are the **data controller** and responsible for compliance with applicable laws.
 
-This document provides guidance on US regulations (GDPR, HIPAA, CAN-SPAM, TCPA) and your responsibilities when using this system.
+This document provides general, non-legal guidance on common notification, privacy, and communications obligations, including GDPR, HIPAA, CAN-SPAM, and TCPA and your responsibilities when using this system.
 
 ---
 
@@ -24,15 +24,15 @@ This document provides guidance on US regulations (GDPR, HIPAA, CAN-SPAM, TCPA) 
 - Data stays in YOUR AWS account
 - You control access and retention
 
-**Creator (Yadab Sutradhar) = Software Provider**
+**Maintainer = Software Provider**
 - Provides open-source software
 - Does NOT host your data
 - Does NOT access your AWS account
-- NOT liable for your compliance
+- does not replace your own legal, security, or compliance review
 
 ---
 
-## US Regulations Compliance
+## Regulatory Considerations
 
 ### 1. GDPR (EU Users)
 
@@ -106,9 +106,9 @@ If you send notifications containing Protected Health Information (PHI), HIPAA a
 - ✅ Access controls (AWS IAM integration)
 - ✅ Data isolation (your AWS account = no shared tenancy)
 
-**Auto-Creating Users from Events - HIPAA Compliant?**
+**Auto-Creating Users from Events - HIPAA Considerations**
 
-✅ **YES** - if:
+May be appropriate only if:
 1. Patient triggered the event (appointment booking, prescription refill)
 2. You obtained patient consent for notifications during registration
 3. Notification is for treatment/payment/operations (TPO exception)
@@ -205,13 +205,13 @@ Applies to SMS/text messages.
 2. Notification is transactional (related to transaction they initiated)
 3. You have documented consent (e.g., checkbox during checkout)
 
-Example compliant flow:
+Example workflow to review with your compliance team:
 ```
 Customer places order, provides phone: +14155551234
   → Your system sends event with phone number
   → System auto-creates user profile
   → Sends order confirmation SMS (transactional)
-  → TCPA compliant (prior business relationship)
+  → Review TCPA applicability, consent records, and opt-out handling
 ```
 
 ❌ **NOT COMPLIANT** - if:
@@ -315,7 +315,7 @@ You are solely responsible for:
 
 ### Creator's Liability
 
-Yadab Sutradhar (software creator) is NOT liable for:
+The software maintainer is not responsible for:
 - Your use of the software
 - Your compliance violations
 - Data breaches in your AWS account
@@ -359,7 +359,7 @@ For software-related questions (not legal advice):
 - Email: contact@intelligent-routing.com
 - Documentation: https://intelligent-routing.com/docs
 
-For legal compliance questions, consult qualified attorney in your jurisdiction.
+For legal compliance questions, consult qualified counsel in your jurisdiction.
 
 ---
 

@@ -1,0 +1,187 @@
+<mxfile host="app.diagrams.net" version="29.6.6">
+  <diagram name="Contributor Opportunity Map" id="snre-contributor-opportunity-map">
+    <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1500" pageHeight="1280" background="light-dark(#FFFFFF,#000000)" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#232F3E;" value="Smart Notification Routing Engine - Contributor Opportunity Architecture" vertex="1">
+          <mxGeometry x="190" y="30" width="1040" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontColor=#5F6B7A;" value="Where contributors can help: UI workflows, APIs, Attention Escrow, templates, testing, DevEx, docs, and security hardening." vertex="1">
+          <mxGeometry x="230" y="70" width="960" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane-issues" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;dashed=1;dashPattern=1 2;strokeColor=#9CA3AF;align=center;verticalAlign=top;fontSize=14;fontStyle=1;" value="Contributor Intake and Review" vertex="1">
+          <mxGeometry x="30" y="120" width="1360" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-runtime" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;dashed=1;dashPattern=1 2;strokeColor=#9CA3AF;align=center;verticalAlign=top;fontSize=14;fontStyle=1;" value="Runtime Architecture Hotspots" vertex="1">
+          <mxGeometry x="30" y="330" width="1360" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-data" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;dashed=1;dashPattern=1 2;strokeColor=#9CA3AF;align=center;verticalAlign=top;fontSize=14;fontStyle=1;" value="Data Models and Contributor Issue Areas" vertex="1">
+          <mxGeometry x="30" y="790" width="1360" height="370" as="geometry" />
+        </mxCell>
+
+        <mxCell id="contributors" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F1FF;strokeColor=#6C8EBF;fontColor=#232F3E;fontSize=13;fontStyle=1;" value="Open Source&lt;br&gt;Contributors" vertex="1">
+          <mxGeometry x="80" y="180" width="130" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="issues" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4C3;strokeColor=#D6B656;fontColor=#232F3E;fontSize=12;" value="GitHub Issues&lt;br&gt;good first issue&lt;br&gt;help wanted" vertex="1">
+          <mxGeometry x="280" y="172" width="150" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="prs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontColor=#232F3E;fontSize=12;" value="Pull Request&lt;br&gt;code + docs&lt;br&gt;review" vertex="1">
+          <mxGeometry x="500" y="172" width="150" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="ci" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontColor=#232F3E;fontSize=12;" value="GitHub Actions&lt;br&gt;frontend build&lt;br&gt;service build&lt;br&gt;CDK synth" vertex="1">
+          <mxGeometry x="720" y="165" width="160" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="release" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontColor=#232F3E;fontSize=12;" value="Maintainer Release&lt;br&gt;tag + changelog&lt;br&gt;docs synced" vertex="1">
+          <mxGeometry x="960" y="172" width="160" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="adopters" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontColor=#232F3E;fontSize=12;fontStyle=1;" value="Adopters&lt;br&gt;deploy in own AWS account" vertex="1">
+          <mxGeometry x="1190" y="180" width="150" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-contrib-issues" edge="1" parent="1" source="contributors" target="issues" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-contrib-issues" connectable="0" parent="e-contrib-issues" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="pick issue" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-issues-prs" edge="1" parent="1" source="issues" target="prs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-issues-prs" connectable="0" parent="e-issues-prs" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="submit PR" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-prs-ci" edge="1" parent="1" source="prs" target="ci" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-prs-ci" connectable="0" parent="e-prs-ci" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="validate" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ci-release" edge="1" parent="1" source="ci" target="release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-ci-release" connectable="0" parent="e-ci-release" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="merge/release" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-release-adopters" edge="1" parent="1" source="release" target="adopters" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-release-adopters" connectable="0" parent="e-release-adopters" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="self-host" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F1FF;strokeColor=#6C8EBF;fontColor=#232F3E;fontSize=12;fontStyle=1;" value="React Admin Console&lt;br&gt;Attention, Campaigns,&lt;br&gt;Templates, Users" vertex="1">
+          <mxGeometry x="80" y="438" width="170" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" value="HTTP API&lt;br&gt;JWT authorizer" vertex="1">
+          <mxGeometry x="322" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="control" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" value="Control Plane&lt;br&gt;/users /templates&lt;br&gt;/campaigns /audiences" vertex="1">
+          <mxGeometry x="490" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="configdb" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" value="DynamoDB&lt;br&gt;Config Records&lt;br&gt;categories/templates&lt;br&gt;campaigns/audiences" vertex="1">
+          <mxGeometry x="650" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="decision" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" value="Decision Service&lt;br&gt;Attention Escrow&lt;br&gt;batch preview" vertex="1">
+          <mxGeometry x="820" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="ledger" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" value="DynamoDB&lt;br&gt;Attention Ledger&lt;br&gt;decision audit" vertex="1">
+          <mxGeometry x="982" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="sender" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" value="Sender Service&lt;br&gt;render templates&lt;br&gt;deliver channels" vertex="1">
+          <mxGeometry x="1145" y="445" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="delivery" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4C3;strokeColor=#D6B656;fontColor=#232F3E;fontSize=12;fontStyle=1;" value="SES / SNS&lt;br&gt;Email + SMS&lt;br&gt;Bounce feedback" vertex="1">
+          <mxGeometry x="1270" y="438" width="95" height="88" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-front-api" edge="1" parent="1" source="frontend" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-front-api" connectable="0" parent="e-front-api" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="REST calls" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-control" edge="1" parent="1" source="api" target="control" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-control-db" edge="1" parent="1" source="control" target="configdb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-control-db" connectable="0" parent="e-control-db" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="CRUD" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-config-decision" edge="1" parent="1" source="configdb" target="decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-config-decision" connectable="0" parent="e-config-decision" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="policy/context" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-decision-ledger" edge="1" parent="1" source="decision" target="ledger" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-decision-ledger" connectable="0" parent="e-decision-ledger" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="decision record" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ledger-sender" edge="1" parent="1" source="ledger" target="sender" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sender-delivery" edge="1" parent="1" source="sender" target="delivery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l-sender-delivery" connectable="0" parent="e-sender-delivery" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="send" vertex="1">
+          <mxGeometry relative="1" y="-2" as="geometry" />
+        </mxCell>
+
+        <mxCell id="hot-frontend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F1FF;strokeColor=#6C8EBF;fontSize=12;align=left;spacingLeft=10;" value="Frontend Issues&lt;br&gt;• Empty/loading states&lt;br&gt;• Rendered template preview&lt;br&gt;• User edit modal&lt;br&gt;• Campaign launch drawer" vertex="1">
+          <mxGeometry x="80" y="610" width="210" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="hot-backend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4C3;strokeColor=#D6B656;fontSize=12;align=left;spacingLeft=10;" value="Backend Issues&lt;br&gt;• Template pagination&lt;br&gt;• Soft delete/archive&lt;br&gt;• Profile validation&lt;br&gt;• API tests" vertex="1">
+          <mxGeometry x="410" y="610" width="210" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="hot-ae" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;align=left;spacingLeft=10;" value="Attention / ML Issues&lt;br&gt;• Reason code catalog&lt;br&gt;• Model confidence UX&lt;br&gt;• Category metrics&lt;br&gt;• Cold-start docs" vertex="1">
+          <mxGeometry x="740" y="610" width="210" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="hot-devex" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;align=left;spacingLeft=10;" value="DevEx / Docs Issues&lt;br&gt;• Seed data script&lt;br&gt;• Safer env examples&lt;br&gt;• Deploy outputs&lt;br&gt;• API cookbook" vertex="1">
+          <mxGeometry x="1070" y="610" width="210" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-user" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=42;horizontalStack=0;rounded=1;fontSize=14;fontStyle=1;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="User Profile" vertex="1">
+          <mxGeometry x="75" y="850" width="210" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="model-user-body" parent="model-user" style="align=left;strokeColor=none;fillColor=none;spacingLeft=8;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+ userId&lt;br&gt;+ name&lt;br&gt;+ firstName&lt;br&gt;+ lastName&lt;br&gt;+ email / phone&lt;br&gt;+ counters{}&lt;br&gt;+ preferences" vertex="1">
+          <mxGeometry y="42" width="210" height="148" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-template" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=42;horizontalStack=0;rounded=1;fontSize=14;fontStyle=1;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Template" vertex="1">
+          <mxGeometry x="350" y="850" width="225" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="model-template-body" parent="model-template" style="align=left;strokeColor=none;fillColor=none;spacingLeft=8;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+ templateId&lt;br&gt;+ channel&lt;br&gt;+ messageCategory&lt;br&gt;+ subject&lt;br&gt;+ body&lt;br&gt;+ variables[]&lt;br&gt;+ active" vertex="1">
+          <mxGeometry y="42" width="225" height="148" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-campaign" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=42;horizontalStack=0;rounded=1;fontSize=14;fontStyle=1;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Campaign" vertex="1">
+          <mxGeometry x="650" y="850" width="235" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="model-campaign-body" parent="model-campaign" style="align=left;strokeColor=none;fillColor=none;spacingLeft=8;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+ campaignId&lt;br&gt;+ categoryId&lt;br&gt;+ templateId&lt;br&gt;+ deliveryMode&lt;br&gt;+ businessValue&lt;br&gt;+ urgency&lt;br&gt;+ templateVariables{}" vertex="1">
+          <mxGeometry y="42" width="235" height="148" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-decision" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=42;horizontalStack=0;rounded=1;fontSize=14;fontStyle=1;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Attention Decision" vertex="1">
+          <mxGeometry x="965" y="850" width="245" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="model-decision-body" parent="model-decision" style="align=left;strokeColor=none;fillColor=none;spacingLeft=8;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+ decisionId&lt;br&gt;+ userId&lt;br&gt;+ sourceId&lt;br&gt;+ decision SEND/DEFER&lt;br&gt;+ attentionCost/value&lt;br&gt;+ fatigueScore&lt;br&gt;+ modelSource" vertex="1">
+          <mxGeometry y="42" width="245" height="148" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;align=left;spacingLeft=10;fontSize=12;" value="Recommended GitHub labels&lt;br&gt;good first issue · frontend · backend · templates · campaigns · attention-escrow · ml · testing · documentation · security · developer-experience · help wanted" vertex="1">
+          <mxGeometry x="75" y="1085" width="1140" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="claim" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#5F6B7A;" value="Claim boundary: this diagram is a contributor roadmap and issue-planning artifact. It is not a production metric, compliance certification, or guarantee of adopter readiness." vertex="1">
+          <mxGeometry x="75" y="1160" width="1140" height="34" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

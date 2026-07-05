@@ -403,10 +403,9 @@ Smart Notification Routing Engine/
 ├── MIGRATION.md          ← How to upgrade (detailed)
 ├── README.md             ← Project overview
 ├── DEPLOYMENT.md         ← Initial deployment
-├── TERMS_OF_SERVICE.md
-├── PRE_DEPLOYMENT_CHECKLIST.md
-├── COMPLIANCE.md
-├── BUSINESS_ADOPTION.md
+├── docs/legal/TERMS_OF_SERVICE.md
+├── docs/legal/COMPLIANCE.md
+├── docs/ses/SES_PRODUCTION_ACCESS.md
 └── ...
 
 ---
@@ -417,6 +416,8 @@ Smart Notification Routing Engine/
 |----------|---------|----------|--------------|
 | **CHANGELOG.md** | What changed | Everyone | Brief list |
 | **MIGRATION.md** | How to upgrade | Existing users | Detailed steps |
+| **docs/legal/** | Compliance and terms guidance | Adopters | Informational; not legal advice |
+| **docs/ses/** | SES production-access setup | Adopters using email | Operational setup |
 | **README.md** | Overview | New users | Introduction |
 | **DEPLOYMENT.md** | Initial setup | First-time deployers | Complete guide |
 

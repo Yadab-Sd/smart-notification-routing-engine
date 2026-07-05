@@ -222,6 +222,8 @@ cd infra/cdk && pnpm exec cdk destroy --all
 - [Cost Analysis](docs/COST_ANALYSIS.md)
 - [Monitoring](docs/MONITORING.md)
 - [Known Limitations](docs/LIMITATIONS.md)
+- [SES Production Access](docs/ses/SES_PRODUCTION_ACCESS.md)
+- [Compliance Guidance](docs/legal/COMPLIANCE.md)
 - [US Impact & Government Alignment](docs/US_IMPACT.md)
 
 ---
@@ -236,37 +238,12 @@ Copyright (c) 2025 Yadab Sutradhar
 
 ---
 
-## 🚀 Getting Started
+## 🚀 For Contributors
 
-### Are you a business wanting to adopt this system?
-
-**Want to evaluate first?** Start with a hosted discovery pilot or shadow-mode test.
-**Ready to adopt?** Deploy into your own AWS account for full control.
-**Technical team?** Follow the deployment guide and helper scripts.
-
-👉 **[BUSINESS_ADOPTION.md](./BUSINESS_ADOPTION.md)** - Complete adoption guide
-
-**Email**: contact@intelligent-routing.com for pilot or adoption support
-
----
-
-### Are you a developer wanting to contribute?
-
-Help improve the system and get AWS access to test your changes.
+Help improve the system through issues, pull requests, tests, docs, integrations,
+and implementation feedback.
 
 👉 **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contributor guidelines
-
-**Email**: contact@intelligent-routing.com to request AWS collaborator access
-
----
-
-### Want to pilot it first?
-
-Run a controlled, email-first pilot with clear success metrics, minimized data sharing, and no vendor lock-in.
-
-👉 **[PILOT_PROGRAM.md](./PILOT_PROGRAM.md)** - Pilot program details
-
-**Email**: contact@intelligent-routing.com to apply for pilot
 
 ---
 <div align="center">

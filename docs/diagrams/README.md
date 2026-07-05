@@ -9,6 +9,9 @@ This folder contains visual architecture artifacts for the Smart Notification Ro
 | `SNRE_TECHNICAL_ARCHITECTURE.drawio.svg` | Single-page Draw.io SVG export showing the reusable critical-communication flow. |
 | `implementation-architecture_in_layers.svg` | Layered implementation architecture view. |
 | `data-flow.svg` | Lightweight data-flow diagram. |
+| `contributor-opportunity-map.drawio` | Draw.io contributor-facing architecture map showing good first issues, frontend/backend work, Attention Escrow/ML, DevEx, testing, docs, and security contribution areas. |
+| `attention-escrow-research-framework.svg` | Research-paper style figure explaining Attention Escrow as a trust-aware cost/value gate around send-time optimization. |
+| `xgboost-sagemaker-training-research-lifecycle.svg` | Research-paper style figure explaining the XGBoost/SageMaker training, deployment, inference, fallback, and feedback lifecycle. |
 
 ## Recommended Use
 
@@ -16,6 +19,12 @@ Use `aws-resource-architecture.svg` when the audience needs a concrete AWS
 service/resource diagram that looks like a cloud architecture review artifact.
 Use `aws-cloud-architecture-visual.svg` when the audience needs a cleaner
 conceptual cloud architecture view.
+Use `contributor-opportunity-map.drawio` when creating GitHub issues, onboarding
+contributors, or explaining where help is needed across the project.
+Use `attention-escrow-research-framework.svg` and
+`xgboost-sagemaker-training-research-lifecycle.svg` for papers, research
+proposals, or technical appendices where the emphasis is methodology rather
+than cloud-resource inventory.
 
 `aws-cloud-architecture-visual.svg` explains:
 

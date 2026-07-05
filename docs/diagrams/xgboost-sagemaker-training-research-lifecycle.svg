@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+  <title id="title">XGBoost SageMaker Training Research Lifecycle</title>
+  <desc id="desc">Research-level diagram of the Smart Notification Routing Engine model training lifecycle using AWS Glue, SageMaker XGBoost, endpoint deployment, inference, fallback heuristic, attention ledger feedback, and evaluation governance.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .frame { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.3; rx: 18; }
+      .zone { fill: none; stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 7 6; rx: 16; }
+      .data { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.4; rx: 14; }
+      .compute { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.4; rx: 14; }
+      .model { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.4; rx: 14; }
+      .serve { fill: #ecfdf5; stroke: #059669; stroke-width: 1.4; rx: 14; }
+      .audit { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.4; rx: 14; }
+      .note { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1.1; rx: 12; }
+      .title { font: 700 28px Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 15px Arial, Helvetica, sans-serif; fill: #475569; }
+      .label { font: 700 11px Arial, Helvetica, sans-serif; fill: #475569; letter-spacing: .08em; }
+      .h1 { font: 700 17px Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .h2 { font: 700 14px Arial, Helvetica, sans-serif; fill: #1e293b; }
+      .text { font: 400 13px Arial, Helvetica, sans-serif; fill: #334155; }
+      .small { font: 400 11px Arial, Helvetica, sans-serif; fill: #475569; }
+      .mono { font: 500 12px "SFMono-Regular", Consolas, monospace; fill: #1e293b; }
+      .mono-big { font: 600 14px "SFMono-Regular", Consolas, monospace; fill: #0f172a; }
+      .arrow { stroke: #334155; stroke-width: 1.9; fill: none; marker-end: url(#arrow); }
+      .arrow-soft { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrowSoft); }
+      .loop { stroke: #0f766e; stroke-width: 2.2; stroke-dasharray: 8 6; fill: none; marker-end: url(#arrowGreen); }
+      .fallback { stroke: #b45309; stroke-width: 2; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrowOrange); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#b45309"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1080"/>
+  <text class="title" x="800" y="48" text-anchor="middle">XGBoost and SageMaker Learning Lifecycle for Send-Time Optimization</text>
+  <text class="subtitle" x="800" y="76" text-anchor="middle">A reproducible ML pipeline that converts notification outcomes into deployable timing models while preserving fallback behavior for new adopters.</text>
+
+  <rect class="zone" x="45" y="118" width="710" height="390"/>
+  <text class="label" x="72" y="146">OFFLINE FEATURE GENERATION</text>
+  <rect class="zone" x="805" y="118" width="748" height="390"/>
+  <text class="label" x="832" y="146">MODEL TRAINING AND DEPLOYMENT</text>
+  <rect class="zone" x="45" y="560" width="710" height="372"/>
+  <text class="label" x="72" y="588">ONLINE INFERENCE AND ATTENTION GATE</text>
+  <rect class="zone" x="805" y="560" width="748" height="372"/>
+  <text class="label" x="832" y="588">MEASUREMENT, FEEDBACK, AND RESEARCH GOVERNANCE</text>
+
+  <!-- Offline data -->
+  <rect class="data" x="86" y="184" width="190" height="112"/>
+  <text class="h1" x="112" y="214">Raw Event Stream</text>
+  <text class="small" x="112" y="238">S3 events/raw/</text>
+  <text class="small" x="112" y="260">event type, userId, timestamp</text>
+  <text class="small" x="112" y="282">send/click/proxy engagement</text>
+
+  <rect class="compute" x="336" y="176" width="260" height="128"/>
+  <text class="h1" x="362" y="208">AWS Glue ETL</text>
+  <text class="small" x="362" y="232">build_hourly_features.py</text>
+  <text class="mono" x="362" y="256">label = click within 24h</text>
+  <text class="mono" x="362" y="278">features = hour, click_rate_7d, sends_count_hour</text>
+
+  <rect class="data" x="284" y="356" width="260" height="104"/>
+  <text class="h1" x="312" y="386">Curated Feature Matrix</text>
+  <text class="small" x="312" y="410">S3 curated/features-csv/</text>
+  <text class="mono" x="312" y="434">y, hour, click_rate_7d, sends_count_hour</text>
+
+  <rect class="note" x="604" y="340" width="118" height="132"/>
+  <text class="h2" x="626" y="370">Quality Gates</text>
+  <text class="small" x="626" y="396">schema valid</text>
+  <text class="small" x="626" y="418">non-empty data</text>
+  <text class="small" x="626" y="440">label coverage</text>
+  <text class="small" x="626" y="462">time window valid</text>
+
+  <!-- Training deployment -->
+  <rect class="model" x="848" y="178" width="260" height="128"/>
+  <text class="h1" x="878" y="210">SageMaker XGBoost</text>
+  <text class="small" x="878" y="234">sagemaker-xgboost:1.7-1</text>
+  <text class="mono" x="878" y="258">objective = binary:logistic</text>
+  <text class="mono" x="878" y="280">eval_metric = auc</text>
+
+  <rect class="model" x="1170" y="178" width="220" height="128"/>
+  <text class="h1" x="1198" y="210">Model Artifact</text>
+  <text class="small" x="1198" y="234">S3 models/training-output/</text>
+  <text class="small" x="1198" y="258">model.tar.gz</text>
+  <text class="small" x="1198" y="282">versioned by training job</text>
+
+  <rect class="serve" x="1006" y="356" width="260" height="112"/>
+  <text class="h1" x="1036" y="388">Endpoint Deployer</text>
+  <text class="small" x="1036" y="412">CreateModel -> EndpointConfig</text>
+  <text class="small" x="1036" y="434">Create/Update endpoint</text>
+  <text class="mono" x="1036" y="456">send-time-v1</text>
+
+  <rect class="compute" x="1336" y="346" width="170" height="132"/>
+  <text class="h1" x="1362" y="378">Orchestration</text>
+  <text class="small" x="1362" y="402">Step Functions</text>
+  <text class="small" x="1362" y="424">EventBridge nightly rule</text>
+  <text class="small" x="1362" y="446">Can be disabled to reduce cost</text>
+
+  <!-- Online inference -->
+  <rect class="serve" x="88" y="642" width="220" height="116"/>
+  <text class="h1" x="116" y="674">Decision Service</text>
+  <text class="small" x="116" y="698">candidate hours in delivery window</text>
+  <text class="mono" x="116" y="722">x = hour, click_rate, send_volume</text>
+  <text class="small" x="116" y="744">scores send-now and scheduled options</text>
+
+  <rect class="model" x="374" y="632" width="230" height="126"/>
+  <text class="h1" x="404" y="664">Online Predictor</text>
+  <text class="mono" x="404" y="690">P(click | x)</text>
+  <text class="small" x="404" y="714">SageMaker if available</text>
+  <text class="small" x="404" y="736">business-hour fallback otherwise</text>
+
+  <rect class="serve" x="234" y="812" width="280" height="92"/>
+  <text class="h1" x="264" y="844">Attention Escrow Gate</text>
+  <text class="mono" x="264" y="870">SEND if V &gt;= C + M</text>
+  <text class="small" x="264" y="890">uses p_best but does not blindly send</text>
+
+  <rect class="note" x="584" y="802" width="140" height="112"/>
+  <text class="h2" x="610" y="832">Output</text>
+  <text class="small" x="610" y="858">SEND</text>
+  <text class="small" x="610" y="880">DEFER</text>
+  <text class="small" x="610" y="902">modelSource flag</text>
+
+  <!-- Feedback and governance -->
+  <rect class="audit" x="852" y="636" width="238" height="132"/>
+  <text class="h1" x="882" y="668">Attention Ledger</text>
+  <text class="small" x="882" y="692">decisionId, p_best, C, V, reason</text>
+  <text class="small" x="882" y="716">delivery status and future outcomes</text>
+  <text class="mono" x="882" y="742">modelSource: SAGEMAKER or FALLBACK_HEURISTIC</text>
+
+  <rect class="audit" x="1160" y="636" width="250" height="132"/>
+  <text class="h1" x="1190" y="668">Research Evaluation</text>
+  <text class="small" x="1190" y="692">offline AUC / calibration</text>
+  <text class="small" x="1190" y="716">online engagement and fatigue metrics</text>
+  <text class="small" x="1190" y="740">no production claims without pilot data</text>
+
+  <rect class="note" x="920" y="814" width="430" height="86"/>
+  <text class="h2" x="948" y="846">Future attention model target</text>
+  <text class="mono" x="948" y="872">P(negative_or_wasted_attention | user, source, category, channel, time)</text>
+  <text class="small" x="948" y="894">Trained only after enough outcome data exists.</text>
+
+  <!-- Mathematical inset -->
+  <rect class="frame" x="68" y="972" width="1466" height="62"/>
+  <text class="label" x="96" y="996">RESEARCH FORMULATION</text>
+  <text class="mono-big" x="96" y="1022">Stage 1: p_t = f_theta(x_u,t) by XGBoost send-time model. Stage 2: action = pi(p_t, C_u,m,t, V_u,m,t, policy). Feedback updates D_train and future theta.</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M276 240 C302 240 310 240 336 240"/>
+  <path class="arrow" d="M466 304 L466 356"/>
+  <path class="arrow-soft" d="M544 408 C566 408 580 408 604 408"/>
+  <path class="arrow" d="M544 408 C660 408 732 250 848 250"/>
+  <path class="arrow" d="M1108 242 C1134 242 1144 242 1170 242"/>
+  <path class="arrow" d="M1280 306 L1280 350 C1280 386 1260 406 1266 412"/>
+  <path class="arrow-soft" d="M1390 412 C1354 412 1310 412 1266 412"/>
+  <path class="arrow" d="M308 700 C334 700 348 700 374 700"/>
+  <path class="arrow" d="M604 700 C662 700 686 822 584 858"/>
+  <path class="fallback" d="M490 632 C510 590 540 584 566 616"/>
+  <text class="small" x="524" y="596">endpoint unavailable</text>
+  <path class="arrow" d="M514 858 C548 858 558 858 584 858"/>
+  <path class="arrow-soft" d="M724 858 C806 858 814 716 852 716"/>
+  <path class="arrow-soft" d="M1090 702 C1116 702 1134 702 1160 702"/>
+  <path class="loop" d="M971 768 C971 950 230 950 180 758"/>
+  <path class="loop" d="M1285 768 C1285 944 1418 946 1420 478"/>
+  <path class="loop" d="M1098 814 C1098 530 690 530 544 408"/>
+
+  <!-- Safety note -->
+  <rect class="note" x="1280" y="180" width="210" height="80"/>
+  <text class="h2" x="1306" y="210">Adopter startup mode</text>
+  <text class="small" x="1306" y="234">If no trained endpoint exists,</text>
+  <text class="small" x="1306" y="254">runtime returns LOW_STARTUP_ESTIMATE.</text>
+</svg>

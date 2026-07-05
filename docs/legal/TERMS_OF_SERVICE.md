@@ -92,15 +92,19 @@ Intelligent Routing Engine is a **technical infrastructure tool** that optimizes
 
 ## 4. Our Role & Liability
 
-### 4.1 Data Processor Status
+### 4.1 Role In Self-Hosted Deployments
 
-**We are a "Data Processor"**, NOT a "Data Controller":
+For self-hosted deployments from the open-source repository, the maintainer
+does not host the system, operate your AWS account, or process your notification
+data.
 
 ✅ **You control**: What notifications to send, who to send to, when to send  
-✅ **We execute**: Your instructions via the software you deployed  
-✅ **Data location**: YOUR AWS account (we never see it)  
+✅ **You operate**: The AWS account, credentials, users, logs, and retention  
+✅ **Data location**: YOUR AWS account unless a separate written support or pilot agreement says otherwise  
 
-This is equivalent to using AWS Lambda, SendGrid, or Twilio - you're liable for how you use the tool.
+If you request setup support or a hosted pilot, responsibilities should be
+confirmed in a separate written agreement before using sensitive or regulated
+data.
 
 ### 4.2 No Liability for Your Misuse
 
@@ -112,21 +116,22 @@ This is equivalent to using AWS Lambda, SendGrid, or Twilio - you're liable for 
 ❌ Legal action from users you contacted without permission  
 ❌ Regulatory enforcement actions against you  
 
-**You indemnify us** against any claims arising from your use of the System.
+You are responsible for claims arising from your notification content, consent
+practices, recipient lists, and operation of the self-hosted system.
 
 ### 4.3 Abuse Monitoring
 
-**We reserve the right to**:
+For support, hosted pilots, or community access, we may:
 
 ⚠️ Investigate abuse reports  
 ⚠️ Request proof of consent  
-⚠️ Suspend or terminate your access  
+⚠️ Suspend or terminate support or access to maintainer-operated services  
 ⚠️ Report serious violations to authorities  
 
 **If we receive complaints**:
 1. We contact you to investigate
 2. You provide proof of consent within 7 days
-3. If you can't prove consent → Account suspended
+3. If you can't prove consent → support or maintainer-operated access may be suspended
 
 ---
 
@@ -172,7 +177,7 @@ The System is licensed under **MIT License**.
 
 **If you deploy from GitHub yourself**:
 
-✅ **You are FULLY LIABLE** for compliance  
+✅ **You are responsible** for compliance  
 ✅ **You are responsible** for AWS costs  
 ✅ **You maintain** all infrastructure  
 ✅ **These Terms still apply** regarding consent/spam  
