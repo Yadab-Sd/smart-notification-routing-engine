@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Layout from '@/components/common/Layout'
+import { APP_VERSION } from '@/config/version'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   User,
@@ -232,7 +233,7 @@ const Settings = () => {
               </li>
               <li className="flex justify-between">
                 <span>Version</span>
-                <span className="font-medium text-slate-900">v1.0.0</span>
+                <span className="font-medium text-slate-900">{APP_VERSION}</span>
               </li>
               <li className="flex justify-between">
                 <span>ML model</span>

@@ -292,13 +292,13 @@ Report bugs • Request features • Ask questions
 ```bibtex
 @software{yadab_sutradhar_2026_20707474,
   author       = {Yadab Sutradhar},
-  title        = {Yadab-Sd/smart-notification-routing-engine: v2.1.0
-                   - Attention Escrow MVP - 06/20/2026
+  title        = {Yadab-Sd/smart-notification-routing-engine: v2.6.0
+                   - Template Library Release - 07/04/2026
                   },
-  month        = jun,
+  month        = jul,
   year         = 2026,
   publisher    = {Zenodo},
-  version      = {v2.1.0},
+  version      = {v2.6.0},
   doi          = {10.5281/zenodo.20707474},
   url          = {https://doi.org/10.5281/zenodo.20707474},
 }
@@ -308,4 +308,4 @@ Report bugs • Request features • Ask questions
 
 <sub>Built with ❤️ using AWS Serverless • XGBoost • Apache Spark</sub>
 
-<sub>Last updated: June 2026</sub>
+<sub>Last updated: July 2026</sub>

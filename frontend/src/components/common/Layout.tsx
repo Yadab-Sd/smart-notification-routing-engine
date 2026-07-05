@@ -1,5 +1,6 @@
 import { ReactNode, useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { APP_VERSION } from '@/config/version'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   BarChart3,
@@ -312,7 +313,7 @@ const Layout = ({ children, title, subtitle, actions }: LayoutProps) => {
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">{children}</main>
 
         <footer className="px-4 sm:px-6 lg:px-8 py-4 text-xs text-slate-400 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <span>© {new Date().getFullYear()} Smart Notification Routing Engine — v1.0.0</span>
+          <span>© {new Date().getFullYear()} Smart Notification Routing Engine — {APP_VERSION}</span>
           <span>
             Region: {import.meta.env.VITE_REGION || 'us-west-2'} · Status: operational
           </span>
