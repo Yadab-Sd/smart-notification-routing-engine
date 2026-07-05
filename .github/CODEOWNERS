@@ -1,0 +1,20 @@
+# Default maintainer review
+* @Yadab-Sd
+
+# Frontend
+/frontend/ @Yadab-Sd
+
+# Java Lambda services
+/services/ @Yadab-Sd
+
+# Infrastructure as code
+/infra/cdk/ @Yadab-Sd
+
+# ML and data pipeline
+/ml/ @Yadab-Sd
+/glue-jobs/ @Yadab-Sd
+
+# Documentation and examples
+/docs/ @Yadab-Sd
+/examples/ @Yadab-Sd
+

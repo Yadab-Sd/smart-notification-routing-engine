@@ -1,34 +1,52 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+about: Report a reproducible problem in SNRE
+title: "[Bug]: "
+labels: bug, needs-triage
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Summary
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. See error
+What happened?
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Expected Behavior
 
-**Component**
-Java Service, CDK Infrastructure, or ML Model.
+What did you expect to happen?
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## Steps To Reproduce
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- -  Node & Npm versions [e.g. 22]
- - JDK version
- - Python version
+1.
+2.
+3.
 
-**Additional context**
-Add any other context about the problem here.
+## Affected Area
+
+- [ ] Frontend/admin console
+- [ ] Control plane API
+- [ ] Events ingestion
+- [ ] Decision service / Attention Escrow
+- [ ] Sender service / SES / SNS
+- [ ] Categories, campaigns, audiences, or templates
+- [ ] SageMaker / Glue / ML pipeline
+- [ ] CDK infrastructure
+- [ ] Documentation or examples
+
+## Environment
+
+- Deployment type: local / AWS self-hosted / CI
+- AWS region:
+- Git commit or release:
+- Browser, if UI issue:
+- Java version, if backend issue:
+- Node version, if frontend/CDK issue:
+
+## Logs Or Screenshots
+
+Paste relevant logs, screenshots, request IDs, CloudWatch log snippets, or API
+responses. Remove secrets, tokens, email addresses, and regulated data.
+
+## Additional Context
+
+Anything else that may help reproduce or diagnose the issue.

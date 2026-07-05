@@ -10,7 +10,7 @@
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/)
 [![Python](https://img.shields.io/badge/Python-3.10-green)](https://www.python.org/)
 
-[Quick Start](#quick-start) • [Architecture](#architecture) • [Documentation](#documentation)
+[Quick Start](#quick-start) • [Deploy](DEPLOYMENT.md) • [Docs](docs/README.md) • [Architecture](#architecture) • [Contribute](CONTRIBUTING.md)
 
 </div>
 
@@ -54,7 +54,7 @@ making production claims.
 
 Built entirely on AWS serverless (Lambda, SageMaker, Glue, S3, DynamoDB).
 
-[Detailed Architecture](docs/ARCHITECTURE.md) • [Cost Analysis](docs/COST_ANALYSIS.md) • [Limitations](docs/LIMITATIONS.md)
+[Detailed Architecture](docs/ARCHITECTURE.md) • [Deployment Guide](DEPLOYMENT.md) • [Cost Analysis](docs/COST_ANALYSIS.md) • [Limitations](docs/LIMITATIONS.md)
 
 ---
 
@@ -97,7 +97,7 @@ API_URL=$(aws cloudformation describe-stacks --stack-name SR-Compute \
 curl $API_URL/v1/health
 ```
 
-[Complete Setup Guide](docs/SETUP.md)
+[Complete Setup Guide](docs/SETUP.md) • [Deployment Guide](DEPLOYMENT.md)
 
 ---
 
@@ -203,24 +203,34 @@ cd infra/cdk && pnpm exec cdk destroy --all
 
 ## Documentation
 
+Start with the [Documentation Index](docs/README.md) if you are new to the
+project.
+
 ### Features
 - **[FEATURES.md](FEATURES.md)** - Complete list of all 18+ features (ML optimization, multi-channel, SES compliance, analytics, etc.)
 
 ### Getting Started
 - [Complete Setup Guide](docs/SETUP.md)
+- [Deployment Guide](DEPLOYMENT.md)
+- [Local Development](docs/LOCAL_DEVELOPMENT.md)
+- [API Examples](examples/README.md)
 - [User Management API](docs/USER_MANAGEMENT.md)
 - [Multi-Channel Guide](docs/MULTI_CHANNEL.md)
 
 ### Technical
 - [Architecture Deep Dive](docs/ARCHITECTURE.md)
+- [Architecture Decisions](docs/DECISIONS/README.md)
 - [Channel Architecture (Strategy Pattern)](docs/CHANNEL_ARCHITECTURE.md)
 - [Attention Escrow](docs/ATTENTION_ESCROW.md)
 - [ML Pipeline](docs/ML_PIPELINE.md)
 - [API Reference](docs/API.md)
+- [Roadmap](docs/ROADMAP.md)
 
 ### Operations
 - [Cost Analysis](docs/COST_ANALYSIS.md)
 - [Monitoring](docs/MONITORING.md)
+- [Operations Runbook](docs/OPERATIONS.md)
+- [Threat Model](docs/THREAT_MODEL.md)
 - [Known Limitations](docs/LIMITATIONS.md)
 - [SES Production Access](docs/ses/SES_PRODUCTION_ACCESS.md)
 - [Compliance Guidance](docs/legal/COMPLIANCE.md)
@@ -237,6 +247,14 @@ Copyright (c) 2025 Yadab Sutradhar
 ```
 
 ---
+
+## Adoption And Setup Support
+
+Organizations can self-deploy this project in their own AWS account, modify it
+under the MIT license, and evaluate it with their own notification workflows.
+
+For pilot, adoption, or free setup-support inquiries, visit
+[get.intelligent-routing.com](https://get.intelligent-routing.com).
 
 ## 🚀 For Contributors
 

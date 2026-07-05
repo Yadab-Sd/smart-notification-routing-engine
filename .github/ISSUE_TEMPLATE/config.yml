@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Adoption or setup-support inquiry
+    url: https://get.intelligent-routing.com
+    about: Use this page for pilot, adoption, or setup-support conversations.
+  - name: Security vulnerability
+    url: https://github.com/Yadab-Sd/smart-notification-routing-engine/security/policy
+    about: Please do not open public issues for security vulnerabilities.

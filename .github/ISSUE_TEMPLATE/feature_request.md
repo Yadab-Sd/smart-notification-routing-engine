@@ -1,23 +1,43 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
+about: Suggest a capability or improvement for adopters or contributors
+title: "[Feature]: "
+labels: enhancement, needs-triage
 assignees: ''
 
 ---
 
-**Which component does the feature request relate to?**
-CDK Infrastructure, ML Model, Java Service, or Frontend UI
+## Problem
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+What user, adopter, operator, or contributor problem does this solve?
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+## Proposed Solution
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+Describe the behavior, API, UI, or documentation change you want.
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## Affected Area
+
+- [ ] Frontend/admin console
+- [ ] Control plane API
+- [ ] Events ingestion
+- [ ] Decision service / Attention Escrow
+- [ ] Sender service / SES / SNS
+- [ ] Categories, campaigns, audiences, or templates
+- [ ] SageMaker / Glue / ML pipeline
+- [ ] CDK infrastructure
+- [ ] Documentation or examples
+
+## Adoption Value
+
+How would this help an organization deploy, evaluate, operate, or contribute to
+SNRE?
+
+## Alternatives Considered
+
+Any simpler workaround, manual process, or smaller first step?
+
+## Acceptance Criteria
+
+- [ ] Behavior is documented.
+- [ ] Existing workflows remain compatible or migration steps are documented.
+- [ ] Tests or validation steps are included where practical.
