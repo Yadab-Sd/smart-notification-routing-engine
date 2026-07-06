@@ -10,7 +10,7 @@
 [![Java](https://img.shields.io/badge/Java-21-blue)](https://openjdk.org/)
 [![Python](https://img.shields.io/badge/Python-3.10-green)](https://www.python.org/)
 
-[Quick Start](#quick-start) • [Deploy](DEPLOYMENT.md) • [Docs](docs/README.md) • [Architecture](#architecture) • [Contribute](CONTRIBUTING.md)
+[Quick Start](#quick-start) • [Deploy](DEPLOYMENT.md) • [Docs](docs/README.md) • [Architecture](#architecture) • [Adopters](docs/ADOPTERS.md) • [Contribute](CONTRIBUTING.md)
 
 </div>
 
@@ -255,6 +255,13 @@ under the MIT license, and evaluate it with their own notification workflows.
 
 For pilot, adoption, or free setup-support inquiries, visit
 [get.intelligent-routing.com](https://get.intelligent-routing.com).
+
+
+#### Using Smart Notification Routing Engine?
+
+We'd love to feature your organization.
+
+Contact: yadab.sd2013@gmail.com. Visit [Who Uses SNRE?](docs/ADOPTERS.md).
 
 ## 🚀 For Contributors
 

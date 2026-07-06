@@ -13,6 +13,7 @@ without reading the entire repository.
 | Run local builds and contributor validation | [Local Development](LOCAL_DEVELOPMENT.md) |
 | Call the API from code | [API Reference](API.md) and [Examples](../examples/README.md) |
 | Understand current limits | [Known Limitations](LIMITATIONS.md) |
+| Share an evaluation or adoption signal | [Who Uses SNRE?](ADOPTERS.md) |
 
 ## Core Concepts
 
