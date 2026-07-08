@@ -248,20 +248,19 @@ Copyright (c) 2025 Yadab Sutradhar
 
 ---
 
-## Adoption And Setup Support
+
+## Feedback
 
 Organizations can self-deploy this project in their own AWS account, modify it
 under the MIT license, and evaluate it with their own notification workflows.
 
-For pilot, adoption, or free setup-support inquiries, visit
-[get.intelligent-routing.com](https://get.intelligent-routing.com).
+If your organization evaluates or uses SNRE and finds it useful, feedback is
+welcome. A short note or letter describing the notification challenge, the SNRE
+capabilities reviewed, and any practical benefit to your workflow can help guide
+future open-source development. Email here yadab.sd2013@gmail.com
 
-
-#### Using Smart Notification Routing Engine?
-
-We'd love to feature your organization.
-
-Contact: yadab.sd2013@gmail.com. Visit [Who Uses SNRE?](docs/ADOPTERS.md).
+See [Feedback And Impact Notes](docs/ADOPTERS.md). Please do not share
+sensitive data, private customer information, or confidential system details.
 
 ## 🚀 For Contributors
 

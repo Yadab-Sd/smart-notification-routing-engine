@@ -1,68 +1,86 @@
-# Who Uses SNRE?
+# Adoption Feedback And Impact Notes
 
-Smart Notification Routing Engine is designed for organizations that want to
-self-host intelligent notification routing in their own AWS account.
+Smart Notification Routing Engine is open-source infrastructure software that
+organizations can deploy in their own AWS account. The maintainer does not need
+access to adopter data, AWS resources, users, message content, or internal
+systems for self-hosted use.
 
-If your organization is evaluating, piloting, or using SNRE, we would be glad to
-hear from you. With your written permission, we may list your organization or
-use case in this repository so other adopters can understand where the project
-is useful.
+If your organization evaluates or uses SNRE and finds it useful, you are welcome
+to send a short feedback note, appreciation email, or letter describing your
+experience. This helps document real-world relevance, improve the project, and
+guide future open-source development.
 
-## Why Share?
+This is voluntary. It is not a paid-service request, sales commitment,
+endorsement requirement, or request for sensitive information.
 
-Public adoption signals help the open-source project:
+## Useful Feedback To Share
 
-- show where the system is useful in real organizational workflows;
-- help contributors understand practical use cases;
-- give future adopters examples beyond demo data;
-- identify industries where better-timed, attention-aware notifications matter.
+A helpful note can describe:
 
-This is optional. Self-hosted deployments stay private by default.
+- the type of organization or workflow where SNRE was evaluated;
+- the notification challenge you were trying to solve;
+- which parts of SNRE were useful, such as Attention Escrow, send-time
+  optimization, campaign/audience workflows, templates, channel routing, or
+  delivery audit visibility;
+- whether the system was reviewed, tested, piloted, or self-hosted;
+- what improvements would make adoption easier.
 
-## What We Can List
+Please avoid sharing customer data, patient data, financial data, internal
+metrics, screenshots containing private information, AWS account details, or
+confidential architecture details.
 
-With permission, we can list one or more of the following:
+## Optional Public Listing
+
+If your organization wants to be publicly listed as evaluating or using SNRE,
+please say so explicitly. Without written permission, feedback will be treated
+as private project feedback.
+
+Optional public information may include:
 
 - organization name;
 - public website;
 - industry or use case;
-- deployment stage, such as evaluating, pilot, or self-hosted adoption;
-- a short quote about the notification challenge you are exploring;
-- contact role or team name, if you want it public.
+- deployment stage, such as evaluation, pilot, or self-hosted use;
+- a short approved quote.
 
-We do not list customer data, user data, internal metrics, private architecture
-details, AWS account details, or sensitive operational information.
+Example permission sentence:
 
-## Example Entry
+> You may publicly mention that our organization evaluated Smart Notification
+> Routing Engine for [use case], and you may quote the following approved
+> sentence: "[approved quote]."
 
-| Organization | Use Case | Stage |
-|---|---|---|
-| Example Health Clinic | Appointment reminder timing and message fatigue evaluation | Pilot |
+## Suggested Feedback Format
 
-## How To Be Listed
+You can send a short email or letter using this structure:
 
-Send a short note to:
+```text
+Organization:
+Role/title of sender:
+Use case evaluated:
+Deployment stage:
 
-**contact@intelligent-routing.com**
+What notification challenge were you trying to address?
 
-Please include:
+Which SNRE capabilities were useful or relevant?
 
-1. Your organization name and website.
-2. The notification use case you are evaluating.
-3. Whether the deployment is evaluation, pilot, or self-hosted production use.
-4. What information you are comfortable listing publicly.
-5. A permission sentence, for example:
+How could this system benefit your organization or similar organizations?
 
-> You may list our organization/use case publicly on the Smart Notification
-> Routing Engine project website or repository.
+May this feedback be cited publicly? If yes, what exact wording may be used?
+```
 
-## Important Notes
+## Contact
 
-Being listed here does not mean SNRE has been certified, endorsed, or production
-validated by the listed organization. Production readiness, compliance,
-performance, cost, and message-delivery outcomes must be validated by each
-adopter in its own AWS account and operating environment.
+Send feedback or questions to:
 
-If your use case involves healthcare, finance, government, education, minors,
-regulated data, or emergency/public safety messaging, complete your own legal,
-security, privacy, and compliance review before using SNRE with real users.
+**yadab.sd2013@gmail.com**
+
+## Important Boundaries
+
+SNRE has not been certified for any regulated industry by default. Each adopter
+is responsible for validating security, privacy, compliance, cost, performance,
+and production readiness in its own AWS account and operating environment.
+
+Feedback or letters from organizations should describe their genuine experience,
+interest, evaluation, or use. They should not include inflated claims,
+unverified production metrics, or statements that the sender cannot personally
+support.
