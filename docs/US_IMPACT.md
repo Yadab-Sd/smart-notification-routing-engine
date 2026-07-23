@@ -71,7 +71,7 @@ Delayed response to emergency alerts (tornado warnings, AMBER alerts, evacuation
 **Government Sources**:
 - [FEMA - IPAWS](https://www.fema.gov/emergency-managers/practitioners/integrated-public-alert-warning-system)
 - [NOAA - Weather Alerts](https://www.weather.gov/wrn/wea)
-- [FCC - Wireless Emergency Alerts](https://www.fcc.gov/consumers/guides/wireless-emergency-alerts-wea)
+- [FCC - Wireless Emergency Alerts](http://web.archive.org/web/20250525024346/https://www.fcc.gov/consumers/guides/wireless-emergency-alerts-wea)
 
 ---
 
@@ -141,7 +141,7 @@ Only 20-30% of AMBER alerts lead to successful recoveries partly due to alert fa
 - **Learned response patterns**: Send via channel each person monitors most
 
 **Government Sources**:
-- [DOJ - AMBER Alert Statistics](https://www.amberalert.gov/statistics.htm)
+- [DOJ - AMBER Alert Statistics](http://web.archive.org/web/20190718193245/https://amberalert.gov/statistics.htm)
 - [FBI - AMBER Alert Program](https://www.fbi.gov/how-we-can-help-you/victim-services/amber-alert)
 
 ---
@@ -163,7 +163,7 @@ Low response rates to public health notifications (vaccination reminders, diseas
 
 **Government Sources**:
 - [CDC - Public Health Communication](https://www.cdc.gov/healthcommunication/index.html)
-- [HHS - Public Health Emergency Preparedness](https://www.phe.gov/Preparedness/planning/hpp/Pages/default.aspx)
+- [HHS - Public Health Emergency Preparedness](http://web.archive.org/web/20220617232757/https://www.phe.gov/Preparedness/planning/hpp/Pages/default.aspx)
 
 ---
 

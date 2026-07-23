@@ -277,7 +277,7 @@ and implementation feedback.
 **Yadab Sutradhar**
 
 [![Email](https://img.shields.io/badge/Email-yadab.sd2013%40gmail.com-red?style=for-the-badge&logo=gmail&logoColor=white)](mailto:yadab.sd2013@gmail.com)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-yadab--sutradhar-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/yadab-sutradhar)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-yadab--sutradhar-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/yadab-sutradhar)
 [![GitHub](https://img.shields.io/badge/GitHub-%40Yadab--Sd-black?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Yadab-Sd)
 
 ---
