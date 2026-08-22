@@ -1,0 +1,108 @@
+{
+  "packId": "ecommerce",
+  "name": "E-commerce Starter Pack",
+  "description": "Generic commerce examples for abandoned carts, delivery updates, and renewal reminders.",
+  "categories": [
+    {
+      "categoryId": "commerce_abandoned_cart",
+      "displayName": "Abandoned Cart",
+      "description": "Reminder for a user who left items in a cart.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "MARKETING",
+      "riskClass": "LOW",
+      "priorityClass": "LOW",
+      "businessValue": 6.0,
+      "urgency": 0.35,
+      "maxDelayHours": 48,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "commerce_delivery_update",
+      "displayName": "Delivery Update",
+      "description": "Transactional delivery or pickup update.",
+      "defaultDeliveryMode": "IMMEDIATE",
+      "allowedChannels": ["EMAIL", "SMS", "PUSH"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "LOW",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.85,
+      "maxDelayHours": 0,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "commerce_renewal_reminder",
+      "displayName": "Renewal Reminder",
+      "description": "Reminder for subscription or membership renewal.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "LOW",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.0,
+      "urgency": 0.45,
+      "maxDelayHours": 72,
+      "quietHoursRespect": true,
+      "active": true
+    }
+  ],
+  "templates": [
+    {
+      "templateId": "commerce-abandoned-cart-v1",
+      "name": "Abandoned Cart Reminder",
+      "description": "Generic cart reminder template.",
+      "channel": "EMAIL",
+      "messageCategory": "MARKETING",
+      "subject": "You still have items waiting",
+      "body": "Hi {{name}}, you still have {{itemCount}} item(s) waiting in your cart. Return when convenient to review them.",
+      "variables": ["name", "itemCount"],
+      "active": true
+    },
+    {
+      "templateId": "commerce-delivery-update-v1",
+      "name": "Delivery Update",
+      "description": "Generic delivery status update.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Delivery update for your order",
+      "body": "Hi {{name}}, your order status changed to {{deliveryStatus}}.",
+      "variables": ["name", "deliveryStatus"],
+      "active": true
+    }
+  ],
+  "audiences": [
+    {
+      "audienceId": "commerce-pilot-customers",
+      "name": "Pilot Customers",
+      "description": "Sample test audience for commerce notification workflows.",
+      "userIds": ["commerce_user_001", "commerce_user_002", "commerce_user_003"],
+      "active": true
+    }
+  ],
+  "campaigns": [
+    {
+      "campaignId": "commerce_abandoned_cart_pilot",
+      "name": "Abandoned Cart Pilot",
+      "description": "Pilot campaign for cart reminders.",
+      "categoryId": "commerce_abandoned_cart",
+      "templateId": "commerce-abandoned-cart-v1",
+      "templateVariables": {
+        "itemCount": "2"
+      },
+      "eventType": "CAMPAIGN_NOTIFICATION",
+      "subject": "You still have items waiting",
+      "message": "Hi {{name}}, you still have {{itemCount}} item(s) waiting in your cart.",
+      "channel": "EMAIL",
+      "messageCategory": "MARKETING",
+      "priorityClass": "LOW",
+      "businessValue": 6.0,
+      "urgency": 0.35,
+      "maxDelayHours": 48,
+      "defaultDeliveryMode": "OPTIMIZED",
+      "active": true
+    }
+  ]
+}

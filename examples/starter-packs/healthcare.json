@@ -1,0 +1,108 @@
+{
+  "packId": "healthcare",
+  "name": "Healthcare Starter Pack",
+  "description": "Generic healthcare communication examples for appointment reminders, care follow-ups, and billing notices. Do not include protected health information in sample data.",
+  "categories": [
+    {
+      "categoryId": "health_appointment_reminder",
+      "displayName": "Appointment Reminder",
+      "description": "Reminder before a scheduled appointment.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "REGULATED",
+      "priorityClass": "STANDARD",
+      "businessValue": 8.0,
+      "urgency": 0.7,
+      "maxDelayHours": 24,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "health_care_followup",
+      "displayName": "Care Follow-up",
+      "description": "Non-urgent follow-up reminder after a visit or service.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "REGULATED",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.5,
+      "urgency": 0.45,
+      "maxDelayHours": 48,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "health_billing_notice",
+      "displayName": "Billing Notice",
+      "description": "Administrative billing or account notice.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "REGULATED",
+      "priorityClass": "LOW",
+      "businessValue": 5.5,
+      "urgency": 0.25,
+      "maxDelayHours": 72,
+      "quietHoursRespect": true,
+      "active": true
+    }
+  ],
+  "templates": [
+    {
+      "templateId": "health-appointment-reminder-v1",
+      "name": "Appointment Reminder",
+      "description": "Generic appointment reminder template.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Appointment reminder",
+      "body": "Hi {{name}}, this is a reminder for your appointment on {{appointmentTime}}. Please contact us if you need to make a change.",
+      "variables": ["name", "appointmentTime"],
+      "active": true
+    },
+    {
+      "templateId": "health-care-followup-v1",
+      "name": "Care Follow-up",
+      "description": "Generic follow-up reminder without sensitive details.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Follow-up reminder",
+      "body": "Hi {{name}}, this is a reminder to complete your follow-up item: {{followupAction}}.",
+      "variables": ["name", "followupAction"],
+      "active": true
+    }
+  ],
+  "audiences": [
+    {
+      "audienceId": "health-pilot-reminders",
+      "name": "Pilot Reminder Recipients",
+      "description": "Sample test audience for healthcare reminder workflows.",
+      "userIds": ["health_user_001", "health_user_002", "health_user_003"],
+      "active": true
+    }
+  ],
+  "campaigns": [
+    {
+      "campaignId": "health_appointment_reminder_pilot",
+      "name": "Appointment Reminder Pilot",
+      "description": "Pilot campaign for appointment reminders.",
+      "categoryId": "health_appointment_reminder",
+      "templateId": "health-appointment-reminder-v1",
+      "templateVariables": {
+        "appointmentTime": "tomorrow at 10:00 AM"
+      },
+      "eventType": "CAMPAIGN_NOTIFICATION",
+      "subject": "Appointment reminder",
+      "message": "Hi {{name}}, this is a reminder for your appointment on {{appointmentTime}}.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "priorityClass": "STANDARD",
+      "businessValue": 8.0,
+      "urgency": 0.7,
+      "maxDelayHours": 24,
+      "defaultDeliveryMode": "OPTIMIZED",
+      "active": true
+    }
+  ]
+}

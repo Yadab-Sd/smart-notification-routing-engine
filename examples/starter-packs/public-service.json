@@ -1,0 +1,110 @@
+{
+  "packId": "public-service",
+  "name": "Public Service And Nonprofit Starter Pack",
+  "description": "Generic public service and nonprofit examples for community notices, benefit reminders, and event updates.",
+  "categories": [
+    {
+      "categoryId": "public_community_notice",
+      "displayName": "Community Notice",
+      "description": "Non-emergency public or community update.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "GENERAL",
+      "riskClass": "MEDIUM",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.0,
+      "urgency": 0.5,
+      "maxDelayHours": 24,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "public_benefit_reminder",
+      "displayName": "Benefit Reminder",
+      "description": "Reminder about a benefit, service, or required next step.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "MEDIUM",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.65,
+      "maxDelayHours": 24,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "public_event_update",
+      "displayName": "Event Update",
+      "description": "Update about a public meeting, program, or nonprofit event.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL"],
+      "messageCategory": "GENERAL",
+      "riskClass": "LOW",
+      "priorityClass": "STANDARD",
+      "businessValue": 6.0,
+      "urgency": 0.4,
+      "maxDelayHours": 48,
+      "quietHoursRespect": true,
+      "active": true
+    }
+  ],
+  "templates": [
+    {
+      "templateId": "public-community-notice-v1",
+      "name": "Community Notice",
+      "description": "Generic community notice template.",
+      "channel": "EMAIL",
+      "messageCategory": "GENERAL",
+      "subject": "Community update: {{noticeTitle}}",
+      "body": "Hi {{name}}, here is a community update: {{noticeSummary}}. Visit {{resourceLink}} for details.",
+      "variables": ["name", "noticeTitle", "noticeSummary", "resourceLink"],
+      "active": true
+    },
+    {
+      "templateId": "public-benefit-reminder-v1",
+      "name": "Benefit Reminder",
+      "description": "Generic service or benefit reminder.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Reminder: {{benefitName}}",
+      "body": "Hi {{name}}, this is a reminder about {{benefitName}}. Please complete {{nextStep}} by {{dueDate}} if applicable.",
+      "variables": ["name", "benefitName", "nextStep", "dueDate"],
+      "active": true
+    }
+  ],
+  "audiences": [
+    {
+      "audienceId": "public-pilot-community",
+      "name": "Pilot Community Recipients",
+      "description": "Sample test audience for public service communication workflows.",
+      "userIds": ["public_user_001", "public_user_002", "public_user_003"],
+      "active": true
+    }
+  ],
+  "campaigns": [
+    {
+      "campaignId": "public_community_notice_pilot",
+      "name": "Community Notice Pilot",
+      "description": "Pilot campaign for a non-emergency community update.",
+      "categoryId": "public_community_notice",
+      "templateId": "public-community-notice-v1",
+      "templateVariables": {
+        "noticeTitle": "Program update",
+        "noticeSummary": "A new service window is available this week",
+        "resourceLink": "https://example.org/info"
+      },
+      "eventType": "CAMPAIGN_NOTIFICATION",
+      "subject": "Community update: {{noticeTitle}}",
+      "message": "Hi {{name}}, here is a community update: {{noticeSummary}}.",
+      "channel": "EMAIL",
+      "messageCategory": "GENERAL",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.0,
+      "urgency": 0.5,
+      "maxDelayHours": 24,
+      "defaultDeliveryMode": "OPTIMIZED",
+      "active": true
+    }
+  ]
+}

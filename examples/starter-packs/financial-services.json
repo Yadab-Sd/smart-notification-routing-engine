@@ -1,0 +1,109 @@
+{
+  "packId": "financial-services",
+  "name": "Financial Services Starter Pack",
+  "description": "Generic financial communication examples for payment reminders, account notices, and fraud/security alerts. Do not include real account numbers or sensitive financial details in sample data.",
+  "categories": [
+    {
+      "categoryId": "finance_payment_reminder",
+      "displayName": "Payment Reminder",
+      "description": "Reminder about an upcoming or missed payment.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "REGULATED",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.7,
+      "maxDelayHours": 12,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "finance_account_notice",
+      "displayName": "Account Notice",
+      "description": "Administrative account update.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "REGULATED",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.0,
+      "urgency": 0.45,
+      "maxDelayHours": 24,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "finance_security_alert",
+      "displayName": "Fraud Or Security Alert",
+      "description": "Time-sensitive account security notice.",
+      "defaultDeliveryMode": "IMMEDIATE",
+      "allowedChannels": ["EMAIL", "SMS", "PUSH"],
+      "messageCategory": "SECURITY",
+      "riskClass": "CRITICAL",
+      "priorityClass": "CRITICAL",
+      "businessValue": 10.0,
+      "urgency": 1.0,
+      "maxDelayHours": 0,
+      "quietHoursRespect": false,
+      "active": true
+    }
+  ],
+  "templates": [
+    {
+      "templateId": "finance-payment-reminder-v1",
+      "name": "Payment Reminder",
+      "description": "Generic payment reminder template without sensitive account details.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Payment reminder",
+      "body": "Hi {{name}}, this is a reminder that {{paymentDescription}} is due by {{dueDate}}. Please sign in to your account for details.",
+      "variables": ["name", "paymentDescription", "dueDate"],
+      "active": true
+    },
+    {
+      "templateId": "finance-security-alert-v1",
+      "name": "Security Alert",
+      "description": "Generic security alert template.",
+      "channel": "EMAIL",
+      "messageCategory": "SECURITY",
+      "subject": "Security alert",
+      "body": "Hi {{name}}, we detected activity that may require your attention. Please sign in through the official app or website to review your account.",
+      "variables": ["name"],
+      "active": true
+    }
+  ],
+  "audiences": [
+    {
+      "audienceId": "finance-pilot-account-notices",
+      "name": "Pilot Account Notice Recipients",
+      "description": "Sample test audience for financial notification workflows.",
+      "userIds": ["finance_user_001", "finance_user_002", "finance_user_003"],
+      "active": true
+    }
+  ],
+  "campaigns": [
+    {
+      "campaignId": "finance_payment_reminder_pilot",
+      "name": "Payment Reminder Pilot",
+      "description": "Pilot campaign for payment reminders.",
+      "categoryId": "finance_payment_reminder",
+      "templateId": "finance-payment-reminder-v1",
+      "templateVariables": {
+        "paymentDescription": "your scheduled payment",
+        "dueDate": "Friday"
+      },
+      "eventType": "CAMPAIGN_NOTIFICATION",
+      "subject": "Payment reminder",
+      "message": "Hi {{name}}, this is a reminder that {{paymentDescription}} is due by {{dueDate}}.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.7,
+      "maxDelayHours": 12,
+      "defaultDeliveryMode": "OPTIMIZED",
+      "active": true
+    }
+  ]
+}

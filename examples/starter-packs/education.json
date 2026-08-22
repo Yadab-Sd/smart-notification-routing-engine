@@ -1,0 +1,109 @@
+{
+  "packId": "education",
+  "name": "Education Starter Pack",
+  "description": "Generic education and training communication examples for reminders, deadlines, and learning nudges.",
+  "categories": [
+    {
+      "categoryId": "edu_class_reminder",
+      "displayName": "Class Reminder",
+      "description": "Reminder before a class, workshop, or training session.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "LOW",
+      "priorityClass": "STANDARD",
+      "businessValue": 7.0,
+      "urgency": 0.55,
+      "maxDelayHours": 24,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "edu_deadline_alert",
+      "displayName": "Deadline Alert",
+      "description": "Reminder for an upcoming assignment, registration, or program deadline.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "SMS"],
+      "messageCategory": "TRANSACTIONAL",
+      "riskClass": "LOW",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.75,
+      "maxDelayHours": 12,
+      "quietHoursRespect": true,
+      "active": true
+    },
+    {
+      "categoryId": "edu_learning_nudge",
+      "displayName": "Learning Nudge",
+      "description": "Low-pressure encouragement to continue a learning activity.",
+      "defaultDeliveryMode": "OPTIMIZED",
+      "allowedChannels": ["EMAIL", "PUSH"],
+      "messageCategory": "GENERAL",
+      "riskClass": "LOW",
+      "priorityClass": "LOW",
+      "businessValue": 5.0,
+      "urgency": 0.25,
+      "maxDelayHours": 72,
+      "quietHoursRespect": true,
+      "active": true
+    }
+  ],
+  "templates": [
+    {
+      "templateId": "edu-class-reminder-v1",
+      "name": "Class Reminder",
+      "description": "Generic class reminder template.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Reminder: {{className}}",
+      "body": "Hi {{name}}, this is a reminder that {{className}} starts at {{classTime}}.",
+      "variables": ["name", "className", "classTime"],
+      "active": true
+    },
+    {
+      "templateId": "edu-deadline-alert-v1",
+      "name": "Deadline Alert",
+      "description": "Generic upcoming deadline template.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "subject": "Upcoming deadline: {{deadlineName}}",
+      "body": "Hi {{name}}, {{deadlineName}} is due by {{deadlineDate}}. Please review your next step when you have a chance.",
+      "variables": ["name", "deadlineName", "deadlineDate"],
+      "active": true
+    }
+  ],
+  "audiences": [
+    {
+      "audienceId": "edu-pilot-learners",
+      "name": "Pilot Learners",
+      "description": "Sample test audience for education reminders.",
+      "userIds": ["edu_user_001", "edu_user_002", "edu_user_003"],
+      "active": true
+    }
+  ],
+  "campaigns": [
+    {
+      "campaignId": "edu_deadline_alert_pilot",
+      "name": "Deadline Alert Pilot",
+      "description": "Pilot campaign for an upcoming deadline reminder.",
+      "categoryId": "edu_deadline_alert",
+      "templateId": "edu-deadline-alert-v1",
+      "templateVariables": {
+        "deadlineName": "Program registration",
+        "deadlineDate": "Friday"
+      },
+      "eventType": "CAMPAIGN_NOTIFICATION",
+      "subject": "Upcoming deadline: {{deadlineName}}",
+      "message": "Hi {{name}}, {{deadlineName}} is due by {{deadlineDate}}.",
+      "channel": "EMAIL",
+      "messageCategory": "TRANSACTIONAL",
+      "priorityClass": "HIGH",
+      "businessValue": 8.0,
+      "urgency": 0.75,
+      "maxDelayHours": 12,
+      "defaultDeliveryMode": "OPTIMIZED",
+      "active": true
+    }
+  ]
+}
